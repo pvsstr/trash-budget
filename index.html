@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>ТРЕШ — семейный бюджет</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗑️</text></svg>">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #1a1a1a;
+      --bg-card: rgba(255, 255, 255, 0.05);
+      --bg-glass: rgba(255, 255, 255, 0.08);
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --accent: #00ff88;
+      --accent-glow: rgba(0, 255, 136, 0.3);
+      --danger: #ff4757;
+      --warning: #ffa502;
+      --success: #2ed573;
+      --border: rgba(255, 255, 255, 0.1);
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      --radius: 16px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    .app-container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 20px;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    /* Экран входа */
+    .login-screen {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      text-align: center;
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    .login-logo {
+      font-size: 80px;
+      margin-bottom: 20px;
+      animation: bounce 2s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .login-title {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--accent), #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .login-subtitle {
+      color: var(--text-secondary);
+      margin-bottom: 40px;
+      font-size: 16px;
+    }
+
+    .google-btn {
+      background: #ffffff;
+      color: #000000;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 50px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+      min-width: 280px;
+      justify-content: center;
+    }
+
+    .google-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .google-btn:active {
+      transform: translateY(0);
+    }
+
+    .google-btn svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    /* Загрузка */
+    .loading-screen {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--bg-glass);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Главный экран */
+    .dashboard {
+      display: none;
+      animation: slideUp 0.5s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-left h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #00d4ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-left .date {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .user-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .user-avatar:hover {
+      transform: scale(1.05);
+    }
+
+    /* Карточки */
+    .card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+    }
+
+    .card-title {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .card-value {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .card-value.positive {
+      color: var(--success);
+    }
+
+    .card-value.negative {
+      color: var(--danger);
+    }
+
+    .card-value.neutral {
+      color: var(--warning);
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* Утренний дайджест */
+    .digest-card {
+      background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 212, 255, 0.1));
+      border: 1px solid var(--accent);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .digest-card::before {
+      content: '☀️';
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 32px;
+      opacity: 0.3;
+    }
+
+    .digest-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .digest-item:last-child {
+      border-bottom: none;
+    }
+
+    .digest-item-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .digest-item-value {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    /* Конверты бюджета */
+    .envelope {
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .envelope-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .envelope-name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .envelope-amount {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .envelope-progress {
+      height: 8px;
+      background: var(--bg-secondary);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .envelope-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #00d4ff);
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .envelope-progress-bar.danger {
+      background: linear-gradient(90deg, var(--danger), #ff6b81);
+    }
+
+    .envelope-progress-bar.warning {
+      background: linear-gradient(90deg, var(--warning), #ffa502);
+    }
+
+    /* Кнопки действий */
+    .action-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .btn {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      background: var(--bg-card);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000000;
+      border-color: var(--accent);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    /* Модальное окно */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    /* Уведомления */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      padding: 16px 24px;
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow);
+      z-index: 2000;
+      animation: slideUpToast 0.3s ease-out;
+    }
+
+    @keyframes slideUpToast {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    /* Скрытие элементов */
+    .hidden {
+      display: none !important;
+    }
+
+    /* Адаптивность */
+    @media (max-width: 380px) {
+      .app-container {
+        padding: 16px;
+      }
+
+      .card-value {
+        font-size: 28px;
+      }
+
+      .login-title {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Экран входа -->
+    <div id="loginScreen" class="login-screen">
+      <div class="login-logo">🗑️</div>
+      <h1 class="login-title">ТРЕШ</h1>
+      <p class="login-subtitle">Семейный бюджет без мусора</p>
+      <button id="googleLoginBtn" class="google-btn">
+        <svg viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Войти через Google
+      </button>
+    </div>
+
+    <!-- Загрузка -->
+    <div id="loadingScreen" class="loading-screen hidden">
+      <div class="spinner"></div>
+      <p>Загрузка данных...</p>
+    </div>
+
+    <!-- Главный экран -->
+    <div id="dashboard" class="dashboard">
+      <div class="header">
+        <div class="header-left">
+          <h1>Привет! 👋</h1>
+          <div class="date" id="currentDate"></div>
+        </div>
+        <img id="userAvatar" class="user-avatar" src="" alt="Avatar">
+      </div>
+
+      <!-- Утренний дайджест -->
+      <div class="card digest-card">
+        <div class="card-title">☀️ Утренний дайджест</div>
+        <div id="digestContent">
+          <div class="digest-item">
+            <span class="digest-item-label">Платежи на 3 дня</span>
+            <span class="digest-item-value" id="payments3days">—</span>
+          </div>
+          <div class="digest-item">
+            <span class="digest-item-label">Реальный остаток</span>
+            <span class="digest-item-value" id="realBalance">—</span>
+          </div>
+          <div class="digest-item">
+            <span class="digest-item-label">Лимит на сегодня</span>
+            <span class="digest-item-value" id="dailyLimit">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Общий баланс -->
+      <div class="card">
+        <div class="card-title">💰 Баланс счетов</div>
+        <div class="card-value" id="totalBalance">0 ₽</div>
+        <div class="card-subtitle" id="accountsCount">0 счетов</div>
+      </div>
+
+      <!-- Цели и долги -->
+      <div class="card">
+        <div class="card-title">🎯 Цели и долги</div>
+        <div class="envelope">
+          <div class="envelope-header">
+            <span class="envelope-name">🏖️ Отпуск 2027</span>
+            <span class="envelope-amount" id="vacationGoal">0 / 200 000 ₽</span>
+          </div>
+          <div class="envelope-progress">
+            <div class="envelope-progress-bar" id="vacationProgress" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="envelope">
+          <div class="envelope-header">
+            <span class="envelope-name">🛡️ Подушка безопасности</span>
+            <span class="envelope-amount" id="emergencyGoal">0 / 100 000 ₽</span>
+          </div>
+          <div class="envelope-progress">
+            <div class="envelope-progress-bar" id="emergencyProgress" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="envelope">
+          <div class="envelope-header">
+            <span class="envelope-name">💳 Кредитка Альфа</span>
+            <span class="envelope-amount" id="alfaDebt">18 200 ₽</span>
+          </div>
+          <div class="envelope-progress">
+            <div class="envelope-progress-bar danger" id="alfaProgress" style="width: 100%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Кнопки действий -->
+      <div class="action-buttons">
+        <button class="btn btn-primary" onclick="showAddExpense()">
+          ➕ Трата
+        </button>
+        <button class="btn" onclick="showBudgetMap()">
+          📅 Бюджет
+        </button>
+        <button class="btn" onclick="showAdvisor()">
+          🤖 Советник
+        </button>
+        <button class="btn" onclick="showSettings()">
+          ⚙️ Настройки
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { 
+      getAuth, 
+      onAuthStateChanged, 
+      GoogleAuthProvider, 
+      signInWithPopup,
+      signOut 
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { 
+      getFirestore, 
+      doc, 
+      getDoc, 
+      setDoc, 
+      updateDoc,
+      collection,
+      query,
+      where,
+      getDocs
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    // Firebase конфигурация
+    const firebaseConfig = {
+      apiKey: "AIzaSyBrK9eZknNE3UBniVU2cnKUtwSOXnl_y2g",
+      authDomain: "trash-budget-737fd.firebaseapp.com",
+      projectId: "trash-budget-737fd",
+      storageBucket: "trash-budget-737fd.firebasestorage.app",
+      messagingSenderId: "996241413300",
+      appId: "1:996241413300:web:ca7c0668e67f570c7373e1"
+    };
+
+    // Инициализация Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    // DOM элементы
+    const loginScreen = document.getElementById('loginScreen');
+    const loadingScreen = document.getElementById('loadingScreen');
+    const dashboard = document.getElementById('dashboard');
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    const userAvatar = document.getElementById('userAvatar');
+    const currentDate = document.getElementById('currentDate');
+
+    // Форматирование даты
+    function formatDate(date) {
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      return date.toLocaleDateString('ru-RU', options);
+    }
+
+    // Форматирование денег
+    function formatMoney(amount) {
+      return new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: 'RUB',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(amount);
+    }
+
+    // Показать уведомление
+    function showToast(message, duration = 3000) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), duration);
+    }
+
+    // Загрузка данных пользователя
+    async function loadUserData(user) {
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (!userDoc.exists()) {
+          // Создаём новый документ пользователя
+          const initialData = {
+            createdAt: new Date().toISOString(),
+            budget: {
+              monthlyIncome: 114492.95,
+              envelopes: [
+                { id: 'rent', name: 'Аренда + КУ', limit: 63500, spent: 0 },
+                { id: 'groceries', name: 'Продукты', limit: 18000, spent: 0 },
+                { id: 'transport', name: 'Транспорт', limit: 4000, spent: 0 },
+                { id: 'scooters', name: 'Самокаты', limit: 2500, spent: 0 },
+                { id: 'cafe', name: 'Кафе', limit: 3000, spent: 0 },
+                { id: 'personal', name: 'Личное', limit: 3000, spent: 0 }
+              ],
+              recurringPayments: [
+                { id: 'rent', name: 'Аренда квартиры', amount: 63500, day: 20, category: 'rent' },
+                { id: 'installment', name: 'Рассрочка', amount: 5000, day: 23, category: 'debt' },
+                { id: 'mobile_me', name: 'Моя симка', amount: 300, day: 21, category: 'mobile' },
+                { id: 'mobile_wife', name: 'Симка жены', amount: 300, day: 22, category: 'mobile' },
+                { id: 'internet', name: 'Интернет', amount: 610, day: 23, category: 'internet' },
+                { id: 'telegram', name: 'Telegram Premium', amount: 299, day: 5, category: 'subscription' },
+                { id: 'yandex_plus', name: 'Яндекс Плюс', amount: 449, day: 3, category: 'subscription' }
+              ]
+            },
+            goals: {
+              vacation: { target: 200000, current: 0 },
+              emergency: { target: 100000, current: 0 }
+            },
+            debts: {
+              alfa: { total: 18200.33, current: 18200.33 },
+              tbank: { total: 105765.71, current: 105765.71 }
+            },
+            accounts: [
+              { id: 'tbank_main', name: 'Т-Банк основной', balance: 0 },
+              { id: 'alfa_main', name: 'Альфа-Банк', balance: 0 }
+            ],
+            transactions: []
+          };
+          await setDoc(userDocRef, initialData);
+          return initialData;
+        }
+
+        return userDoc.data();
+      } catch (error) {
+        console.error('Ошибка загрузки данных:', error);
+        showToast('Ошибка загрузки данных');
+        return null;
+      }
+    }
+
+    // Обновление UI
+    function updateDashboard(userData) {
+      // Дата
+      currentDate.textContent = formatDate(new Date());
+
+      // Баланс
+      const totalBalance = userData.accounts.reduce((sum, acc) => sum + acc.balance, 0);
+      document.getElementById('totalBalance').textContent = formatMoney(totalBalance);
+      document.getElementById('accountsCount').textContent = `${userData.accounts.length} счетов`;
+
+      // Цели
+      const vacationPercent = (userData.goals.vacation.current / userData.goals.vacation.target) * 100;
+      document.getElementById('vacationGoal').textContent = 
+        `${formatMoney(userData.goals.vacation.current)} / ${formatMoney(userData.goals.vacation.target)}`;
+      document.getElementById('vacationProgress').style.width = `${vacationPercent}%`;
+
+      const emergencyPercent = (userData.goals.emergency.current / userData.goals.emergency.target) * 100;
+      document.getElementById('emergencyGoal').textContent = 
+        `${formatMoney(userData.goals.emergency.current)} / ${formatMoney(userData.goals.emergency.target)}`;
+      document.getElementById('emergencyProgress').style.width = `${emergencyPercent}%`;
+
+      // Долги
+      document.getElementById('alfaDebt').textContent = formatMoney(userData.debts.alfa.current);
+      const alfaPercent = (userData.debts.alfa.current / userData.debts.alfa.total) * 100;
+      document.getElementById('alfaProgress').style.width = `${alfaPercent}%`;
+
+      // Утренний дайджест (расчёт)
+      const today = new Date();
+      const threeDaysLater = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+      
+      const upcomingPayments = userData.budget.recurringPayments.filter(payment => {
+        const paymentDate = new Date(today.getFullYear(), today.getMonth(), payment.day);
+        return paymentDate >= today && paymentDate <= threeDaysLater;
+      });
+
+      const paymentsTotal = upcomingPayments.reduce((sum, p) => sum + p.amount, 0);
+      document.getElementById('payments3days').textContent = formatMoney(paymentsTotal);
+
+      const realBalance = totalBalance - paymentsTotal;
+      document.getElementById('realBalance').textContent = formatMoney(realBalance);
+
+      const daysUntilSalary = 20 - today.getDate();
+      const dailyLimit = daysUntilSalary > 0 ? realBalance / daysUntilSalary : 0;
+      document.getElementById('dailyLimit').textContent = formatMoney(Math.max(0, dailyLimit));
+    }
+
+    // Авторизация через Google
+    googleLoginBtn.addEventListener('click', async () => {
+      try {
+        googleLoginBtn.disabled = true;
+        googleLoginBtn.textContent = 'Подключение...';
+        
+        const result = await signInWithPopup(auth, provider);
+        console.log('Вход выполнен:', result.user);
+      } catch (error) {
+        console.error('Ошибка входа:', error);
+        showToast('Ошибка входа: ' + error.message);
+        googleLoginBtn.disabled = false;
+        googleLoginBtn.innerHTML = `
+          <svg viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Войти через Google
+        `;
+      }
+    });
+
+    // Отслеживание состояния авторизации
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        console.log('Пользователь:', user);
+        
+        // Показываем загрузку
+        loginScreen.classList.add('hidden');
+        loadingScreen.classList.remove('hidden');
+
+        // Устанавливаем аватар
+        if (user.photoURL) {
+          userAvatar.src = user.photoURL;
+        }
+
+        // Загружаем данные
+        const userData = await loadUserData(user);
+        
+        if (userData) {
+          updateDashboard(userData);
+          
+          // Показываем дашборд
+          loadingScreen.classList.add('hidden');
+          dashboard.style.display = 'block';
+        }
+      } else {
+        console.log('Пользователь вышел');
+        loginScreen.classList.remove('hidden');
+        loadingScreen.classList.add('hidden');
+        dashboard.style.display = 'none';
+      }
+    });
+
+    // Глобальные функции для кнопок
+    window.showAddExpense = function() {
+      showToast('Добавление траты — скоро!');
+    };
+
+    window.showBudgetMap = function() {
+      showToast('Карта бюджета — скоро!');
+    };
+
+    window.showAdvisor = function() {
+      showToast('AI-советник — скоро!');
+    };
+
+    window.showSettings = function() {
+      showToast('Настройки — скоро!');
+    };
+
+    // Регистрация Service Worker для PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log('Service Worker зарегистрирован'))
+        .catch(err => console.error('Ошибка SW:', err));
+    }
+  </script>
+</body>
+</html>
