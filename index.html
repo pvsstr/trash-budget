@@ -184,6 +184,19 @@ textarea{width:100%;height:140px;background:rgba(255,255,255,.06);border:1px sol
 @media(max-width:960px){.cols{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.hero h2{font-size:21px}.bal{min-width:100%;order:3}#bnav{display:grid}}
 @media(min-width:961px){#bnav{display:none}}
 @media(max-width:400px){.stat .val{font-size:18px}.stat{padding:14px}}
+  .digest{padding:18px;margin-bottom:16px;border-color:rgba(100,210,255,.25)!important}
+.dig-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.dig-head .ic{color:var(--teal)}
+.dig-head b{font-size:14px}
+.dig-head span{margin-left:auto;font-weight:800;color:var(--teal)}
+.dig-item{display:flex;justify-content:space-between;gap:10px;padding:9px 4px;border-bottom:1px solid rgba(255,255,255,.07);font-size:13px}
+.dig-item span{color:var(--mut)}
+.dig-item b{font-weight:700}
+.dig-item .soon{color:var(--red)}
+.dig-foot{display:flex;gap:14px;margin-top:12px}
+.dig-foot>div{flex:1;background:rgba(255,255,255,.05);border-radius:12px;padding:12px;text-align:center}
+.dig-foot span{display:block;font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.dig-foot b{font-size:17px;font-weight:800}
 </style>
 </head>
 <body>
@@ -245,7 +258,14 @@ textarea{width:100%;height:140px;background:rgba(255,255,255,.06);border:1px sol
 <h2 id="hello">Привет!</h2><div class="date" id="curDate"></div></div>
 <div class="bal"><span>Реальный остаток</span><b id="hBal">0 ₽</b><i>нажмите для деталей</i></div>
 </div>
-
+<div class="digest glass">
+  <div class="dig-head"><svg class="ic"><use href="#i-cal"></use></svg><b>Платежи на 3 дня вперёд</b><span id="digSum"></span></div>
+  <div id="digList"></div>
+  <div class="dig-foot">
+    <div><span>Остаток после платежей</span><b id="digReal"></b></div>
+    <div><span>Лимит на сегодня</span><b id="digLimit"></b></div>
+  </div>
+</div>
 <div class="stats">
 <div class="stat glass hov" data-act="sheet" data-t="income"><header><h4>Доход в месяц</h4><div class="sic c-grn"><svg class="ic"><use href="#i-wallet"></use></svg></div></header><div class="val" id="sInc">0 ₽</div><span class="pill c-grn" id="sIncP"></span></div>
 <div class="stat glass hov" data-act="sheet" data-t="subs"><header><h4>Подписки</h4><div class="sic c-blu"><svg class="ic"><use href="#i-sub"></use></svg></div></header><div class="val"><span id="sSubV">0 ₽</span><small>/мес</small></div><span class="pill c-blu" id="sSubP"></span></div>
@@ -591,6 +611,26 @@ function drawDonut(){
   }
   $('legend').innerHTML = lg;
 }
+  function renderDigest(){
+  var now = new Date();
+  var items = []; var sum = 0;
+  for(var i=0;i<D.pays.length;i++){
+    var diff = (D.pays[i].d - now.getDate() + 31) % 31;
+    if(diff <= 3){ items.push({p:D.pays[i], diff:diff}); sum += D.pays[i].s; }
+  }
+  var h = '';
+  if(items.length === 0){ h = '<div class="dig-item"><span>На ближайшие 3 дня платежей нет</span><b>—</b></div>'; }
+  for(var j=0;j<items.length;j++){
+    var when = items[j].diff === 0 ? 'сегодня' : (items[j].diff === 1 ? 'завтра' : 'через '+items[j].diff+' дн.');
+    h += '<div class="dig-item"><span>'+items[j].p.n+' • '+when+'</span><b class="'+(items[j].diff<=1?'soon':'')+'">'+fmt(items[j].p.s)+'</b></div>';
+  }
+  $('digList').innerHTML = h;
+  $('digSum').textContent = fmt(sum);
+  var real = (D.balance || 0) - sum;
+  $('digReal').textContent = fmt(real);
+  var days = ((D.salaryDay - now.getDate()) + 30) % 30 || 30;
+  $('digLimit').textContent = fmt(Math.max(0, real) / days);
+}
 function drawBars(){
   var b = $('bars'); if(!b){ return; }
   var y = b.getContext('2d');
@@ -625,7 +665,7 @@ function render(){
   $('sGoal').textContent = fmt(D.goals.cushion)+' / '+fmt(D.goals.cushionT);
   $('gBar').style.width = Math.min(100, D.goals.cushion/D.goals.cushionT*100)+'%';
   $('tipText').textContent = TIPS[now.getDate() % TIPS.length];
-  drawDonut(); drawBars(); renderRec(); renderTx(); renderEnv(); renderPay();
+drawDonut(); drawBars(); renderRec(); renderTx(); renderEnv(); renderPay(); renderDigest();
 }
 function go(p){
   var pages = document.querySelectorAll('.page');
