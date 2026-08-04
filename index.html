@@ -479,8 +479,19 @@ function categorize(t){
 
 function doImport(){
   var el = $('impTxt');
-  var txt = el ? el.value : '';
-  if(!txt){ alert('Вставьте текст выписки.'); return; }
+  var txt = el ? el.value.trim() : '';
+  if(!txt){ alert('Вставьте текст выписки или готовый профиль JSON.'); return; }
+  if(txt.charAt(0) === '{'){
+    try{
+      var prof = JSON.parse(txt);
+      for(var k in prof){ D[k] = prof[k]; }
+      D.demo = false;
+      if(uid){ setDoc(doc(db,'users',uid), {data:D}, {merge:true}); }
+      closeSheet(); render(); confetti();
+      alert('Профиль загружен и сохранён в ваш Firebase!');
+    }catch(e){ alert('Не удалось прочитать JSON: ' + e.message); }
+    return;
+  }
   var lines = txt.split('\n');
   var found = [];
   var re = /^(\d{2}\.\d{2}\.\d{4})\s+\d{2}:\d{2}\s+\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}\s+([+-][\d\s.,]+)\s*₽/;
