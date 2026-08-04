@@ -98,4 +98,350 @@ input{font-family:inherit;font-size:16px}
 .rec h5{font-size:15px;font-weight:700}
 .rec header span{font-size:11.5px;color:var(--muted)}
 .rec p{font-size:13px;color:#5a5f82;margin:10px 0}
-.advice{background:#
+.advice{background:#f8f7ff;border-radius:11px;padding:12px;font-size:12.5px;color:#4c46a8}
+.advice b{display:flex;gap:6px;align-items:center;color:var(--indigo);margin-bottom:5px;font-size:12px}
+.advice .ic{width:14px;height:14px}
+.rec footer{display:flex;justify-content:space-between;margin-top:12px;font-size:12.5px;color:var(--muted)}
+.rec footer b{color:var(--red)}
+/* ---------- TX ---------- */
+.tx-card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:18px}
+.tabs{display:flex;background:#f0f1f8;border-radius:10px;padding:3px;gap:3px}
+.tabs button{flex:1;padding:8px 4px;border-radius:8px;font-size:12.5px;font-weight:700;color:var(--muted);background:transparent;min-height:36px}
+.tabs button.on{background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.tx-sub{font-size:11.5px;color:var(--muted);margin:10px 0 6px}
+.tx{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--line)}
+.tx:last-child{border:none}
+.tx-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none}
+.tx-body{flex:1;min-width:0}
+.tx-body b{font-size:13.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-body span{font-size:11px;color:var(--muted)}
+.tx-right{text-align:right}
+.tx-right b{font-size:14px;font-family:'SF Mono',Consolas,monospace;display:block}
+.tx-right b.pos{color:var(--green)}
+.tx-right span{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+/* ---------- BUDGET / PAYMENTS ---------- */
+.env{background:var(--card);border-radius:14px;box-shadow:var(--sh);padding:16px 18px;margin-bottom:12px}
+.env header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.env-name{display:flex;gap:10px;align-items:center;font-weight:700;font-size:14px}
+.env-name .tx-ic{width:34px;height:34px;border-radius:10px}
+.env header b{font-family:'SF Mono',Consolas,monospace;font-size:14px}
+.env header b.over{color:var(--red)}
+.env .bar{margin-top:6px}
+.env .bar i.g{background:var(--green)}.env .bar i.o{background:var(--orange)}.env .bar i.r{background:var(--red)}
+.pay{background:var(--card);border-radius:14px;box-shadow:var(--sh);padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.pay-date{width:52px;height:52px;border-radius:13px;background:var(--indigo-soft);color:var(--indigo);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
+.pay-date b{font-size:17px;line-height:1}
+.pay-date span{font-size:9px;text-transform:uppercase}
+.pay-date.soon{background:var(--red-soft);color:var(--red)}
+.pay-body{flex:1}
+.pay-body b{font-size:14px}
+.pay-body span{display:block;font-size:11.5px;color:var(--muted)}
+.pay b.sum{font-family:'SF Mono',Consolas,monospace;font-size:15px}
+/* ---------- CHAT ---------- */
+.chat{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);display:flex;flex-direction:column;height:calc(100vh - 260px);min-height:420px}
+.chat-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center}
+.chat-head .tx-ic{background:var(--indigo-soft);color:var(--indigo)}
+.chat-head b{font-size:15px}
+.chat-head span{font-size:11.5px;color:var(--green)}
+.chat-log{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:82%;padding:12px 15px;border-radius:16px;font-size:13.5px;animation:pop .25s cubic-bezier(.2,.8,.2,1)}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.msg.bot{background:#f0f1f8;border-bottom-left-radius:5px;align-self:flex-start}
+.msg.me{background:var(--indigo);color:#fff;border-bottom-right-radius:5px;align-self:flex-end}
+.msg b{color:var(--indigo)}.msg.me b{color:#fff}
+.chips{display:flex;gap:8px;padding:0 14px 12px;flex-wrap:wrap}
+.chip{background:var(--indigo-soft);color:var(--indigo);font-size:12px;font-weight:700;padding:9px 13px;border-radius:999px;min-height:36px}
+.chat-in{display:flex;gap:10px;padding:12px 14px;border-top:1px solid var(--line);padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+.chat-in input{flex:1;border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;outline:none;background:#fafbff}
+.chat-in input:focus{border-color:var(--indigo)}
+.chat-in button{width:48px;height:48px;border-radius:12px;background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center}
+/* ---------- BOTTOM NAV ---------- */
+#bottomnav{display:none;position:fixed;left:0;right:0;bottom:0;z-index:60;background:#fff;border-top:1px solid var(--line);padding:8px 8px calc(8px + env(safe-area-inset-bottom));grid-template-columns:repeat(4,1fr)}
+#bottomnav button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;background:transparent;color:var(--muted);font-size:10px;font-weight:700;border-radius:12px;min-height:52px}
+#bottomnav button.on{color:var(--indigo)}
+#bottomnav .ic{width:22px;height:22px}
+/* ---------- CONFETTI ---------- */
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:100}
+.page{display:none}.page.on{display:block;animation:fadein .3s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.hidden{display:none!important}
+/* ---------- MOBILE (Xiaomi 14 / iPhone 17 Pro) ---------- */
+@media(max-width:960px){
+.shell{grid-template-columns:1fr;padding:14px}
+.sidebar{display:none}
+#bottomnav{display:grid}
+.tb-metrics{display:none}
+.cols{grid-template-columns:1fr}
+.stats{grid-template-columns:1fr 1fr;gap:12px}
+.hero{padding:18px}.hero h2{font-size:20px}
+.hero-bal{min-width:100%;order:3}
+.banner{flex-wrap:wrap}.banner button{margin-left:0;width:100%}
+.tb-badge span{display:none}
+.chat{height:calc(100vh - 220px)}
+}
+@media(max-width:400px){.stat .val{font-size:18px}.stat{padding:14px}}
+</style>
+</head>
+<body>
+<!-- SVG-СПРАЙТ (все иконки — SVG, без эмодзи) -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+<symbol id="i-map" viewBox="0 0 24 24"><path d="M9 3 3 5.5v15L9 18l6 2.5 6-2.5v-15L15 5.5 9 3z"/><path d="M9 3v15M15 5.5v15"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 9.5h18"/></symbol>
+<symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="11" rx="3"/><path d="M12 9V6M12 6a1.5 1.5 0 1 0-.01-3.01A1.5 1.5 0 0 0 12 6z"/><path d="M9 13.5v1.5M15 13.5v1.5M2 13v3M22 13v3"/></symbol>
+<symbol id="i-wallet" viewBox="0 0 24 24"><path d="M20 7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"/></symbol>
+<symbol id="i-sub" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 9.5h18"/><path d="m9 15 2 2 4-4"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 15.5h.01"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+<symbol id="i-scoot" viewBox="0 0 24 24"><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="18.5" cy="17.5" r="2.5"/><path d="M5.5 17.5h7.5l2-9h2"/><path d="M15.5 5H18l2 12.5"/></symbol>
+<symbol id="i-in" viewBox="0 0 24 24"><path d="M17 7 7 17"/><path d="M17 17H7V7"/></symbol>
+<symbol id="i-out" viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="i-sync" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M20.5 15a9 9 0 0 1-14.9 3.4L1 14"/></symbol>
+<symbol id="i-exit" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-train" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 3v8M16 3v8"/><circle cx="8.5" cy="14" r=".5"/><circle cx="15.5" cy="14" r=".5"/><path d="m8 17-2 4M16 17l2 4"/></symbol>
+<symbol id="i-cart" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></symbol>
+<symbol id="i-coffee" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></symbol>
+<symbol id="i-gift" viewBox="0 0 24 24"><path d="M20 12v10H4V12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7"/><path d="M12 7s-2-5-5-5c-2 0-2.5 3-.5 4L12 7zM12 7s2-5 5-5c2 0 2.5 3 .5 4L12 7z"/></symbol>
+<symbol id="i-cap" viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5"/></symbol>
+<symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 21h18M5 21v-11M19 21v-11M3 10l9-7 9 7"/><path d="M9 21v-6h6v6"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></symbol>
+<symbol id="i-fun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9.5h.01M15 9.5h.01"/></symbol>
+</svg>
+
+<canvas id="confetti" class="hidden"></canvas>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-card">
+    <div class="logo-tile"><svg class="ic"><use href="#i-trash"/></svg></div>
+    <h1>ТРЕШ</h1>
+    <p>Интерактивный симулятор бюджета</p>
+    <button class="g-btn" id="googleBtn">
+      <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Войти через Google
+    </button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+<header id="topbar">
+  <div class="tb-logo"><svg class="ic"><use href="#i-trash"/></svg></div>
+  <div class="tb-title"><b>ТРЕШ</b><span>Интерактивный симулятор бюджета</span></div>
+  <div class="tb-metrics">
+    <div class="tb-metric"><span>Доход в месяц</span><b class="grn">+114 492 ₽</b></div>
+    <div class="tb-metric"><span>Сбережения</span><b class="blu" id="mSav">0 ₽</b></div>
+    <div class="tb-metric"><span>Цель накопления</span><b class="pur">300 000 ₽</b></div>
+  </div>
+  <div class="tb-badge"><span class="tb-dot"></span><span id="mMail">Firebase &amp; Gmail</span></div>
+</header>
+
+<div class="shell">
+<aside class="sidebar">
+  <div class="sb-cap">Навигация кабинета</div>
+  <button class="nav-btn on" data-p="dash"><svg class="ic"><use href="#i-grid"/></svg>Панель управления</button>
+  <button class="nav-btn" data-p="budget"><svg class="ic"><use href="#i-map"/></svg>Карта бюджета</button>
+  <button class="nav-btn" data-p="pay"><svg class="ic"><use href="#i-cal"/></svg>График платежей</button>
+  <button class="nav-btn" data-p="chat"><svg class="ic"><use href="#i-bot"/></svg>Копилот-советник</button>
+  <button class="nav-btn" id="exitBtn"><svg class="ic"><use href="#i-exit"/></svg>Выйти</button>
+  <div class="tip"><b><svg class="ic"><use href="#i-cap"/></svg>Твоя грамотность</b>Заменяй вредные привычки (самокаты) на полезные накопления прямо в приложении!</div>
+</aside>
+
+<main>
+<!-- ============ ПАНЕЛЬ ============ -->
+<section class="page on" id="p-dash">
+  <div class="hero">
+    <div>
+      <span class="hero-badge">Личный кабинет</span><span class="hero-contr">Договор №5164522909 • Т-Банк</span>
+      <h2>Пивоваров Даниил Александрович</h2>
+      <div class="hero-addr"><svg class="ic"><use href="#i-pin"/></svg>141606, Московская обл, ул Дзержинского, д. 9, кв. 89</div>
+    </div>
+    <div class="hero-bal" id="balBox" title="Нажмите, чтобы обновить баланс">
+      <span>Текущий реальный баланс карт</span>
+      <b id="hBal">— ₽</b>
+      <i><svg class="ic" style="width:11px;height:11px"><use href="#i-sync"/></svg>Синхронизировано по Gmail</i>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><header><h4>Месячный доход</h4><div class="stat-ic ic-grn"><svg class="ic"><use href="#i-wallet"/></svg></div></header><div class="val">114 492 ₽</div><span class="pill c-grn">+114 492 ₽ зарплата, 20-го</span></div>
+    <div class="stat"><header><h4>Активные подписки</h4><div class="stat-ic ic-blu"><svg class="ic"><use href="#i-sub"/></svg></div></header><div class="val">1 246 ₽<small>/мес</small></div><span class="pill c-blu">4 активны, 3 — отключить</span></div>
+    <div class="stat"><header><h4>Выявленные утечки</h4><div class="stat-ic ic-red"><svg class="ic"><use href="#i-shield"/></svg></div></header><div class="val">13 000 ₽<small>/мес</small></div><span class="pill c-red">4 зоны перерасхода</span></div>
+    <div class="stat"><header><h4>Цель (подушка)</h4><div class="stat-ic ic-pur"><svg class="ic"><use href="#i-target"/></svg></div></header><div class="val" id="gVal">0 / 100 000 ₽</div><div class="bar"><i id="gBar" style="width:0%"></i></div><div class="bar-note"><span id="gPct">0% накоплено</span><span id="gLeft">Осталось 100 000 ₽</span></div></div>
+  </div>
+
+  <div class="banner">
+    <div class="banner-ic"><svg class="ic"><use href="#i-alert"/></svg></div>
+    <div><b>Обнаружена критическая утечка: самокаты!</b><p>Яндекс.Самокаты + Whoosh ≈ 11 000 ₽/мес (247 поездок за 3 мес). Это 12% дохода — лимит в бюджете: 2 500 ₽.</p></div>
+    <button onclick="go('budget')">Устранить в бюджете</button>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="col-cap">Рекомендации по экономии <em>Утечки 13 000 ₽/мес</em></div>
+      <div class="rec"><header><div class="rec-ic"><svg class="ic"><use href="#i-scoot"/></svg></div><div><h5>Самокаты Яндекс + Whoosh</h5><span>247 транзакций за 3 месяца</span></div></header>
+        <p>Регулярные поездки по 50–230 ₽. В среднем 11 000 ₽/мес — больше, чем коммуналка за два месяца.</p>
+        <div class="advice"><b><svg class="ic"><use href="#i-spark"/></svg>Образовательный совет</b>Оформите подписку Яндекс Плюс с бесплатным стартом или сезонный абонемент ~390 ₽ — либо жёсткий лимит 2 500 ₽/мес в конверте «Самокаты».</div>
+        <footer><span>Потери бюджета</span><b>~ 8 500 ₽ / мес</b></footer></div>
+      <div class="rec"><header><div class="rec-ic"><svg class="ic"><use href="#i-sub"/></svg></div><div><h5>Подписки, о которых вы забыли</h5><span>Getcontact 299 + ivi 99 + Привилегии M 399</span></div></header>
+        <p>Три подписки, которыми вы не пользуетесь активно, списываются автоматически каждый месяц.</p>
+        <div class="advice"><b><svg class="ic"><use href="#i-spark"/></svg>Образовательный совет</b>Отключите в приложениях банков — это 797 ₽/мес = 9 564 ₽/год, почти 10% подушки безопасности.</div>
+        <footer><span>Потери бюджета</span><b>~ 797 ₽ / мес</b></footer></div>
+      <div class="rec"><header><div class="rec-ic"><svg class="ic"><use href="#i-coffee"/></svg></div><div><h5>Кафе и фастфуд сверх лимита</h5><span>Факт июля 10 600 ₽ при лимите 3 000 ₽</span></div></header>
+        <p>«Хочу пышку», бары и доставки съедают деньги незаметно: 15–20 мелких операций в неделю.</p>
+        <div class="advice"><b><svg class="ic"><use href="#i-spark"/></svg>Образовательный совет</b>Правило 24 часов: любое «вкусное» желание дороже 500 ₽ согласовывайте с Копилотом — он посчитает последствия для отпуска.</div>
+        <footer><span>Перерасход</span><b>~ 7 600 ₽ / мес</b></footer></div>
+    </div>
+    <div>
+      <div class="tx-card">
+        <div class="col-cap" style="margin-bottom:8px">История операций из выписки</div>
+        <div class="tabs"><button class="on" data-f="all">Все</button><button data-f="leak">Утечки</button><button data-f="sub">Подписки</button></div>
+        <div class="tx-sub">Данные за период с 04.05.2026 по 04.08.2026</div>
+        <div id="txList"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ КАРТА БЮДЖЕТА ============ -->
+<section class="page" id="p-budget">
+  <div class="col-cap">Карта бюджета • цикл 20.07 – 19.08 <em>Факт июля по конвертам</em></div>
+  <div id="envList"></div>
+</section>
+
+<!-- ============ ГРАФИК ПЛАТЕЖЕЙ ============ -->
+<section class="page" id="p-pay">
+  <div class="col-cap">График платежей <em>Ближайшие 30 дней</em></div>
+  <div id="payList"></div>
+</section>
+
+<!-- ============ КОПИЛОТ ============ -->
+<section class="page" id="p-chat">
+  <div class="chat">
+    <div class="chat-head"><div class="tx-ic"><svg class="ic"><use href="#i-bot"/></svg></div><div><b>Копилот-советник</b><br><span>● онлайн • считает по вашим цифрам</span></div></div>
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chips">
+      <button class="chip" onclick="ask('Сколько мне можно потратить сегодня?')">Сколько можно сегодня?</button>
+      <button class="chip" onclick="ask('Могу ли я потратить 1500 ₽ на кафе?')">Могу 1500 ₽ на кафе?</button>
+      <button class="chip" onclick="ask('Когда я закрою кредитки?')">Когда закрою кредитки?</button>
+    </div>
+    <div class="chat-in"><input id="chatIn" placeholder="Спросите про деньги..."><button onclick="ask()"><svg class="ic"><use href="#i-send"/></svg></button></div>
+  </div>
+</section>
+</main>
+</div>
+</div>
+
+<nav id="bottomnav">
+  <button class="on" data-p="dash"><svg class="ic"><use href="#i-grid"/></svg>Панель</button>
+  <button data-p="budget"><svg class="ic"><use href="#i-map"/></svg>Бюджет</button>
+  <button data-p="pay"><svg class="ic"><use href="#i-cal"/></svg>Платежи</button>
+  <button data-p="chat"><svg class="ic"><use href="#i-bot"/></svg>Копилот</button>
+</nav>
+
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import{getAuth,onAuthStateChanged,GoogleAuthProvider,signInWithPopup,signOut}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import{getFirestore,doc,getDoc,setDoc}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+const app=initializeApp({apiKey:"AIzaSyBrK9eZknNE3UBniVU2cnKUtwSOXnl_y2g",authDomain:"trash-budget-737fd.firebaseapp.com",projectId:"trash-budget-737fd",storageBucket:"trash-budget-737fd.firebasestorage.app",messagingSenderId:"996241413300",appId:"1:996241413300:web:ca7c0668e67f570c7373e1"});
+const auth=getAuth(app),db=getFirestore(app),prov=new GoogleAuthProvider();
+const fmt=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(n))+' ₽';
+/* ---------- ДАННЫЕ (из анализа выписок) ---------- */
+const TX=[
+{d:'04.08.2026',t:'07:05',n:'TUTU4 — электричка экспресс',s:-368,c:'ТРАНСПОРТ',i:'i-train',k:'ic-blu'},
+{d:'04.08.2026',t:'08:30',n:'YANDEX 7999 SCOOTERS',s:-70,c:'УТЕЧКИ',i:'i-scoot',k:'ic-red',leak:1},
+{d:'04.08.2026',t:'13:00',n:'IP AJRAPETYAN (бар)',s:-3000,c:'КАФЕ',i:'i-coffee',k:'ic-red',leak:1},
+{d:'03.08.2026',t:'12:10',n:'YANDEX 5815 PLUS',s:-449,c:'ПОДПИСКИ',i:'i-sub',k:'ic-blu',sub:1},
+{d:'03.08.2026',t:'15:40',n:'TROIKAMOS.RU — Тройка',s:-510,c:'ТРАНСПОРТ',i:'i-train',k:'ic-blu'},
+{d:'03.08.2026',t:'18:20',n:'CP ZEL TERMOLAND',s:-2745,c:'РАЗВЛЕЧЕНИЯ',i:'i-fun',k:'ic-pur'},
+{d:'02.08.2026',t:'20:15',n:'WHOOSH самокат',s:-222,c:'УТЕЧКИ',i:'i-scoot',k:'ic-red',leak:1},
+{d:'02.08.2026',t:'21:30',n:'KHOCHU PYSHKU',s:-492,c:'КАФЕ',i:'i-coffee',k:'ic-red',leak:1},
+{d:'01.08.2026',t:'09:00',n:'Набор привилегий M',s:-399,c:'ПОДПИСКИ',i:'i-sub',k:'ic-red',sub:1,leak:1},
+{d:'01.08.2026',t:'14:05',n:'TAPPER',s:-945,c:'КАФЕ',i:'i-coffee',k:'ic-red'},
+{d:'01.08.2026',t:'15:10',n:'Перевод +7903 515-76-48',s:-851,c:'ТРАНСФЕРЫ',i:'i-out',k:'ic-blu'},
+{d:'01.08.2026',t:'15:03',n:'Пополнение. СБП',s:750,c:'ПОПОЛНЕНИЯ',i:'i-in',k:'ic-grn'},
+{d:'20.07.2026',t:'09:37',n:'Зарплата. Сбербанк',s:94154,c:'ПОПОЛНЕНИЯ',i:'i-in',k:'ic-grn'},
+{d:'20.07.2026',t:'10:15',n:'Аренда + КУ → +7909 160-45-23',s:-63463,c:'ТРАНСФЕРЫ',i:'i-bank',k:'ic-pur'}];
+const ENV=[
+{n:'Аренда + КУ',ic:'i-bank',k:'ic-pur',lim:63500,f:63463},
+{n:'Электричка экспресс',ic:'i-train',k:'ic-blu',lim:8100,f:8096},
+{n:'Продукты',ic:'i-cart',k:'ic-grn',lim:18000,f:16900},
+{n:'Кафе и рестораны',ic:'i-coffee',k:'ic-red',lim:3000,f:10600},
+{n:'Самокаты / каршеринг',ic:'i-scoot',k:'ic-red',lim:2500,f:4650},
+{n:'Такси',ic:'i-out',k:'ic-blu',lim:1500,f:905},
+{n:'Тройка / городской',ic:'i-train',k:'ic-blu',lim:1500,f:1510},
+{n:'Личное / прочее',ic:'i-gift',k:'ic-pur',lim:3000,f:6640},
+{n:'Погашение кредитки Альфа',ic:'i-shield',k:'ic-grn',lim:6000,f:0},
+{n:'Микро-подушка',ic:'i-target',k:'ic-pur',lim:2000,f:0}];
+const PAY=[
+{d:5,m:'авг',n:'Telegram Premium',s:299,note:'подписка • карта *0584'},
+{d:20,m:'авг',n:'Аренда + КУ',s:63500,note:'→ +7 909 160-45-23'},
+{d:21,m:'авг',n:'Ваша симка (Yota)',s:300,note:'связь'},
+{d:22,m:'авг',n:'Симка жены',s:300,note:'связь'},
+{d:23,m:'авг',n:'Домашний интернет',s:610,note:'связь'},
+{d:23,m:'авг',n:'Рассрочка (план)',s:5000,note:'досрочно вместо 399 ₽'},
+{d:26,m:'авг',n:'ivi.ru',s:99,note:'подписка • отключить!'},
+{d:1,m:'сен',n:'Привилегии M (Альфа)',s:399,note:'подписка • отключить!'},
+{d:3,m:'сен',n:'Яндекс Плюс',s:449,note:'подписка'}];
+/* ---------- РЕНДЕР ---------- */
+function renderTx(f='all'){
+ const L=TX.filter(x=>f==='all'||(f==='leak'?x.leak:x.sub));
+ document.getElementById('txList').innerHTML=L.map(x=>`<div class="tx"><div class="tx-ic ${x.k}"><svg class="ic"><use href="#${x.i}"/></svg></div><div class="tx-body"><b>${x.n}</b><span>${x.d} • ${x.t} • карта *1849/*0584</span></div><div class="tx-right"><b class="${x.s>0?'pos':''}">${x.s>0?'+':''}${fmt(x.s)}</b><span>${x.c}</span></div></div>`).join('');
+}
+function renderEnv(){
+ document.getElementById('envList').innerHTML=ENV.map(e=>{const p=Math.min(100,Math.round(e.f/e.lim*100));const cls=p>100?'r':p>85?'o':'g';
+ return`<div class="env"><header><div class="env-name"><div class="tx-ic ${e.k}"><svg class="ic"><use href="#${e.ic}"/></svg></div>${e.n}</div><b class="${e.f>e.lim?'over':''}">${fmt(e.f)} / ${fmt(e.lim)}</b></header><div class="bar"><i class="${cls}" style="width:${Math.min(100,p)}%"></i></div><div class="bar-note"><span>${p}% лимита</span><span>${e.f>e.lim?'Перерасход '+fmt(e.f-e.lim):'Осталось '+fmt(e.lim-e.f)}</span></div></div>`}).join('');
+}
+function renderPay(){
+ const now=new Date();
+ document.getElementById('payList').innerHTML=PAY.map(p=>{
+  const dt=new Date(2026,p.m==='авг'?7:8,p.d);const days=Math.round((dt-now)/864e5);
+  return`<div class="pay"><div class="pay-date ${days<=3?'soon':''}"><b>${p.d}</b><span>${p.m}</span></div><div class="pay-body"><b>${p.n}</b><span>${p.note}${days>=0?` • через ${days} дн.`:''}</span></div><b class="sum">${fmt(p.s)}</b></div>`}).join('');
+}
+/* ---------- КОПИЛОТ ---------- */
+const log=document.getElementById('chatLog');
+function bot(html){log.insertAdjacentHTML('beforeend',`<div class="msg bot">${html}</div>`);log.scrollTop=1e6}
+function me(t){log.insertAdjacentHTML('beforeend',`<div class="msg me">${t}</div>`);log.scrollTop=1e6}
+window.ask=function(t){
+ const q=t||document.getElementById('chatIn').value.trim();if(!q)return;
+ document.getElementById('chatIn').value='';me(q);
+ setTimeout(()=>{const s=q.toLowerCase();
+  if(s.includes('сегодня')){const now=new Date();const days=((20-now.getDate())+30)%30||30;bot(`До зарплаты <b>${days} дн.</b> Обязательные платежи до 20-го: аренда 63 500 + рассрочка 5 000 + связь 1 210 ₽. Свободно на жизнь: <b>1 250 ₽/день</b> (лимит из вашей бюджетной карты). Сегодня самокаты уже съели 70 ₽ — учтите в лимите.`)}
+  else if(s.includes('кафе')){bot(`Конверт «Кафе» на июль: лимит 3 000 ₽, факт <b>10 600 ₽</b>. Если потратите ещё 1 500 ₽ — перерасход вырастет до 9 100 ₽. Последствие: отпуск 2027 сдвинется на <b>~1 неделю</b> (это 1 500 ₽ = 0,75% цели). Совет: согласуйте замену — прогулка + домашний ужин сэкономит 1 200 ₽.`)}
+  else if(s.includes('кредит')){bot(`Стратегия «Лавина + микро-подушка»: Альфа 18 200 ₽ закрываем по 6 000 ₽/мес — <b>к 10 ноября 2026</b>. Затем весь поток идёт на Т-Банк 105 766 ₽. При платеже 10 000 ₽/мес (после ноября) — закрытие к <b>октябрю 2027</b>, экономия на процентах ≈ 40 000 ₽.`)}
+  else if(s.includes('самокат')){bot(`Самокаты за 3 месяца: <b>~33 000 ₽</b> (247 поездок). Лимит в бюджете — 2 500 ₽/мес. Если держать лимит, к лету 2027 это <b>+102 000 ₽</b> — половина отпуска!`)}
+  else{bot(`Я считаю только по вашим реальным цифрам. Спросите: «сколько можно сегодня», «могу ли на кафе», «когда закрою кредитки», «про самокаты».`)}
+ },400);
+};
+/* ---------- НАВИГАЦИЯ ---------- */
+window.go=function(p){document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));document.getElementById('p-'+p).classList.add('on');document.querySelectorAll('[data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===p));window.scrollTo({top:0,behavior:'smooth'})};
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>go(b.dataset.p));
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on'));b.classList.add('on');renderTx(b.dataset.f)});
+/* ---------- КОНФЕТТИ ---------- */
+function confetti(){if(sessionStorage.getItem('cf'))return;sessionStorage.setItem('cf','1');const c=document.getElementById('confetti');c.classList.remove('hidden');const x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;const cols=['#5346e8','#16a34a','#ea580c','#8b5cf6','#2563eb','#e11d48'];const P=[...Array(140)].map(()=>({x:Math.random()*c.width,y:-20-Math.random()*c.height/2,r:3+Math.random()*4,v:2+Math.random()*3,a:Math.random()*6.3,col:cols[Math.random()*6|0]}));let t=0;(function f(){x.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.y+=p.v;p.a+=.05;p.x+=Math.sin(p.a);x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.col;x.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);x.restore()});if(++t<220)requestAnimationFrame(f);else c.classList.add('hidden')})()}
+/* ---------- FIREBASE ---------- */
+document.getElementById('googleBtn').onclick=async()=>{try{await signInWithPopup(auth,prov)}catch(e){alert('Ошибка входа: '+e.message)}};
+document.getElementById('exitBtn').onclick=()=>signOut(auth);
+document.getElementById('balBox').onclick=async()=>{const v=prompt('Общий баланс всех карт, ₽:');if(v&&!isNaN(+v)&&auth.currentUser){await setDoc(doc(db,'users',auth.currentUser.uid),{balance:+v},{merge:true});document.getElementById('hBal').textContent=fmt(+v)}};
+onAuthStateChanged(auth,async u=>{
+ if(!u){document.getElementById('login').classList.remove('hidden');document.getElementById('app').classList.add('hidden');return}
+ document.getElementById('login').classList.add('hidden');document.getElementById('app').classList.remove('hidden');
+ document.getElementById('mMail').textContent='Firebase & Gmail: '+(u.displayName||u.email).split(' ')[0];
+ let d;try{const s=await getDoc(doc(db,'users',u.uid));if(!s.exists()){await setDoc(doc(db,'users',u.uid),{v:2,balance:62,goals:{cushion:0,vacation:0},createdAt:new Date().toISOString()});d={balance:62,goals:{cushion:0,vacation:0}}}else d=s.data()}catch(e){d={balance:62,goals:{cushion:0,vacation:0}}}
+ document.getElementById('hBal').textContent=fmt(d.balance||0);
+ document.getElementById('mSav').textContent=fmt(d.goals?.cushion||0);
+ const g=d.goals?.cushion||0;document.getElementById('gVal').textContent=fmt(g)+' / 100 000 ₽';document.getElementById('gBar').style.width=Math.min(100,g/10)+'%';document.getElementById('gPct').textContent=Math.round(g/1000)+'% накоплено';document.getElementById('gLeft').textContent='Осталось '+fmt(100000-g);
+ renderTx();renderEnv();renderPay();confetti();
+ bot('Привет, Даниил! Я Копилот. Я знаю вашу зарплату 114 492 ₽, аренду 63 500 ₽ и все утечки. Спрашивайте — посчитаю последствия в цифрах.');
+});
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
