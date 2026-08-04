@@ -432,7 +432,22 @@ function confetti(){const c=$('confetti');c.classList.remove('hidden');const x=c
 const cols=['#0a84ff','#30d158','#ff9f0a','#bf5af2','#64d2ff','#ff375f'];const P=[...Array(130)].map(()=>({x:Math.random()*c.width,y:-30-Math.random()*300,r:3+Math.random()*4,v:2+Math.random()*3,a:Math.random()*6,col:cols[Math.random()*6|0]}));let t=0;
 (function f(){x.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.y+=p.v;p.a+=.05;p.x+=Math.sin(p.a);x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.col;x.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);x.restore()});if(++t<200)requestAnimationFrame(f);else c.classList.add('hidden')})()}
 /* ===== AUTH ===== */
-$('googleBtn').onclick=()=>signInWithPopup(auth,prov);
+import{getRedirectResult}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+getRedirectResult(auth).catch(e=>console.warn('redirect:',e.code||e));
+$('googleBtn').onclick=async()=>{
+  const b=$('googleBtn');b.style.opacity=.6;b.textContent='Подключаюсь...';
+  try{
+    await signInWithPopup(auth,prov);
+  }catch(e){
+    console.warn('popup:',e.code||e);
+    try{
+      await signInWithRedirect(auth,prov);
+    }catch(e2){
+      b.style.opacity=1;b.textContent='Войти через Google';
+      alert('Не удалось войти: '+(e2&&e2.code?e2.code:(e&&e.code?e.code:e)));
+    }
+  }
+};
 onAuthStateChanged(auth,async u=>{if(!u){$('login').classList.remove('hidden');$('app').classList.add('hidden');return}
 uid=u.uid;$('login').classList.add('hidden');$('app').classList.remove('hidden');
 $('mMail').textContent=(u.displayName||u.email||'').split(' ')[0]||'Firebase';
