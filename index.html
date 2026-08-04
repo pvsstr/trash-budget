@@ -756,40 +756,52 @@ function renderRec(){
   $('recList').innerHTML = h;
 }
 
+function envMatch(e, x){
+  var isTrain = /tutu|электрич|kryukovo/i.test(x.n || '');
+  if(e.n.indexOf('Электричка') === 0){ return (x.cat === 'transport') && isTrain; }
+  if(e.n.indexOf('Тройка') === 0){ return (x.cat === 'transport') && !isTrain; }
+  var key = CAT2ENV[x.cat] || 'Личное';
+  return e.n.indexOf(key) === 0;
+}
 function renderEnv(){
   var cs = cycleStart(new Date());
-  var agg = catAgg(cs);
+  var list = allSpends().filter(function(x){ return inCycle(x.d, cs); });
   var h = '';
   for(var i=0;i<D.envs.length;i++){
     var e = D.envs[i];
     var f = 0;
-    for(var a=0;a<agg.length;a++){
-      var key = CAT2ENV[agg[a].id] || 'Личное';
-      if(e.n.indexOf(key) === 0){ f += agg[a].s; }
-    }
+    for(var a=0;a<list.length;a++){ if(envMatch(e, list[a])){ f += list[a].s; } }
     var p = e.lim > 0 ? Math.round(f / e.lim * 100) : 0;
     var cls = p > 100 ? 'var(--red)' : (p > 85 ? 'var(--org)' : 'var(--grn)');
-    h += '<div class="env glass hov" data-act="sheet" data-t="env" data-i="'+i+'">'
+    h += '<div class="env glass hov" data-act="env" data-i="'+i+'">'
       + '<header><div class="env-name"><div class="sic '+e.k+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#'+e.ic+'"/></svg></div>'+e.n+'</div>'
       + '<b class="'+(f > e.lim ? 'over' : '')+'">'+fmt(f)+' / '+fmt(e.lim)+'</b></header>'
       + '<div class="bar"><i style="width:'+Math.min(100,p)+'%;background:'+cls+'"></i></div>'
-      + '<div class="note">'+p+'% лимита · цикл '+cycLabel(cs)+'</div></div>';
+      + '<div class="note">'+p+'% лимита · цикл '+cycLabel(cs)+' · нажмите — внутри все траты</div></div>';
   }
   $('envList').innerHTML = h;
 }
 function openEnv(i){
   var e = D.envs[i];
   var cs = cycleStart(new Date());
-  var agg = catAgg(cs);
+  var list = allSpends().filter(function(x){ return inCycle(x.d, cs) && envMatch(e, x); });
+  list.sort(function(a,b){ return b.d - a.d; });
   var f = 0;
-  for(var a=0;a<agg.length;a++){
-    var key = CAT2ENV[agg[a].id] || 'Личное';
-    if(e.n.indexOf(key) === 0){ f += agg[a].s; }
+  var rows = '';
+  for(var r=0;r<list.length;r++){
+    f += list[r].s;
+    rows += '<div class="dig-item"><span>'+list[r].d.getDate()+'.'+String(list[r].d.getMonth()+1).padStart(2,'0')+'.'+list[r].d.getFullYear()+' · '+list[r].n+'</span><b>-'+fmt(list[r].s)+'</b></div>';
   }
-  $('sheetBody').innerHTML = sheetHead(e.ic, e.k, e.n, 'конверт бюджета')
-    + rowHtml('Лимит', fmt(e.lim)) + rowHtml('Потрачено в цикле', fmt(f)) + rowHtml('Остаток', fmt(e.lim - f))
+  if(!rows){ rows = '<div class="dig-item"><span>Трат в этом цикле нет</span><b>—</b></div>'; }
+  $('sheetBody').innerHTML = sheetHead(e.ic, e.k, e.n, 'конверт · цикл '+cycLabel(cs))
+    + rowHtml('Лимит', fmt(e.lim))
+    + rowHtml('Потрачено', fmt(f))
+    + rowHtml('Остаток', fmt(e.lim - f))
+    + '<div class="cap" style="margin:14px 4px 6px">Все траты конверта ('+list.length+')</div>'
+    + '<div style="max-height:300px;overflow-y:auto">'+rows+'</div>'
     + tipHtml(f > e.lim ? 'Конверт пробит на '+fmt(f-e.lim)+'. Урежьте категорию на 20% в следующем цикле.' : 'Вы в лимите. Остаток можно перебросить в подушку.');
-  $('sheet').classList.add('on'); $('shb').classList.add('on');
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
 }
 
 function renderSpend(){
