@@ -312,7 +312,8 @@ textarea{width:100%;height:140px;background:rgba(255,255,255,.06);border:1px sol
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 var app = initializeApp({apiKey:"AIzaSyBrK9eZknNE3UBniVU2cnKUtwSOXnl_y2g",authDomain:"trash-budget-737fd.firebaseapp.com",projectId:"trash-budget-737fd",storageBucket:"trash-budget-737fd.firebasestorage.app",messagingSenderId:"996241413300",appId:"1:996241413300:web:ca7c0668e67f570c7373e1"});
 var auth = getAuth(app);
