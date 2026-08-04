@@ -1,4 +1,4 @@
-const CACHE='trash-v3';
+const CACHE='trash-v4';
 self.addEventListener('install',e=>{self.skipWaiting()});
 self.addEventListener('activate',e=>{
   e.waitUntil(
