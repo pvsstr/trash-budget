@@ -518,6 +518,7 @@ function ensureSalary(){
   var cs = cycleStart(new Date());
   var ck = cs.getFullYear()+'-'+cs.getMonth();
   var has = false;
+  if(D.removedAuto && D.removedAuto.indexOf(ck) !== -1){ return; }
   for(var i=0;i<D.incomes.length;i++){ if(D.incomes[i].auto && D.incomes[i].ck === ck){ has = true; } }
   if(!has){
     D.incomes.push({id:Date.now(), d:iso(cs), n:'Заработная плата', s:D.income, auto:1, ck:ck});
@@ -990,6 +991,7 @@ function categorize(t){
 }
 
 function confetti(){
+  return;
   var c = $('confetti');
   c.classList.remove('hidden');
   var x = c.getContext('2d');
@@ -1060,9 +1062,15 @@ document.addEventListener('click', function(e){
     D.spends = D.spends.filter(function(x){ return x.id !== id; });
     save(); closeSheet(); render();
   }
-  else if(act === 'del-income'){
+ else if(act === 'del-income'){
     var id2 = parseInt(el.getAttribute('data-id'), 10);
     if(!confirm('Удалить поступление?')){ return; }
+    for(var k2=0;k2<D.incomes.length;k2++){
+      if(D.incomes[k2].id === id2 && D.incomes[k2].auto){
+        D.removedAuto = D.removedAuto || [];
+        D.removedAuto.push(D.incomes[k2].ck || '');
+      }
+    }
     D.incomes = D.incomes.filter(function(x){ return x.id !== id2; });
     save(); render();
   }
