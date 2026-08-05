@@ -1,1 +1,14 @@
-
+<div class="cap">Траты · ручной учёт</div>
+<div class="msw"><button data-act="m-prev">‹</button><b id="spLabel"></b><button data-act="m-next">›</button></div>
+<div class="chart-card glass" id="spSum" style="margin-bottom:14px"></div>
+<div class="chart-card glass" style="margin-bottom:14px">
+  <div class="cap" style="margin:0 0 10px">Добавить трату</div>
+  <div class="form">
+    <div class="row2"><input class="inp" id="spAmt" type="number" placeholder="Сумма, ₽"><input class="inp" id="spDate" type="date"></div>
+    <input class="inp" id="spNote" placeholder="Например: Самокат 50 или Пятерочка 3000">
+    <div class="hint">Категория определится автоматически — поменять можно ниже или тапнув по трате</div>
+    <select class="inp" id="spCat"></select>
+    <button class="sh-btn" style="margin-top:0" data-act="spend-add">Добавить трату</button>
+  </div>
+</div>
+<div id="spList"></div>
