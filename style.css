@@ -4,6 +4,7 @@
 body{font-family:'Manrope',-apple-system,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden;font-variant-numeric:tabular-nums;line-height:1.55;font-size:15px}
 body::before{content:'';position:fixed;inset:-20%;z-index:-1;background:radial-gradient(40% 35% at 20% 15%,rgba(10,132,255,.16),transparent 60%),radial-gradient(35% 30% at 85% 20%,rgba(191,90,242,.13),transparent 60%),radial-gradient(45% 40% at 60% 90%,rgba(48,209,88,.08),transparent 60%)}
 
+
 /* ===== ICONS ===== */
 .ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
