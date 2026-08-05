@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ТРЕШ — бюджет</title>
+    <!-- Общие стили -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Дополнительно можете подключить шрифты -->
+    <link rel="manifest" href="manifest.json">
+    <!-- PWA service worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+    <!-- Firebase (если используете) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <!-- Шапка с навигацией -->
+    <header class="app-header">
+        <div class="logo">💰 ТРЕШ</div>
+        <nav class="main-nav">
+            <a href="#panel" class="nav-link active" data-page="panel">Панель</a>
+            <a href="#spending" class="nav-link" data-page="spending">Траты</a>
+            <a href="#income" class="nav-link" data-page="income">Доходы</a>
+            <a href="#budget" class="nav-link" data-page="budget">Бюджет</a>
+            <a href="#education" class="nav-link" data-page="education">Обучение</a>
+            <a href="#copilot" class="nav-link" data-page="copilot">Копилот</a>
+        </nav>
+    </header>
+
+    <!-- Контейнер для содержимого вкладок -->
+    <main id="app">
+        <!-- Сюда будет загружаться контент из pages/ -->
+    </main>
+
+    <!-- Подключаем скрипты -->
+    <script src="js/firebase-init.js"></script> <!-- если есть -->
+    <script src="js/router.js"></script>
+</body>
+</html>
