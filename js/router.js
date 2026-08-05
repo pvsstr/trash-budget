@@ -1,4 +1,4 @@
-function loadPage(pageName) {
+function loadPage(pageName, callback) {
     const app = document.getElementById('app');
     if (!app) return;
     app.innerHTML = '<div class="loader">Загрузка...</div>';
@@ -9,6 +9,9 @@ function loadPage(pageName) {
         })
         .then(html => {
             app.innerHTML = html;
+            // Вызываем колбэк, если передан, или глобальную функцию onPageLoaded
+            if (callback) callback();
+            else if (window.onPageLoaded) window.onPageLoaded();
         })
         .catch(error => {
             app.innerHTML = `<p style="color:red;">Ошибка: ${error.message}</p>`;
