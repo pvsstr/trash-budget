@@ -729,38 +729,35 @@ function renderDashboardNew() {
 
 function render(){
   var now = new Date();
-  $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
-  $('demoTag').classList.toggle('hidden', !D.demo);
-  $('hBal').textContent = fmt(realBal());
-  $('sInc').textContent = fmt(D.income);
-  $('sIncP').textContent = 'зарплата, '+D.salaryDay+'-го числа';
+  if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
+  if ($('demoTag')) $('demoTag').classList.toggle('hidden', !D.demo);
+  if ($('hBal')) $('hBal').textContent = fmt(realBal());
+  if ($('sInc')) $('sInc').textContent = fmt(D.income);
+  if ($('sIncP')) $('sIncP').textContent = 'зарплата, '+D.salaryDay+'-го числа';
   
   var act = D.leaks.filter(function(x){ return !x.fixed; });
   var leakSum = 0;
   for(var j=0;j<act.length;j++){ leakSum += act[j].s; }
-  $('sLeakV').textContent = fmt(leakSum);
-  $('sLeakP').textContent = act.length+' зоны перерасхода';
-  $('tipText').textContent = TIPS[now.getDate() % TIPS.length];
+  if ($('sLeakV')) $('sLeakV').textContent = fmt(leakSum);
+  if ($('sLeakP')) $('sLeakP').textContent = act.length+' зоны перерасхода';
+  if ($('tipText')) $('tipText').textContent = TIPS[now.getDate() % TIPS.length];
   
-  renderDashboardNew(); renderGoals(); renderBanner(); renderAnalytics(); renderDigest(); renderRec(); renderTx(); renderEnv(); renderPays(); renderSubs(); renderCredits(); renderInsts(); renderSpend(); renderIncome(); renderLearn();
-}
-
-function loadPage(pageName, callback){
-  var app = $('pageContent');
-  if(!app) return;
-  fetch('pages/' + pageName + '.html')
-    .then(function(r){ 
-      if(!r.ok) throw new Error('404'); 
-      return r.text(); 
-    })
-    .then(function(html){ 
-      app.innerHTML = html; 
-      if(typeof callback === 'function') callback(); 
-    })
-    .catch(function(){
-      app.innerHTML = '<div style="padding:40px;text-align:center;color:var(--mut)">Страница не найдена</div>'; 
-      if(typeof callback === 'function') callback(); 
-    });
+  // Вызываем функции отрисовки в try/catch, чтобы ошибка в одном блоке не ломала всё приложение
+  try { renderDashboardNew(); } catch(e) { console.error('Ошибка в renderDashboardNew:', e); }
+  try { renderGoals(); } catch(e) { console.error('Ошибка в renderGoals:', e); }
+  try { renderBanner(); } catch(e) { console.error('Ошибка в renderBanner:', e); }
+  try { renderAnalytics(); } catch(e) { console.error('Ошибка в renderAnalytics:', e); }
+  try { renderDigest(); } catch(e) { console.error('Ошибка в renderDigest:', e); }
+  try { renderRec(); } catch(e) { console.error('Ошибка в renderRec:', e); }
+  try { renderTx(); } catch(e) { console.error('Ошибка в renderTx:', e); }
+  try { renderEnv(); } catch(e) { console.error('Ошибка в renderEnv:', e); }
+  try { renderPays(); } catch(e) { console.error('Ошибка в renderPays:', e); }
+  try { renderSubs(); } catch(e) { console.error('Ошибка в renderSubs:', e); }
+  try { renderCredits(); } catch(e) { console.error('Ошибка в renderCredits:', e); }
+  try { renderInsts(); } catch(e) { console.error('Ошибка в renderInsts:', e); }
+  try { renderSpend(); } catch(e) { console.error('Ошибка в renderSpend:', e); }
+  try { renderIncome(); } catch(e) { console.error('Ошибка в renderIncome:', e); }
+  try { renderLearn(); } catch(e) { console.error('Ошибка в renderLearn:', e); }
 }
 
 function go(p){
