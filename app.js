@@ -945,13 +945,13 @@ onAuthStateChanged(auth, function(u){
       }
       var spDate = $('spDate');
       if (spDate) spDate.value = iso(new Date());
-
+      
       $('q').addEventListener('input', renderTx);
       $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } });
       $('spCat').addEventListener('change', function(){ catTouched = true; });
-      $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value
-                                                                        
-      render(); // <-- Главная починка! Запускаем отрисовку данных
+      $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } });
+
+      render(); // Запускаем отрисовку данных
       go('dash'); // И переключаемся на главную
     }).catch(function(){ normalize(); render(); go('dash'); });
   });
