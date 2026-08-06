@@ -761,12 +761,12 @@ function render(){
 }
 
 function go(p){
-  document.querySelectorAll('#rail button, #bnav button').forEach(function(btn){
-    btn.classList.toggle('on', btn.getAttribute('data-p') === p);
-  });
-  loadPage(p, function(){
-    if(typeof render === 'function') render();
-  });
+  var pages = document.querySelectorAll('.page');
+  for(var i=0;i<pages.length;i++){ pages[i].classList.remove('on'); }
+  var el = $('p-'+p);
+  if(el){ el.classList.add('on'); }
+  var btns = document.querySelectorAll('[data-act="nav"]');
+  for(var j=0;j<btns.length;j++){ btns[j].classList.toggle('on', btns[j].getAttribute('data-p') === p); }
   closeSheet();
   window.scrollTo({top:0, behavior:'smooth'});
 }
