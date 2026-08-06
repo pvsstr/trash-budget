@@ -1,0 +1,86 @@
+<div class="page on">
+  <div class="dash-hero glass hov" data-act="sheet" data-t="balance">
+    <div class="hero-left">
+      <span class="demo-tag hidden" id="demoTag">ДЕМО-РЕЖИМ</span>
+      <h2 id="hello">Привет!</h2>
+      <div class="date" id="curDate"></div>
+      <div class="health-score-badge" id="healthBadge">
+        <span class="score-val" id="healthScore">--</span>
+        <span class="score-lbl">Индекс прочности</span>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-card"><span>Реальный остаток</span><b id="hBal">0 ₽</b><small id="safeBalanceHint">Безопасно: 0 ₽</small></div>
+      <div class="hero-card"><span>Дневной лимит</span><b id="dailyLimitVal">0 ₽/день</b><div class="limit-status-bar"><i id="dailyLimitProgress"></i></div></div>
+    </div>
+  </div>
+
+  <div class="dash-row cols-2">
+    <div class="glass card-padding hov" data-act="sheet" data-t="cycle-detail">
+      <div class="cap-title"><span>Цикл зарплаты</span><b id="cycleDates">20-е — 19-е</b></div>
+      <div class="cycle-progress-wrapper">
+        <div class="bar-large"><i id="cycleProgressBar" style="width: 0%"></i></div>
+        <div class="cycle-meta"><span id="cycleDaysLeft">Осталось 0 дней</span><span>Ритм трат: Норма</span></div>
+      </div>
+    </div>
+    <div class="glass card-padding hov" data-act="sheet" data-t="upcoming-detail">
+      <div class="cap-title"><span>Платежи на 3 дня</span><b id="digSum">0 ₽</b></div>
+      <div id="digList" class="compact-list"></div>
+    </div>
+  </div>
+
+  <div class="bento-stats">
+    <div class="stat glass hov" data-act="sheet" data-t="income">
+      <header><h4>Доход в месяц</h4><div class="sic c-grn"><svg class="ic"><use href="#i-wallet"/></svg></div></header>
+      <div class="val" id="sInc">0 ₽</div><span class="pill c-grn" id="sIncP">--</span>
+    </div>
+    <div class="stat glass hov" data-act="nav" data-p="budget">
+      <header><h4>Обязательства / мес</h4><div class="sic c-blu"><svg class="ic"><use href="#i-card"/></svg></div></header>
+      <div class="val" id="sFixedPay">0 ₽</div><span class="pill c-blu">регулярные платежи</span>
+    </div>
+    <div class="stat glass hov" data-act="sheet" data-t="leaks">
+      <header><h4>Утечки и аномалии</h4><div class="sic c-red"><svg class="ic"><use href="#i-shield"/></svg></div></header>
+      <div class="val"><span id="sLeakV">0 ₽</span><small>/мес</small></div><span class="pill c-red" id="sLeakP">--</span>
+    </div>
+    <div class="stat glass hov" data-act="sheet" data-t="goals">
+      <header><h4>Цели и копилки</h4><div class="sic c-pur"><svg class="ic"><use href="#i-target"/></svg></div></header>
+      <div class="val" id="sGoalsVal">0 ₽</div><span class="pill c-pur">накоплено</span>
+    </div>
+  </div>
+
+  <div id="goalCard"></div>
+  <div id="bannerBox"></div>
+
+  <div class="tip glass hov" data-act="sheet" data-t="tip">
+    <div class="sic"><svg class="ic"><use href="#i-cap"/></svg></div>
+    <div><b>Совет дня</b><p id="tipText"></p></div>
+    <svg class="ic chev"><use href="#i-chev"/></svg>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="cap">Аналитика трат · любой период</div>
+      <div class="chart-card glass">
+        <div class="msw"><button data-act="p-prev">‹</button><b id="pLabel">--</b><button data-act="p-next">›</button></div>
+        <div class="chips" style="padding:0 0 12px">
+          <button class="chip" data-act="p-set" data-v="m">Месяц</button>
+          <button class="chip" data-act="p-set" data-v="q">3 месяца</button>
+          <button class="chip" data-act="p-set" data-v="y">Год</button>
+          <button class="chip" data-act="p-set" data-v="a">Всё время</button>
+        </div>
+        <div id="anSum"></div>
+        <div class="charts" style="margin-top:12px"><canvas id="donut" width="170" height="170"></canvas><div class="legend" id="legend"></div></div>
+        <div style="margin-top:16px"><div class="cap" style="margin:0 0 8px">Динамика</div><canvas id="bars" height="90" style="width:100%"></canvas></div>
+      </div>
+      <div class="cap">Рекомендации · утечки</div>
+      <div id="recList"></div>
+    </div>
+    <div>
+      <div class="cap">История операций</div>
+      <div class="tx-card glass">
+        <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="q" placeholder="Поиск операции..."></div>
+        <div id="txList"></div>
+      </div>
+    </div>
+  </div>
+</div>
