@@ -891,6 +891,32 @@ gbtn.addEventListener('click', function(){
   });
 });
 
+// Функция для скрытой загрузки HTML-страниц из папки pages/
+function loadPages() {
+  var pages = ['dash', 'spend', 'income', 'budget', 'learn', 'chat'];
+  var container = document.getElementById('pageContent');
+  if (!container) return Promise.resolve();
+  
+  var promises = pages.map(function(pageName) {
+    return fetch('pages/' + pageName + '.html')
+      .then(function(response) { return response.text(); })
+      .then(function(html) {
+        var div = document.createElement('div');
+        div.innerHTML = html.trim();
+        var pageDiv = div.firstElementChild;
+        if (pageDiv && pageDiv.classList.contains('page')) {
+          pageDiv.id = 'p-' + pageName; // Автоматически добавляем нужный ID
+          container.appendChild(pageDiv);
+        }
+      });
+  });
+  
+  return Promise.all(promises);
+}
+
+// Сохраняем промис, чтобы дождаться загрузки перед авторизацией
+window._pagesLoaded = loadPages();
+
 onAuthStateChanged(auth, function(u){
   if(!u){
     $('login').classList.remove('hidden');
@@ -900,23 +926,33 @@ onAuthStateChanged(auth, function(u){
   uid = u.uid;
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
-  var name = (u.displayName || 'друг').split(' ')[0];
-  $('hello').textContent = 'Привет, ' + name + '!';
-  $('mMail').textContent = name;
-  getDoc(doc(db,'users',uid)).then(function(s){
-    if(s.exists() && s.data() && s.data().data){ D = s.data().data; }
-    normalize();
-    ensureSalary();
-    var sel = $('spCat');
-    sel.innerHTML = '';
-    for(var i=0;i<CATS.length;i++){
-      var o = document.createElement('option');
-      o.value = CATS[i].id; o.textContent = CATS[i].n;
-      sel.appendChild(o);
-    }
-    $('spDate').value = iso(new Date());
-    go('dash');
-  }).catch(function(){ normalize(); go('dash'); });
+  
+  // Ждем, пока все страницы подгрузятся в DOM
+  (window._pagesLoaded || Promise.resolve()).then(function() {
+    var name = (u.displayName || 'друг').split(' ')[0];
+    if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
+    if ($('mMail')) $('mMail').textContent = name;
+    
+    getDoc(doc(db,'users',uid)).then(function(s){
+      if(s.exists() && s.data() && s.data().data){ D = s.data().data; }
+      normalize();
+      ensureSalary();
+      var sel = $('spCat');
+      if (sel) {
+        sel.innerHTML = '';
+        for(var i=0;i<CATS.length;i++){
+          var o = document.createElement('option');
+          o.value = CATS[i].id; o.textContent = CATS[i].n;
+          sel.appendChild(o);
+        }
+      }
+      var spDate = $('spDate');
+      if (spDate) spDate.value = iso(new Date());
+      
+      render(); // <-- Главная починка! Запускаем отрисовку данных
+      go('dash'); // И переключаемся на главную
+    }).catch(function(){ normalize(); render(); go('dash'); });
+  });
 });
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
