@@ -955,3 +955,16 @@ onAuthStateChanged(auth, function(u){
 });
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+// Показывает в шапке время последнего коммита (обновления) в репозитории
+function showBuildInfo(){
+  fetch('https://api.github.com/repos/pvsstr/trash-budget/commits/main')
+    .then(function(r){ return r.json(); })
+    .then(function(c){
+      var d = new Date(c.commit.committer.date);
+      var s = String(d.getDate()).padStart(2,'0') + '.' + String(d.getMonth()+1).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      var el = $('buildInfo');
+      if (el) el.textContent = 'обновлено: ' + s;
+    })
+    .catch(function(){ var el = $('buildInfo'); if (el) el.textContent = 'обновлено: —'; });
+}
+showBuildInfo();
