@@ -15,17 +15,43 @@
     </div>
   </div>
 
-  <div class="dash-row cols-2">
-    <div class="glass card-padding hov" data-act="sheet" data-t="cycle-detail">
-      <div class="cap-title"><span>Цикл зарплаты</span><b id="cycleDates">20-е — 19-е</b></div>
-      <div class="cycle-progress-wrapper">
-        <div class="bar-large"><i id="cycleProgressBar" style="width: 0%"></i></div>
-        <div class="cycle-meta"><span id="cycleDaysLeft">Осталось 0 дней</span><span>Ритм трат: Норма</span></div>
+    <div class="dash-row cols-3">
+    <div class="stack-col">
+      <div class="glass card-padding hov" data-act="sheet" data-t="cycle-detail">
+        <div class="cap-title"><span>Цикл зарплаты</span><b id="cycleDates">20-е — 19-е</b></div>
+        <div class="cycle-progress-wrapper">
+          <div class="bar-large"><i id="cycleProgressBar" style="width: 0%"></i></div>
+          <div class="cycle-meta"><span id="cycleDaysLeft">Осталось 0 дней</span><span>Ритм трат: Норма</span></div>
+        </div>
+      </div>
+      <div class="glass card-padding hov" data-act="sheet" data-t="upcoming-detail">
+        <div class="cap-title"><span>Платежи на 3 дня</span><b id="digSum">0 ₽</b></div>
+        <div id="digList" class="compact-list"></div>
       </div>
     </div>
-    <div class="glass card-padding hov" data-act="sheet" data-t="upcoming-detail">
-      <div class="cap-title"><span>Платежи на 3 дня</span><b id="digSum">0 ₽</b></div>
-      <div id="digList" class="compact-list"></div>
+
+    <div class="glass card-padding cal-card">
+      <div class="cap-title"><span>Производственный календарь РФ</span></div>
+      <div class="cal-nav"><button data-act="cal-prev" data-w="my">‹</button><b id="myCalTitle">--</b><button data-act="cal-next" data-w="my">›</button></div>
+      <div id="myCal" class="cal-grid"></div>
+      <div class="cal-legend">
+        <span><i style="background:#30d158"></i>ЗП</span>
+        <span><i style="background:#ff453a"></i>Платёж</span>
+        <span><i style="background:#ff9f0a"></i>Рассрочка</span>
+        <span><i style="background:#bf5af2"></i>Планы</span>
+        <span><i style="background:rgba(255,255,255,.14)"></i>Выходной РФ</span>
+      </div>
+    </div>
+
+    <div class="glass card-padding cal-card">
+      <div class="cap-title"><span>Календарь любимой</span><b>ЗП 1 и 16</b></div>
+      <div class="cal-nav"><button data-act="cal-prev" data-w="her">‹</button><b id="herCalTitle">--</b><button data-act="cal-next" data-w="her">›</button></div>
+      <div id="herCal" class="cal-grid"></div>
+      <div class="cal-legend">
+        <span><i style="background:#30d158"></i>ЗП</span>
+        <span><i style="background:#0a84ff"></i>Работа</span>
+        <span><i style="background:#bf5af2"></i>Выходной</span>
+      </div>
     </div>
   </div>
 
