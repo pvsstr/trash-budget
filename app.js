@@ -926,10 +926,10 @@ function renderHerCal(){
    $('herCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), herDayData, 'her', false);
 }
 
-function openCalSheet(dstr){
+function openCalSheet(dstr, noHl){
   var p = dstr.split('-');
-    window._calSheetDate = dstr;
-  var y = +p[0], m = +p[1]-1, day = +p[2];
+  window._calSheetDate = dstr;
+  var y = +p[0], m = +p[1]-1, day = noHl ? -1 : +p[2];
   var daysInM = new Date(y, m+1, 0).getDate();
   var rows = '';
   for(var d=1; d<=daysInM; d++){
@@ -1182,6 +1182,11 @@ document.addEventListener('click', function(e){
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
+      else if(act === 'cal-month'){
+    var now0 = new Date();
+    var dt0 = new Date(now0.getFullYear(), now0.getMonth() + calOff, 1);
+    openCalSheet(dt0.getFullYear()+'-'+String(dt0.getMonth()+1).padStart(2,'0')+'-01', 1);
+  }
   else if(act === 'cal-day'){
     if(el.getAttribute('data-w')==='her'){ openHerSheet(el.getAttribute('data-d')); }
     else if(calSelectMode){
