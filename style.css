@@ -302,3 +302,15 @@ input,textarea,select{cursor:text}
 
 /* Плавный scroll по странице */
 html{scroll-behavior:smooth}
+/* ===== КАСТОМНЫЕ ДИАЛОГИ (вместо alert/confirm/prompt) ===== */
+#dlgb{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:120;opacity:0;pointer-events:none;transition:opacity .3s}
+#dlgb.on{opacity:1;pointer-events:auto}
+#dlgBox{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.92);z-index:125;max-width:380px;width:calc(100% - 48px);padding:26px 24px 22px;text-align:center;opacity:0;pointer-events:none;transition:transform .3s cubic-bezier(.2,.9,.25,1),opacity .3s}
+#dlgBox.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.dlg-ic{width:52px;height:52px;border-radius:16px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--acc),var(--pur));color:#fff}
+.dlg-ic .ic{width:26px;height:26px}
+.dlg-title{font-size:17px;font-weight:800;margin-bottom:6px}
+.dlg-text{font-size:13.5px;color:var(--mut);line-height:1.5;margin-bottom:16px;white-space:pre-wrap}
+.dlg-inp{margin-bottom:16px;text-align:center}
+.dlg-btns{display:flex;gap:10px}
+.dlg-btns .sh-btn{margin-top:0}
