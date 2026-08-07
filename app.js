@@ -907,6 +907,44 @@ function calEventDel(id){
   openCalSheet(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-01');
 }
 
+function openHerSheet(dstr){
+  var p = dstr.split('-');
+  var d = new Date(+p[0], +p[1]-1, +p[2]);
+  var st = (D.her||{})[dstr];
+  var stTxt = st === 1 ? 'рабочий день' : (st === 0 ? 'выходной' : 'не отмечено');
+  var dateTxt = String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
+  $('sheetBody').innerHTML = sheetHead('i-user','c-pur','Календарь любимой', dateTxt+' · '+stTxt)
+    + rowHtml('Зарплата', '1 и 16 числа')
+    + '<div class="row2" style="margin-top:12px">'
+    + '<button class="sh-btn" style="margin-top:0" data-d="'+dstr+'" data-act="her-set" data-v="1">Рабочий</button>'
+    + '<button class="sh-btn ghost" style="margin-top:0" data-d="'+dstr+'" data-act="her-set" data-v="0">Выходной</button>'
+    + '</div>'
+    + '<button class="sh-btn ghost" data-d="'+dstr+'" data-act="her-set" data-v="x">Снять отметку с этого дня</button>'
+    + '<button class="sh-btn" data-d="'+dstr+'" data-act="her-fill">График 3/3 с этого дня (60 дней)</button>';
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+function herSet(dstr, v){
+  D.her = D.her || {};
+  if(v === 'x'){ delete D.her[dstr]; }
+  else { D.her[dstr] = (v === '1') ? 1 : 0; }
+  save(); render();
+  openHerSheet(dstr);
+}
+function herFill(dstr){
+  var p = dstr.split('-');
+  var start = new Date(+p[0], +p[1]-1, +p[2]);
+  D.her = D.her || {};
+  for(var i=0;i<60;i++){
+    var d = new Date(start.getFullYear(), start.getMonth(), start.getDate()+i);
+    var key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    D.her[key] = (i % 6) < 3 ? 1 : 0;
+  }
+  save(); render();
+  openHerSheet(dstr);
+  toast('График 3/3 заполнен на 60 дней');
+}
+
 function render(){
   var now = new Date();
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
@@ -1050,7 +1088,9 @@ document.addEventListener('click', function(e){
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
       else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
-      else if(act === 'cal-day'){ if(el.getAttribute('data-w')==='my'){ openCalSheet(el.getAttribute('data-d')); } }
+        else if(act === 'cal-day'){ if(el.getAttribute('data-w')==='her'){ openHerSheet(el.getAttribute('data-d')); } else { openCalSheet(el.getAttribute('data-d')); } }
+  else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
+  else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
   else if(act === 'cal-event-add'){ calEventAdd(); }
   else if(act === 'cal-event-del'){ calEventDel(parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
