@@ -381,8 +381,7 @@ function openSheet(t, i){
       + rowHtml('Дней до зарплаты', dailyD.daysLeft+' дн.')
       + rowHtml('Лимит на день', fmt(dailyD.perDay))
       + tipHtml('Формула: (остаток − платежи на 30 дней) ÷ дней до зарплаты. Столько можно тратить каждый день, чтобы денег гарантированно хватило до зарплаты.');
-  }
-
+  
   } else if(t === 'fixed'){
     h = sheetHead('i-card','c-blu','Обязательные траты','всё, что нужно платить каждый месяц');
     h += '<div class="cap" style="margin:4px 4px 6px">Платежи</div>';
