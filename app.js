@@ -1000,11 +1000,12 @@ function deploySchedule(ms){
   setTimeout(deployCheck, ms);
 }
 function deployCheck(){
-  fetch('https://api.github.com/repos/pvsstr/trash-budget/actions/runs?per_page=10')
+  // cache:'no-cache' — если ничего не изменилось, GitHub ответит 304 и НЕ потратит лимит запросов
+  fetch('https://api.github.com/repos/pvsstr/trash-budget/actions/runs?per_page=10', { cache: 'no-cache' })
     .then(function(r){ return r.json(); })
     .then(function(data){
       var list = (data && data.workflow_runs) ? data.workflow_runs : [];
-      if(!list.length){ deploySchedule(300000); return; }
+      if(!list.length){ deploySchedule(60000); return; }
       var run = null;
       for(var i=0;i<list.length;i++){
         if(String(list[i].name||'').toLowerCase().indexOf('pages') !== -1){ run = list[i]; break; }
@@ -1018,25 +1019,25 @@ function deployCheck(){
       var st = run.status;
       var con = run.conclusion;
       var num = '#' + run.run_number;
-      var delay = 300000; // в спокойное время проверяем раз в 5 минут
+      var delay = 30000; // спокойное время: проверка каждые 30 секунд
 
       if(st !== 'completed'){
         deployPaint('#ff9f0a', 'деплоится… · ' + num);
-        delay = 30000; // идёт деплой — проверяем каждые 30 секунд
+        delay = 15000; // идёт деплой: каждые 15 секунд
       } else if(con === 'success'){
         deployPaint('#30d158', 'деплой ' + deployFtime(run.updated_at) + ' · ' + num);
       } else {
         deployPaint('#ff453a', 'ошибка деплоя · ' + num);
       }
 
-      // Первый запуск: просто запоминаем номер последнего успешного деплоя
+      // Первый запуск: запоминаем номер последнего успешного деплоя
       if(watchBaseSuccess === null){
         watchBaseSuccess = success ? success.run_number : 0;
         deploySchedule(delay);
         return;
       }
 
-      // Появился новый успешный деплой новее открытой страницы — перезагружаемся сами
+      // Новый успешный деплой новее открытой страницы — применяем обновление
       if(success && success.run_number > watchBaseSuccess){
         watchBaseSuccess = success.run_number;
         deployPaint('#30d158', 'применяю обновление… · #' + success.run_number);
@@ -1046,6 +1047,6 @@ function deployCheck(){
 
       deploySchedule(delay);
     })
-    .catch(function(){ deploySchedule(300000); });
+    .catch(function(){ deploySchedule(60000); });
 }
 deployCheck();
