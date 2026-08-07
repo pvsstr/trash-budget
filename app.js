@@ -14,6 +14,8 @@ var pOff = 0;
 var catTouched = false;
 var calOff = 0;
 var herOff = 0;
+var calSel = [];
+var calSelectMode = false;
 var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 var MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 
@@ -787,24 +789,28 @@ function isRuWeekend(d){
   var md = String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   return RU_HOLIDAYS.indexOf(md) !== -1;
 }
-function myDayEvents(y, m, day){
-  var ev = [];
+function myDayData(y, m, day){
+  var rings = [];
+  var plans = [];
   var sd = salaryDate(y, m);
-  if(sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === day){ ev.push({c:'#30d158', n:'Зарплата'}); }
+  if(sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === day){ rings.push({c:'#30d158', n:'Зарплата'}); }
   for(var i=0;i<(D.pays||[]).length;i++){
-    if((D.pays[i].d||0) === day){ ev.push({c:'#ff453a', n:'Платёж: '+D.pays[i].n}); }
+    if((D.pays[i].d||0) === day){ rings.push({c:'#ff453a', n:'Платёж: '+D.pays[i].n}); }
   }
   for(var j=0;j<(D.insts||[]).length;j++){
     var dd = parseD(D.insts[j].d);
-    if(dd.getFullYear() === y && dd.getMonth() === m && dd.getDate() === day){ ev.push({c:'#ff9f0a', n:'Рассрочка: '+D.insts[j].n}); }
+    if(dd.getFullYear() === y && dd.getMonth() === m && dd.getDate() === day){ rings.push({c:'#ff9f0a', n:'Рассрочка: '+D.insts[j].n}); }
   }
   var md2 = String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
   var iso2 = y+'-'+md2;
   for(var k=0;k<(D.events||[]).length;k++){
     var e2 = D.events[k];
-       if(e2.d === iso2 || (e2.yearly && e2.d === md2)){ ev.push({c:'#bf5af2', n:e2.n, id:e2.id, personal:1}); }
+    if(e2.d === iso2 || (e2.yearly && e2.d === md2)){ plans.push({c:e2.c||'#bf5af2', n:e2.n, id:e2.id, personal:1}); }
   }
-  return ev;
+  return {rings:rings, plans:plans, bg: bgFor(plans)};
+}
+function herDayData(y, m, day){
+  return {rings: herDayEvents(y, m, day), plans: [], bg: ''};
 }
 function herDayEvents(y, m, day){
   var ev = [];
@@ -825,7 +831,13 @@ function ringStyle(ev){
   }
   return 'background:conic-gradient('+parts.join(',')+');';
 }
-function calGridHtml(y, m, eventsFn, which, ruWeekend){
+
+function bgFor(list){
+  if(!list.length){ return ''; }
+  return ringStyle(list).substring('background:'.length);
+}
+
+function calGridHtml(y, m, dataFn, which, ruWeekend){
   var h = '';
   var dows = ['пн','вт','ср','чт','пт','сб','вс'];
   for(var w=0;w<7;w++){ h += '<div class="cal-dow">'+dows[w]+'</div>'; }
@@ -839,10 +851,13 @@ function calGridHtml(y, m, eventsFn, which, ruWeekend){
     var cls = 'cal-day';
     if(ruWeekend && isRuWeekend(dt)){ cls += ' wknd'; }
     if(dt.getFullYear()===now.getFullYear() && dt.getMonth()===now.getMonth() && dt.getDate()===now.getDate()){ cls += ' today'; }
-    var ev = eventsFn(y, m, d);
-    var inner = '<span class="cal-num">'+d+'</span>';
-    if(ev.length){ inner = '<span class="cal-ring" style="'+ringStyle(ev)+'">'+inner+'</span>'; }
-    h += '<div class="'+cls+'" data-act="cal-day" data-w="'+which+'" data-d="'+y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0')+'">'+inner+'</div>';
+    var key = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    if(which==='my' && calSel.indexOf(key) !== -1){ cls += ' sel'; }
+    var data = dataFn(y, m, d);
+    var numStyle = data.bg ? ' style="background:'+data.bg+'color:#0b0d12"' : '';
+    var inner = '<span class="cal-num"'+numStyle+'>'+d+'</span>';
+    if(data.rings.length){ inner = '<span class="cal-ring" style="'+ringStyle(data.rings)+'">'+inner+'</span>'; }
+    h += '<div class="'+cls+'" data-act="cal-day" data-w="'+which+'" data-d="'+key+'">'+inner+'</div>';
   }
   return h;
 }
@@ -850,13 +865,28 @@ function renderMyCal(){
   var now = new Date();
   var dt = new Date(now.getFullYear(), now.getMonth() + calOff, 1);
   $('myCalTitle').textContent = MONTHS[dt.getMonth()]+' '+dt.getFullYear();
-  $('myCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), myDayEvents, 'my', true);
+  $('myCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), myDayData, 'my', true);
+  var lg = '<span><i style="background:#30d158"></i>ЗП</span>'
+    + '<span><i style="background:#ff453a"></i>Платёж</span>'
+    + '<span><i style="background:#ff9f0a"></i>Рассрочка</span>'
+    + '<span><i style="background:rgba(255,255,255,.14)"></i>Выходной РФ</span>';
+  var seen = {};
+  for(var i=0;i<(D.events||[]).length;i++){
+    var e = D.events[i];
+    var c = e.c || '#bf5af2';
+    if(!seen[c]){ seen[c] = []; }
+    if(seen[c].indexOf(e.n) === -1 && seen[c].length < 2){ seen[c].push(e.n); }
+  }
+  for(var c2 in seen){
+    lg += '<span><i style="background:'+c2+'"></i>'+seen[c2].join(', ')+'</span>';
+  }
+  $('myCalLegend').innerHTML = lg;
 }
 function renderHerCal(){
   var now = new Date();
   var dt = new Date(now.getFullYear(), now.getMonth() + herOff, 1);
   $('herCalTitle').textContent = MONTHS[dt.getMonth()]+' '+dt.getFullYear();
-  $('herCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), herDayEvents, 'her', false);
+   $('herCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), herDayData, 'her', false);
 }
 
 function openCalSheet(dstr){
@@ -865,7 +895,8 @@ function openCalSheet(dstr){
   var daysInM = new Date(y, m+1, 0).getDate();
   var rows = '';
   for(var d=1; d<=daysInM; d++){
-    var evs = myDayEvents(y, m, d);
+        var dd2 = myDayData(y, m, d);
+    var evs = dd2.rings.concat(dd2.plans);
     for(var i=0;i<evs.length;i++){
       var e = evs[i];
       var left = String(d).padStart(2,'0')+'.'+String(m+1).padStart(2,'0')+' · '+e.n;
