@@ -1035,13 +1035,19 @@ function calEventAdd(){
   toast('Событие добавлено');
 }
 function calEventDel(id){
-  dConfirm('Удалить событие?', 'Удаление', true).then(function(ok){
+  dConfirm('Удалить это событие из календаря?', 'Удаление плана', true).then(function(ok){
     if(!ok){ return; }
-    D.events = D.events.filter(function(x){ return x.id !== id; });
+    var before = (D.events||[]).length;
+    D.events = (D.events||[]).filter(function(x){ return String(x.id) !== String(id); });
+    if((D.events||[]).length === before){
+      var nid = parseInt(id,10);
+      D.events = (D.events||[]).filter(function(x){ return x.id !== nid; });
+    }
     save(); render();
     var now = new Date();
     var dt = new Date(now.getFullYear(), now.getMonth()+calOff, 1);
     openCalSheet(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-01');
+    toast('Событие удалено');
   });
 }
 
@@ -1333,6 +1339,7 @@ document.addEventListener('click', function(e){
     return;
     
   }
+          else if(act === 'cal-event-del'){ calEventDel(el.getAttribute('data-i')); }
   else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
   else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
   else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
