@@ -245,3 +245,60 @@ textarea{width:100%;height:140px;background:rgba(255,255,255,.06);border:1px sol
 .ev-pal button{width:30px;height:30px;border-radius:50%;border:2px solid transparent;transition:transform .15s}
 .ev-pal button.on{border-color:#fff;transform:scale(1.12)}
 .cal-day.wknd{color:#e8a0a0}
+/* ===== ПОЛНАЯ СТИЛИЗАЦИЯ ПОД ПРИЛОЖЕНИЕ ===== */
+
+/* Полосы прокрутки — тонкие, полупрозрачные, glass-стиль */
+*{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+::-webkit-scrollbar{width:8px;height:8px;background:transparent}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:99px;border:2px solid transparent;background-clip:padding-box;transition:background .2s}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.28);background-clip:padding-box;border:2px solid transparent}
+::-webkit-scrollbar-corner{background:transparent}
+
+/* Выделение текста — в фирменных цветах */
+::selection{background:rgba(10,132,255,.35);color:#fff}
+::-moz-selection{background:rgba(10,132,255,.35);color:#fff}
+
+/* Автозаполнение браузером — убираем жёлтый/синий фон */
+input:-webkit-autofill,textarea:-webkit-autofill,select:-webkit-autofill{
+  -webkit-text-fill-color:var(--txt);
+  -webkit-box-shadow:0 0 0 1000px #141622 inset;
+  transition:background-color 9999s ease-in-out 0s;
+  caret-color:var(--txt)
+}
+
+/* Плейсхолдеры */
+input::placeholder,textarea::placeholder{color:var(--mut);opacity:.6}
+input:focus::placeholder,textarea:focus::placeholder{opacity:.3}
+
+/* Фокус на полях — бирюзовая подсветка */
+.inp:focus,textarea:focus,select:focus{border-color:rgba(10,132,255,.55);box-shadow:0 0 0 3px rgba(10,132,255,.18)}
+.search input:focus{box-shadow:none}
+
+/* Чекбоксы — glass-стиль, с фирменной галочкой */
+input[type="checkbox"]{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:6px;background:rgba(255,255,255,.06);border:1px solid var(--stroke);cursor:pointer;flex:none;position:relative;transition:.2s}
+input[type="checkbox"]:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.24)}
+input[type="checkbox"]:checked{background:linear-gradient(135deg,var(--acc),var(--pur));border-color:transparent}
+input[type="checkbox"]:checked::after{content:'';position:absolute;left:5px;top:1px;width:6px;height:12px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+input[type="checkbox"]:focus{outline:none;box-shadow:0 0 0 3px rgba(10,132,255,.18)}
+
+/* Радио-кнопки на всякий случай */
+input[type="radio"]{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid var(--stroke);cursor:pointer;flex:none;position:relative;transition:.2s}
+input[type="radio"]:hover{background:rgba(255,255,255,.1)}
+input[type="radio"]:checked{background:linear-gradient(135deg,var(--acc),var(--pur));border-color:transparent}
+input[type="radio"]:checked::after{content:'';position:absolute;left:6px;top:6px;width:8px;height:8px;border-radius:50%;background:#fff}
+
+/* Select (выпадающие списки) — стрелка в стиле glass */
+select.inp{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b91a7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 14px center;background-size:18px;padding-right:42px;-webkit-appearance:none;appearance:none}
+select.inp:focus{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364d2ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>")}
+
+/* Date input — иконка календаря в фирменном цвете */
+input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7) sepia(1) saturate(3) hue-rotate(200deg);cursor:pointer;opacity:.7}
+input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1}
+
+/* Курсор "указатель" на всех кликабельных элементах */
+[data-act],button,.hov,.hov-click,.cal-day,.env,.tx{cursor:pointer}
+input,textarea,select{cursor:text}
+
+/* Плавный scroll по странице */
+html{scroll-behavior:smooth}
