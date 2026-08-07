@@ -984,43 +984,68 @@ onAuthStateChanged(auth, function(u){
 });
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
-// Индикатор деплоя: кружок + номер запуска + время последнего успешного деплоя
-function showBuildInfo(){
+// Индикатор деплоя + автоприменение обновлений (больше без Ctrl+Shift+R)
+var watchBaseSuccess = null;
+
+function deployPaint(color, txt){
   var el = $('buildInfo');
   if(!el){ return; }
-  function paint(color, txt){
-    el.innerHTML = '<i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+color+';margin-right:6px;vertical-align:middle"></i>'+txt;
-  }
-  function ftime(s){
-    var d = new Date(s);
-    return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-  }
+  el.innerHTML = '<i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+color+';margin-right:6px;vertical-align:middle"></i>'+txt;
+}
+function deployFtime(s){
+  var d = new Date(s);
+  return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function deploySchedule(ms){
+  setTimeout(deployCheck, ms);
+}
+function deployCheck(){
   fetch('https://api.github.com/repos/pvsstr/trash-budget/actions/runs?per_page=10')
     .then(function(r){ return r.json(); })
     .then(function(data){
       var list = (data && data.workflow_runs) ? data.workflow_runs : [];
-      if(!list.length){ paint('#8b91a7','деплой: —'); return; }
+      if(!list.length){ deploySchedule(300000); return; }
       var run = null;
       for(var i=0;i<list.length;i++){
         if(String(list[i].name||'').toLowerCase().indexOf('pages') !== -1){ run = list[i]; break; }
       }
       if(!run){ run = list[0]; }
-      var st = run.status;       // completed | in_progress | queued
-      var con = run.conclusion;  // success | failure | cancelled
-      var num = '#' + run.run_number;
-      var color, txt;
-      if(st === 'completed' && con === 'success'){
-        color = '#30d158';
-        txt = 'деплой ' + ftime(run.updated_at) + ' · ' + num;
-      } else if(st === 'completed'){
-        color = '#ff453a';
-        txt = 'ошибка деплоя · ' + num;
-      } else {
-        color = '#ff9f0a';
-        txt = 'деплоится… · ' + num;
+      var success = null;
+      for(var j=0;j<list.length;j++){
+        if(list[j].status === 'completed' && list[j].conclusion === 'success'){ success = list[j]; break; }
       }
-      paint(color, txt);
+
+      var st = run.status;
+      var con = run.conclusion;
+      var num = '#' + run.run_number;
+      var delay = 300000; // в спокойное время проверяем раз в 5 минут
+
+      if(st !== 'completed'){
+        deployPaint('#ff9f0a', 'деплоится… · ' + num);
+        delay = 30000; // идёт деплой — проверяем каждые 30 секунд
+      } else if(con === 'success'){
+        deployPaint('#30d158', 'деплой ' + deployFtime(run.updated_at) + ' · ' + num);
+      } else {
+        deployPaint('#ff453a', 'ошибка деплоя · ' + num);
+      }
+
+      // Первый запуск: просто запоминаем номер последнего успешного деплоя
+      if(watchBaseSuccess === null){
+        watchBaseSuccess = success ? success.run_number : 0;
+        deploySchedule(delay);
+        return;
+      }
+
+      // Появился новый успешный деплой новее открытой страницы — перезагружаемся сами
+      if(success && success.run_number > watchBaseSuccess){
+        watchBaseSuccess = success.run_number;
+        deployPaint('#30d158', 'применяю обновление… · #' + success.run_number);
+        setTimeout(function(){ window.location.reload(); }, 2000);
+        return;
+      }
+
+      deploySchedule(delay);
     })
-    .catch(function(){ paint('#8b91a7','деплой: —'); });
+    .catch(function(){ deploySchedule(300000); });
 }
-showBuildInfo();
+deployCheck();
