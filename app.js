@@ -257,6 +257,55 @@ function sheetHead(ic, k, t, s){
 }
 function closeSheet(){ $('sheet').classList.remove('on'); $('shb').classList.remove('on'); }
 
+// ===== КАСТОМНЫЕ ДИАЛОГИ (вместо alert/confirm/prompt) =====
+var dlgResolve = null;
+function dlgBuild(){
+  if($('dlgBox')){ return; }
+  var b = document.createElement('div');
+  b.id = 'dlgb';
+  var box = document.createElement('div');
+  box.id = 'dlgBox';
+  box.className = 'glass';
+  box.innerHTML = '<div class="dlg-ic"><svg class="ic"><use href="#i-alert"/></svg></div>'
+    + '<div class="dlg-title" id="dlgTitle"></div>'
+    + '<div class="dlg-text" id="dlgText"></div>'
+    + '<input class="inp dlg-inp" id="dlgInp" style="display:none">'
+    + '<div class="dlg-btns"><button class="sh-btn ghost" id="dlgNo">Отмена</button><button class="sh-btn" id="dlgYes">ОК</button></div>';
+  document.body.appendChild(b);
+  document.body.appendChild(box);
+  var inp = $('dlgInp');
+  $('dlgb').addEventListener('click', function(){ dlgClose(null); });
+  $('dlgNo').addEventListener('click', function(){ dlgClose(null); });
+  $('dlgYes').addEventListener('click', function(){
+    dlgClose(inp.style.display !== 'none' ? inp.value : true);
+  });
+  inp.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ dlgClose(inp.value); } });
+}
+function dlgClose(val){
+  $('dlgb').classList.remove('on');
+  $('dlgBox').classList.remove('on');
+  if(dlgResolve){ var r = dlgResolve; dlgResolve = null; r(val); }
+}
+function dlgShow(o){
+  dlgBuild();
+  $('dlgTitle').textContent = o.title || '';
+  $('dlgText').textContent = o.text || '';
+  var inp = $('dlgInp');
+  if(o.input){ inp.style.display = ''; inp.placeholder = o.placeholder || ''; inp.value = o.value || ''; }
+  else { inp.style.display = 'none'; }
+  $('dlgNo').style.display = (o.confirm || o.input) ? '' : 'none';
+  var yes = $('dlgYes');
+  yes.textContent = o.btn || 'ОК';
+  yes.className = 'sh-btn' + (o.danger ? ' danger' : '');
+  $('dlgb').classList.add('on');
+  $('dlgBox').classList.add('on');
+  if(o.input){ setTimeout(function(){ inp.focus(); }, 120); }
+  return new Promise(function(res){ dlgResolve = res; });
+}
+function dAlert(text, title){ return dlgShow({text:text, title:title||'Внимание', btn:'Понятно'}); }
+function dConfirm(text, title, danger){ return dlgShow({text:text, title:title||'Подтверждение', confirm:true, btn:'Да', danger:danger}); }
+function dPrompt(text, title, placeholder){ return dlgShow({text:text, title:title||'Ввод', input:true, placeholder:placeholder}); }
+
 function openSheet(t, i){
   var h = '';
   if(t === 'balance'){
@@ -394,13 +443,15 @@ function saveEdit(){
 }
 function delEdit(){
   var f = window._ef; if(!f || !f.id){ return; }
-  if(!confirm('Удалить запись?')){ return; }
-  function rm(key){ var arr=D[key]; for(var k=0;k<arr.length;k++){ if(arr[k].id===f.id){ arr.splice(k,1); break; } } }
-  if(f.t==='sub'){ rm('subs'); }
-  if(f.t==='pay'){ rm('pays'); }
-  if(f.t==='cred'){ rm('credits'); }
-  if(f.t==='inst'){ rm('insts'); }
-  save(); closeSheet(); render(); toast('Удалено');
+  dConfirm('Удалить запись?', 'Удаление', true).then(function(ok){
+    if(!ok){ return; }
+    function rm(key){ var arr=D[key]; for(var k=0;k<arr.length;k++){ if(arr[k].id===f.id){ arr.splice(k,1); break; } } }
+    if(f.t==='sub'){ rm('subs'); }
+    if(f.t==='pay'){ rm('pays'); }
+    if(f.t==='cred'){ rm('credits'); }
+    if(f.t==='inst'){ rm('insts'); }
+    save(); closeSheet(); render(); toast('Удалено');
+  });
 }
 
 function envMatch(e, x){
@@ -976,7 +1027,7 @@ function openCalSheet(dstr, noHl){
 function calEventAdd(){
   var dv = $('evDate').value;
   var nm = $('evName').value.trim();
-  if(!dv || !nm){ alert('Укажи дату и название события.'); return; }
+  if(!dv || !nm){ dAlert('Укажи дату и название события.', 'Событие'); return; }
   var yearly = $('evYear').checked ? 1 : 0;
   D.events.push({id:Date.now(), d: yearly ? dv.slice(5) : dv, n:nm, yearly:yearly});
   save(); render();
@@ -984,12 +1035,14 @@ function calEventAdd(){
   toast('Событие добавлено');
 }
 function calEventDel(id){
-  if(!confirm('Удалить событие?')){ return; }
-  D.events = D.events.filter(function(x){ return x.id !== id; });
-  save(); render();
-  var now = new Date();
-  var dt = new Date(now.getFullYear(), now.getMonth()+calOff, 1);
-  openCalSheet(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-01');
+  dConfirm('Удалить событие?', 'Удаление', true).then(function(ok){
+    if(!ok){ return; }
+    D.events = D.events.filter(function(x){ return x.id !== id; });
+    save(); render();
+    var now = new Date();
+    var dt = new Date(now.getFullYear(), now.getMonth()+calOff, 1);
+    openCalSheet(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-01');
+  });
 }
 
 function openHerSheet(dstr){
@@ -1157,15 +1210,17 @@ document.addEventListener('click', function(e){
   }
   else if(act === 'close'){ closeSheet(); }
   else if(act === 'nexttip'){ TIPS.push(TIPS.shift()); $('tipText').textContent = TIPS[0]; closeSheet(); }
-  else if(act === 'balance-edit'){
-    var v = prompt('Текущая сумма на всех картах, ₽:');
-    if(v === null){ return; }
-    var n = parseFloat(v);
-    if(isNaN(n)){ return; }
-    var t = sums();
-    D.baseBalance = n - (t.inc - t.spend);
-    save(); closeSheet(); render(); toast('Баланс обновлён');
+    else if(act === 'balance-edit'){
+    dPrompt('Текущая сумма на всех картах, ₽:', 'Базовый баланс', 'Например: 150000').then(function(v){
+      if(v === null){ return; }
+      var n = parseFloat(v);
+      if(isNaN(n)){ return; }
+      var t = sums();
+      D.baseBalance = n - (t.inc - t.spend);
+      save(); closeSheet(); render(); toast('Баланс обновлён');
+    });
   }
+       
   else if(act === 'income-edit'){
     D.income = parseFloat($('in1').value) || D.income;
     D.salaryDay = parseInt($('in2').value) || D.salaryDay;
@@ -1173,7 +1228,7 @@ document.addEventListener('click', function(e){
   }
   else if(act === 'spend-add'){
     var amt = parseFloat($('spAmt').value);
-    if(isNaN(amt) || amt <= 0){ alert('Введите сумму траты.'); return; }
+     if(isNaN(amt) || amt <= 0){ dAlert('Введите сумму траты.', 'Новая трата'); return; }
     var cat = $('spCat').value || 'other';
     var note = $('spNote').value.trim();
     var d = $('spDate').value || iso(new Date());
@@ -1182,11 +1237,13 @@ document.addEventListener('click', function(e){
     catTouched = false;
     save(); render(); toast('Трата добавлена: −'+fmt(amt));
   }
-  else if(act === 'del-spend'){
+    else if(act === 'del-spend'){
     var id5 = parseInt(el.getAttribute('data-id'), 10);
-    if(!confirm('Удалить трату?')){ return; }
-    D.spends = D.spends.filter(function(x){ return x.id !== id5; });
-    save(); closeSheet(); render(); toast('Трата удалена');
+    dConfirm('Удалить трату?', 'Удаление', true).then(function(ok){
+      if(!ok){ return; }
+      D.spends = D.spends.filter(function(x){ return x.id !== id5; });
+      save(); closeSheet(); render(); toast('Трата удалена');
+    });
   }
   else if(act === 'addincome'){
     $('sheetBody').innerHTML = sheetHead('i-in','c-grn','Добавить поступление','сумма попадёт в реальный остаток')
@@ -1197,7 +1254,7 @@ document.addEventListener('click', function(e){
   }
   else if(act === 'income-save'){
     var a2 = parseFloat($('incAmt').value);
-    if(isNaN(a2) || a2 <= 0){ alert('Введите сумму поступления.'); return; }
+     if(isNaN(a2) || a2 <= 0){ dAlert('Введите сумму поступления.', 'Поступление'); return; }
     D.incomes.push({id:Date.now(), d: $('incDate').value || iso(new Date()), n: $('incNote').value.trim() || 'Поступление', s:a2});
     save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
   }
@@ -1245,7 +1302,7 @@ document.addEventListener('click', function(e){
   else if(act === 'ev-color'){ planColor = el.getAttribute('data-c'); paintPal(); }
   else if(act === 'plan-save'){
     var nm = $('evName').value.trim();
-    if(!nm){ alert('Дай плану название.'); return; }
+      if(!nm){ dAlert('Дай плану название.', 'Новый план'); return; }
     var col = autoColor(nm) || planColor || freeColor();
     var yearly = $('evYear').checked ? 1 : 0;
     var gid = Date.now();
@@ -1264,13 +1321,17 @@ document.addEventListener('click', function(e){
     var t = el.getAttribute('data-t');
     var i2 = el.getAttribute('data-i');
     var d2 = el.getAttribute('data-d');
-    if(!confirm('Отменить это авто-событие на данную дату?')){ return; }
-    D.cancelled.push(t+'-'+i2+'-'+d2);
-    save(); render();
-    var now2 = new Date();
-    var dt2 = new Date(now2.getFullYear(), now2.getMonth()+calOff, 1);
-    openCalSheet(dt2.getFullYear()+'-'+String(dt2.getMonth()+1).padStart(2,'0')+'-01', 1);
-    toast('Авто-событие отменено');
+      dConfirm('Отменить это авто-событие на данную дату?', 'Отмена', true).then(function(ok){
+      if(!ok){ return; }
+      D.cancelled.push(t+'-'+i2+'-'+d2);
+      save(); render();
+      var now2 = new Date();
+      var dt2 = new Date(now2.getFullYear(), now2.getMonth()+calOff, 1);
+      openCalSheet(dt2.getFullYear()+'-'+String(dt2.getMonth()+1).padStart(2,'0')+'-01', 1);
+      toast('Авто-событие отменено');
+    });
+    return;
+    
   }
   else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
   else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
@@ -1289,7 +1350,7 @@ gbtn.addEventListener('click', function(){
     return signInWithRedirect(auth, prov);
   }).catch(function(err2){
     gbtn.textContent = 'Войти через Google';
-    alert('Не удалось войти: ' + ((err2 && err2.code) || err2));
+       dAlert('Не удалось войти: ' + ((err2 && err2.code) || err2), 'Ошибка входа');
   });
 });
 
