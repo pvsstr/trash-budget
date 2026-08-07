@@ -344,11 +344,35 @@ function openSheet(t, i){
       + rowHtml('Зарплата', D.salaryDay+'-го числа, авто')
       + '<div class="form" style="margin-top:12px"><input class="inp" id="in1" type="number" value="'+D.income+'" placeholder="Зарплата, ₽"><input class="inp" id="in2" type="number" value="'+D.salaryDay+'" placeholder="День зарплаты"></div>'
       + '<button class="sh-btn" data-act="income-edit">Сохранить</button>';
-  } else if(t === 'leaks'){
+   } else if(t === 'leaks'){
     var act = D.leaks.filter(function(x){ return !x.fixed; });
     var ls = 0; var lr = '';
-    for(var l=0;l<act.length;l++){ ls += act[l].s; lr += rowHtml(act[l].n, fmt(act[l].s)+'/мес'); }
-    h = sheetHead('i-shield','c-red','Утечки', fmt(ls)+' в месяц активных') + (lr || rowHtml('Активных утечек нет','—'));
+    for(var l=0;l<act.length;l++){
+      ls += act[l].s;
+      lr += '<div class="dig-item" style="cursor:pointer" data-act="sheet" data-t="leak" data-i="'+act[l].id+'"><span>'+act[l].n+'</span><b>'+fmt(act[l].s)+'/мес ›</b></div>';
+    }
+    h = sheetHead('i-shield','c-red','Утечки', fmt(ls)+' в месяц активных')
+      + (lr || rowHtml('Активных утечек нет','—'))
+      + tipHtml('Нажми на утечку, чтобы увидеть, из каких транзакций она сложилась.');
+  } else if(t === 'leak'){
+    var lk = null;
+    for(var q=0;q<D.leaks.length;q++){ if(D.leaks[q].id === i){ lk = D.leaks[q]; } }
+    if(lk){
+      var lcat = leakCat(lk);
+      var listL = allSpends().filter(function(x){ return x.cat === lcat; }).sort(function(a,b){ return b.d - a.d; }).slice(0, 30);
+      h = sheetHead('i-shield','c-red', lk.n, fmt(lk.s)+' в месяц · '+lk.tx+' транзакций')
+        + '<p style="font-size:13px;color:var(--mut);margin:4px 4px 10px">'+lk.adv+'</p>'
+        + '<div class="cap" style="margin:4px 4px 6px">Транзакции утечки</div>';
+      if(listL.length){
+        for(var tl=0;tl<listL.length;tl++){
+          h += '<div class="dig-item"><span>'+listL[tl].d.getDate()+'.'+String(listL[tl].d.getMonth()+1).padStart(2,'0')+' · '+listL[tl].n+'</span><b>-'+fmt(listL[tl].s)+'</b></div>';
+        }
+      } else {
+        h += '<div class="dig-item"><span>Транзакций за период не найдено</span><b>—</b></div>';
+      }
+      h += '<button class="sh-btn" style="margin-top:12px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="leak-fix" data-i="'+lk.id+'">Устранено</button>';
+    }
+
   } else if(t === 'tip'){
     h = sheetHead('i-cap','c-pur','Финграмотность','совет дня')
       + '<p style="font-size:14px">'+TIPS[new Date().getDate() % TIPS.length]+'</p>'
@@ -492,6 +516,16 @@ function delEdit(){
     if(f.t==='inst'){ rm('insts'); }
     save(); closeSheet(); render(); toast('Удалено');
   });
+}
+function leakCat(l){
+  var s = (l.n||'').toLowerCase();
+  if(s.indexOf('самокат') !== -1 || s.indexOf('каршер') !== -1){ return 'scooters'; }
+  if(s.indexOf('кафе') !== -1){ return 'cafe'; }
+  if(s.indexOf('подписк') !== -1){ return 'subs'; }
+  if(s.indexOf('такси') !== -1){ return 'taxi'; }
+  if(s.indexOf('аренд') !== -1 || s.indexOf('жиль') !== -1){ return 'home'; }
+  if(s.indexOf('продукт') !== -1){ return 'grocery'; }
+  return l.cat || 'other';
 }
 
 function fixDel(t, i){
