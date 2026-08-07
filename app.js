@@ -275,10 +275,38 @@ function openSheet(t, i){
     var ls = 0; var lr = '';
     for(var l=0;l<act.length;l++){ ls += act[l].s; lr += rowHtml(act[l].n, fmt(act[l].s)+'/мес'); }
     h = sheetHead('i-shield','c-red','Утечки', fmt(ls)+' в месяц активных') + (lr || rowHtml('Активных утечек нет','—'));
-  } else if(t === 'tip'){
+    } else if(t === 'tip'){
     h = sheetHead('i-cap','c-pur','Финграмотность','совет дня')
       + '<p style="font-size:14px">'+TIPS[new Date().getDate() % TIPS.length]+'</p>'
       + '<button class="sh-btn" data-act="nexttip">Следующий совет</button>';
+  } else if(t === 'health'){
+    var safeH = calcSafeBalance();
+    var cush = (D.goals && D.goals.cushion) || 0;
+    var cushT = (D.goals && D.goals.cushionT) || 100000;
+    var actL = D.leaks.filter(function(x){ return !x.fixed; }).length;
+    var pCush = Math.min(30, Math.round((cush / cushT) * 30));
+    var pSafe = safeH > 0 ? 20 : 0;
+    var pLeak = actL * 7;
+    var score = Math.max(10, Math.min(100, 50 + pCush + pSafe - pLeak));
+    h = sheetHead('i-shield','c-pur','Индекс прочности','как считается балл')
+      + rowHtml('База каждого', '50 баллов')
+      + rowHtml('Подушка: '+fmt(cush)+' из '+fmt(cushT), '+'+pCush+' баллов')
+      + rowHtml('Свободные деньги после платежей', pSafe > 0 ? '+20 баллов' : '0 баллов')
+      + rowHtml('Активные утечки ('+actL+')', '−'+pLeak+' баллов')
+      + rowHtml('Твой индекс', score+' / 100')
+      + tipHtml('Индекс показывает, насколько бюджет устойчив к форс-мажорам. Растёт от подушки безопасности и свободных денег, падает от активных утечек.');
+  } else if(t === 'daily'){
+    var realD = realBal();
+    var payD = nextPay(30);
+    var safeD = calcSafeBalance();
+    var dailyD = calcDailyLimit();
+    h = sheetHead('i-cal','c-blu','Дневной лимит','откуда берётся цифра')
+      + rowHtml('Реальный остаток', fmt(realD))
+      + rowHtml('Платежи на 30 дней', '−'+fmt(payD))
+      + rowHtml('Безопасно к трате', fmt(safeD))
+      + rowHtml('Дней до зарплаты', dailyD.daysLeft+' дн.')
+      + rowHtml('Лимит на день', fmt(dailyD.perDay))
+      + tipHtml('Формула: (остаток − платежи на 30 дней) ÷ дней до зарплаты. Столько можно тратить каждый день, чтобы денег гарантированно хватило до зарплаты.');
   }
   $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on');
