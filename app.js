@@ -837,6 +837,23 @@ function bgFor(list){
   return ringStyle(list).substring('background:'.length);
 }
 
+function rgba(hex, a){
+  var h = hex.replace('#','');
+  if(h.length === 3){ h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; }
+  var r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';
+}
+function semiGrad(list){
+  var a = 0.25;
+  if(list.length === 1){ return 'linear-gradient('+rgba(list[0].c,a)+','+rgba(list[0].c,a)+')'; }
+  var seg = 100 / list.length;
+  var parts = [];
+  for(var i=0;i<list.length;i++){
+    parts.push(rgba(list[i].c,a)+' '+(i*seg).toFixed(1)+'% '+((i+1)*seg).toFixed(1)+'%');
+  }
+  return 'conic-gradient('+parts.join(',')+')';
+}
+
 function calGridHtml(y, m, dataFn, which, ruWeekend){
   var h = '';
   var dows = ['пн','вт','ср','чт','пт','сб','вс'];
@@ -850,17 +867,22 @@ function calGridHtml(y, m, dataFn, which, ruWeekend){
     var dt = new Date(y, m, d);
     var cls = 'cal-day';
     if(ruWeekend && isRuWeekend(dt)){ cls += ' wknd'; }
-    if(dt.getFullYear()===now.getFullYear() && dt.getMonth()===now.getMonth() && dt.getDate()===now.getDate()){ cls += ' today'; }
+    var isToday = (dt.getFullYear()===now.getFullYear() && dt.getMonth()===now.getMonth() && dt.getDate()===now.getDate());
+    if(isToday){ cls += ' today'; }
     var key = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     if(which==='my' && calSel.indexOf(key) !== -1){ cls += ' sel'; }
     var data = dataFn(y, m, d);
-    var numStyle = data.bg ? ' style="background:'+data.bg+'color:#0b0d12"' : '';
+    var layers = [];
+    if(data.plans.length){ layers.push(semiGrad(data.plans)); }
+    if(isToday){ layers.push('linear-gradient(rgba(10,132,255,.25),rgba(10,132,255,.25))'); }
+    var numStyle = layers.length ? ' style="background:'+layers.join(',')+' #10121a;'+(isToday?'color:var(--teal);':'')+'"' : '';
     var inner = '<span class="cal-num"'+numStyle+'>'+d+'</span>';
     if(data.rings.length){ inner = '<span class="cal-ring" style="'+ringStyle(data.rings)+'">'+inner+'</span>'; }
     h += '<div class="'+cls+'" data-act="cal-day" data-w="'+which+'" data-d="'+key+'">'+inner+'</div>';
   }
   return h;
 }
+
 function renderMyCal(){
   var now = new Date();
   var dt = new Date(now.getFullYear(), now.getMonth() + calOff, 1);
