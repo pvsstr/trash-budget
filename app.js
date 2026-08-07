@@ -12,6 +12,8 @@ var viewOff = 0;
 var pMode = 'm';
 var pOff = 0;
 var catTouched = false;
+var calOff = 0;
+var herOff = 0;
 var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 var MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 
@@ -150,6 +152,7 @@ function normalize(){
     D.insts=[{id:1,n:'Рассрочка',d:'2026-08-23',s:5000},{id:2,n:'Рассрочка',d:'2026-09-23',s:12000},{id:3,n:'Рассрочка',d:'2026-10-23',s:12000},{id:4,n:'Рассрочка',d:'2026-11-23',s:12000},{id:5,n:'Рассрочка',d:'2026-12-23',s:12000},{id:6,n:'Рассрочка (финал)',d:'2027-01-23',s:4624}];
   }
   D.learned=D.learned||[];
+    D.events=D.events||[]; D.her=D.her||{};
   D.goals=D.goals||{cushion:0,cushionT:100000,vacation:0,vacationT:200000};
 }
 
@@ -776,6 +779,86 @@ function renderDashboardNew() {
   if ($('sGoalsVal')) $('sGoalsVal').textContent = fmt(goalsTotal);
 }
 
+// ===== КАЛЕНДАРИ =====
+var RU_HOLIDAYS = ['01-01','01-02','01-03','01-04','01-05','01-06','01-07','01-08','02-23','03-08','05-01','05-09','06-12','11-04','12-31'];
+function isRuWeekend(d){
+  var wd = d.getDay();
+  if(wd === 0 || wd === 6){ return true; }
+  var md = String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  return RU_HOLIDAYS.indexOf(md) !== -1;
+}
+function myDayEvents(y, m, day){
+  var ev = [];
+  var sd = salaryDate(y, m);
+  if(sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === day){ ev.push({c:'#30d158', n:'Зарплата'}); }
+  for(var i=0;i<(D.pays||[]).length;i++){
+    if((D.pays[i].d||0) === day){ ev.push({c:'#ff453a', n:'Платёж: '+D.pays[i].n}); }
+  }
+  for(var j=0;j<(D.insts||[]).length;j++){
+    var dd = parseD(D.insts[j].d);
+    if(dd.getFullYear() === y && dd.getMonth() === m && dd.getDate() === day){ ev.push({c:'#ff9f0a', n:'Рассрочка: '+D.insts[j].n}); }
+  }
+  var md2 = String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  var iso2 = y+'-'+md2;
+  for(var k=0;k<(D.events||[]).length;k++){
+    var e2 = D.events[k];
+    if(e2.d === iso2 || (e2.yearly && e2.d === md2)){ ev.push({c:'#bf5af2', n:e2.n}); }
+  }
+  return ev;
+}
+function herDayEvents(y, m, day){
+  var ev = [];
+  if(day === 1 || day === 16){ ev.push({c:'#30d158', n:'ЗП любимой'}); }
+  var key = y+'-'+String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  var st = (D.her||{})[key];
+  if(st === 1){ ev.push({c:'#0a84ff', n:'Работа'}); }
+  if(st === 0){ ev.push({c:'#bf5af2', n:'Выходной'}); }
+  return ev;
+}
+function ringStyle(ev){
+  if(!ev.length){ return ''; }
+  if(ev.length === 1){ return 'background:'+ev[0].c+';'; }
+  var seg = 100 / ev.length;
+  var parts = [];
+  for(var i=0;i<ev.length;i++){
+    parts.push(ev[i].c+' '+(i*seg).toFixed(1)+'% '+((i+1)*seg).toFixed(1)+'%');
+  }
+  return 'background:conic-gradient('+parts.join(',')+');';
+}
+function calGridHtml(y, m, eventsFn, which, ruWeekend){
+  var h = '';
+  var dows = ['пн','вт','ср','чт','пт','сб','вс'];
+  for(var w=0;w<7;w++){ h += '<div class="cal-dow">'+dows[w]+'</div>'; }
+  var first = new Date(y, m, 1);
+  var blank = (first.getDay()+6)%7;
+  for(var b=0;b<blank;b++){ h += '<div class="cal-day empty"></div>'; }
+  var days = new Date(y, m+1, 0).getDate();
+  var now = new Date();
+  for(var d=1;d<=days;d++){
+    var dt = new Date(y, m, d);
+    var cls = 'cal-day';
+    if(ruWeekend && isRuWeekend(dt)){ cls += ' wknd'; }
+    if(dt.getFullYear()===now.getFullYear() && dt.getMonth()===now.getMonth() && dt.getDate()===now.getDate()){ cls += ' today'; }
+    var ev = eventsFn(y, m, d);
+    var inner = '<span class="cal-num">'+d+'</span>';
+    if(ev.length){ inner = '<span class="cal-ring" style="'+ringStyle(ev)+'">'+inner+'</span>'; }
+    h += '<div class="'+cls+'" data-act="cal-day" data-w="'+which+'" data-d="'+y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0')+'">'+inner+'</div>';
+  }
+  return h;
+}
+function renderMyCal(){
+  var now = new Date();
+  var dt = new Date(now.getFullYear(), now.getMonth() + calOff, 1);
+  $('myCalTitle').textContent = MONTHS[dt.getMonth()]+' '+dt.getFullYear();
+  $('myCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), myDayEvents, 'my', true);
+}
+function renderHerCal(){
+  var now = new Date();
+  var dt = new Date(now.getFullYear(), now.getMonth() + herOff, 1);
+  $('herCalTitle').textContent = MONTHS[dt.getMonth()]+' '+dt.getFullYear();
+  $('herCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), herDayEvents, 'her', false);
+}
+
 function render(){
   var now = new Date();
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
@@ -807,6 +890,8 @@ function render(){
   try { renderSpend(); } catch(e) { console.error('Ошибка в renderSpend:', e); }
   try { renderIncome(); } catch(e) { console.error('Ошибка в renderIncome:', e); }
   try { renderLearn(); } catch(e) { console.error('Ошибка в renderLearn:', e); }
+    try { renderMyCal(); } catch(e) { console.error('Ошибка в renderMyCal:', e); }
+  try { renderHerCal(); } catch(e) { console.error('Ошибка в renderHerCal:', e); }
 }
 
 function go(p){
@@ -915,6 +1000,8 @@ document.addEventListener('click', function(e){
     save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
   }
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
+      else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
+  else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
   else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
   else if(act === 'send'){ ask(); }
   else if(act === 'exit'){ signOut(auth); }
