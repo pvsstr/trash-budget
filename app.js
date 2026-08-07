@@ -1180,9 +1180,9 @@ document.addEventListener('click', function(e){
     save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
   }
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
-      else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
+  else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
-        e  else if(act === 'cal-day'){
+  else if(act === 'cal-day'){
     if(el.getAttribute('data-w')==='her'){ openHerSheet(el.getAttribute('data-d')); }
     else if(calSelectMode){
       var k = el.getAttribute('data-d');
@@ -1232,10 +1232,10 @@ document.addEventListener('click', function(e){
     render(); closeSheet();
     toast('План добавлен: '+nm);
   }
-  else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
-  else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
   else if(act === 'cal-event-add'){ calEventAdd(); }
   else if(act === 'cal-event-del'){ calEventDel(parseInt(el.getAttribute('data-i'),10)); }
+  else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
+  else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
   else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
   else if(act === 'send'){ ask(); }
   else if(act === 'exit'){ signOut(auth); }
