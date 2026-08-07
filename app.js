@@ -853,7 +853,22 @@ function semiGrad(list){
   }
   return 'conic-gradient('+parts.join(',')+')';
 }
-
+var EV_COLORS = ['#a3e635','#f5c518','#0a84ff','#bf5af2','#ff375f','#ff9f0a','#64d2ff','#30d158','#ff6b35','#e0aaff','#4cc9f0','#f72585','#80ed99','#ffd60a','#9d4edd','#48bfe3'];
+var planColor = null;
+function freeColor(){
+  for(var i=0;i<EV_COLORS.length;i++){
+    var used = false;
+    for(var j=0;j<(D.events||[]).length;j++){ if(D.events[j].c === EV_COLORS[i]){ used = true; break; } }
+    if(!used){ return EV_COLORS[i]; }
+  }
+  return EV_COLORS[(D.events||[]).length % EV_COLORS.length];
+}
+function autoColor(name){
+  var s = (name||'').toLowerCase();
+  if(s.indexOf('отпуск') !== -1 || s.indexOf('каникул') !== -1){ return '#a3e635'; }
+  if(s.indexOf('день рожд') !== -1 || s.indexOf('др ') !== -1 || s === 'др'){ return '#f5c518'; }
+  return null;
+}
 function calGridHtml(y, m, dataFn, which, ruWeekend){
   var h = '';
   var dows = ['пн','вт','ср','чт','пт','сб','вс'];
@@ -913,6 +928,7 @@ function renderHerCal(){
 
 function openCalSheet(dstr){
   var p = dstr.split('-');
+    window._calSheetDate = dstr;
   var y = +p[0], m = +p[1]-1, day = +p[2];
   var daysInM = new Date(y, m+1, 0).getDate();
   var rows = '';
@@ -931,13 +947,7 @@ function openCalSheet(dstr){
   }
   if(!rows){ rows = '<div class="dig-item"><span>В этом месяце пока пусто</span><b>—</b></div>'; }
   $('sheetBody').innerHTML = sheetHead('i-cal','c-pur','Планы на '+MONTHS[m]+' '+y,'авто — зарплата, платежи и рассрочки; свои события можно удалять')
-    + '<div style="max-height:260px;overflow-y:auto">'+rows+'</div>'
-    + '<div class="cap" style="margin:14px 4px 6px">Добавить своё событие</div>'
-    + '<div class="form">'
-    + '<div class="row2"><input class="inp" id="evDate" type="date" value="'+dstr+'"><input class="inp" id="evName" placeholder="Название (отпуск, ДР...)"></div>'
-    + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)"><input type="checkbox" id="evYear" style="width:18px;height:18px"> повторять ежегодно (день рождения и т.п.)</label>'
-    + '</div>'
-    + '<button class="sh-btn" data-act="cal-event-add">Добавить в календарь</button>';
+        + '<button class="sh-btn" data-act="cal-select-from-sheet">Выбрать дни и добавить план</button>';
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
 }
@@ -997,7 +1007,38 @@ function herFill(dstr){
   openHerSheet(dstr);
   toast('График 3/3 заполнен на 60 дней');
 }
-
+function openPlanSheet(){
+  planColor = freeColor();
+  var dates = calSel.slice().sort();
+  function hum(s){ var p = s.split('-'); return p[2]+'.'+p[1]+'.'+p[0]; }
+  var listTxt = dates.length === 1 ? hum(dates[0]) : dates.length+' дн.: '+hum(dates[0])+' – '+hum(dates[dates.length-1]);
+  $('sheetBody').innerHTML = sheetHead('i-target','c-pur','Новый план', listTxt)
+    + '<div class="form">'
+    + '<input class="inp" id="evName" placeholder="Название (отпуск, ДР, проект...)">'
+    + '<div class="hint">Отпуск — всегда салатовый, день рождения — всегда золотой. Для остального выбери цвет ниже.</div>'
+    + '<div class="ev-pal" id="evPal"></div>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)"><input type="checkbox" id="evYear" style="width:18px;height:18px"> повторять ежегодно</label>'
+    + '</div>'
+    + '<button class="sh-btn" data-act="plan-save">Сохранить план</button>'
+    + '<button class="sh-btn ghost" data-act="cal-cancel">Отмена</button>';
+  paintPal();
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+  $('evName').addEventListener('input', function(){
+    var ac = autoColor(this.value);
+    if(ac){ planColor = ac; paintPal(); }
+  });
+}
+function paintPal(){
+  var h = '';
+  var found = false;
+  for(var i=0;i<EV_COLORS.length;i++){
+    if(EV_COLORS[i] === planColor){ found = true; }
+    h += '<button data-act="ev-color" data-c="'+EV_COLORS[i]+'" class="'+(EV_COLORS[i]===planColor?'on':'')+'" style="background:'+EV_COLORS[i]+'"></button>';
+  }
+  if(!found){ h += '<button data-act="ev-color" data-c="'+planColor+'" class="on" style="background:'+planColor+'"></button>'; }
+  $('evPal').innerHTML = h;
+}
 function render(){
   var now = new Date();
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
@@ -1141,7 +1182,56 @@ document.addEventListener('click', function(e){
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
       else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
-        else if(act === 'cal-day'){ if(el.getAttribute('data-w')==='her'){ openHerSheet(el.getAttribute('data-d')); } else { openCalSheet(el.getAttribute('data-d')); } }
+        e  else if(act === 'cal-day'){
+    if(el.getAttribute('data-w')==='her'){ openHerSheet(el.getAttribute('data-d')); }
+    else if(calSelectMode){
+      var k = el.getAttribute('data-d');
+      var ix = calSel.indexOf(k);
+      if(ix === -1){ calSel.push(k); } else { calSel.splice(ix,1); }
+      $('calSelectBtn').textContent = 'Добавить ('+calSel.length+')';
+      renderMyCal();
+    }
+    else { openCalSheet(el.getAttribute('data-d')); }
+  }
+  else if(act === 'cal-select'){
+    if(!calSelectMode){
+      calSelectMode = true; calSel = [];
+      $('calSelectBtn').textContent = 'Добавить (0)';
+      $('calCancelBtn').classList.remove('hidden');
+      renderMyCal();
+    } else if(calSel.length){ openPlanSheet(); }
+  }
+  else if(act === 'cal-cancel'){
+    calSelectMode = false; calSel = [];
+    $('calSelectBtn').textContent = '+ план';
+    $('calCancelBtn').classList.add('hidden');
+    closeSheet(); renderMyCal();
+  }
+  else if(act === 'cal-select-from-sheet'){
+    var sd0 = window._calSheetDate;
+    closeSheet();
+    calSelectMode = true; calSel = sd0 ? [sd0] : [];
+    $('calSelectBtn').textContent = 'Добавить ('+calSel.length+')';
+    $('calCancelBtn').classList.remove('hidden');
+    renderMyCal();
+  }
+  else if(act === 'ev-color'){ planColor = el.getAttribute('data-c'); paintPal(); }
+  else if(act === 'plan-save'){
+    var nm = $('evName').value.trim();
+    if(!nm){ alert('Дай плану название.'); return; }
+    var col = autoColor(nm) || planColor || freeColor();
+    var yearly = $('evYear').checked ? 1 : 0;
+    var gid = Date.now();
+    for(var pi=0;pi<calSel.length;pi++){
+      D.events.push({id:gid+pi, gid:gid, d: yearly ? calSel[pi].slice(5) : calSel[pi], n:nm, c:col, yearly:yearly});
+    }
+    save();
+    calSelectMode = false; calSel = [];
+    $('calSelectBtn').textContent = '+ план';
+    $('calCancelBtn').classList.add('hidden');
+    render(); closeSheet();
+    toast('План добавлен: '+nm);
+  }
   else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
   else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
   else if(act === 'cal-event-add'){ calEventAdd(); }
