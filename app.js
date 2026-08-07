@@ -956,10 +956,44 @@ onAuthStateChanged(auth, function(u){
 });
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
-// ВЕРСИЯ СБОРКИ: перед каждым коммитом меняй дату и время в кавычках ниже
-var BUILD = '06.08 15:21';
+// Индикатор деплоя: кружок + номер + время последнего успешного деплоя
 function showBuildInfo(){
   var el = $('buildInfo');
-  if (el) el.textContent = 'обновлено: ' + BUILD;
+  if(!el){ return; }
+  function paint(color, txt){
+    el.innerHTML = '<i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+color+';margin-right:6px;vertical-align:middle"></i>'+txt;
+  }
+  function ftime(s){
+    var d = new Date(s);
+    return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  }
+  function handle(list){
+    if(!(list instanceof Array) || list.length === 0){ return false; }
+    var last = list[0];
+    var done = null;
+    for(var i=0;i<list.length;i++){
+      var s = String(list[i].status||'').toLowerCase();
+      if(s==='succeeded'||s==='built'){ done = list[i]; break; }
+    }
+    var st = String(last.status||'').toLowerCase();
+    var busy = (st==='queued'||st==='in_progress'||st==='building');
+    var color = (st==='succeeded'||st==='built') ? '#30d158' : (busy ? '#ff9f0a' : '#ff453a');
+    var num = String(last.id||''); if(num.length>6){ num = '…'+num.slice(-6); }
+    var txt;
+    if(done){ txt = 'деплой '+ftime(done.updated_at||done.created_at)+' · #'+num; }
+    else if(busy){ txt = 'деплоится… · #'+num; }
+    else { txt = 'ошибка деплоя · #'+num; }
+    paint(color, txt);
+    return true;
+  }
+  fetch('https://api.github.com/repos/pvsstr/trash-budget/pages/deployments?per_page=5')
+    .then(function(r){ return r.json(); })
+    .then(function(list){ if(!handle(list)){ throw 0; } })
+    .catch(function(){
+      fetch('https://api.github.com/repos/pvsstr/trash-budget/pages/builds?per_page=5')
+        .then(function(r){ return r.json(); })
+        .then(function(list){ if(!handle(list)){ paint('#8b91a7','деплой: —'); } })
+        .catch(function(){ paint('#8b91a7','деплой: —'); });
+    });
 }
 showBuildInfo();
