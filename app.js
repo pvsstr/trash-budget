@@ -382,6 +382,35 @@ function openSheet(t, i){
       + rowHtml('Лимит на день', fmt(dailyD.perDay))
       + tipHtml('Формула: (остаток − платежи на 30 дней) ÷ дней до зарплаты. Столько можно тратить каждый день, чтобы денег гарантированно хватило до зарплаты.');
   }
+
+  } else if(t === 'fixed'){
+    h = sheetHead('i-card','c-blu','Обязательные траты','всё, что нужно платить каждый месяц');
+    h += '<div class="cap" style="margin:4px 4px 6px">Платежи</div>';
+    for(var fp=0;fp<D.pays.length;fp++){
+      var pp=D.pays[fp];
+      h += '<div class="dig-item"><span>'+pp.n+' · '+pp.d+'-го'+(pp.postponed?' · отложен до '+pp.postponed:'')+'</span><b>'+fmt(pp.s)+'</b></div>'
+        + '<div class="dlg-btns" style="margin:6px 0 12px"><button class="sh-btn ghost" style="margin:0" data-act="edit" data-t="pay" data-i="'+pp.id+'">Изменить</button><button class="sh-btn ghost" style="margin:0" data-act="postpone" data-t="pay" data-i="'+pp.id+'">Отложить</button><button class="sh-btn danger" style="margin:0" data-act="fix-del" data-t="pay" data-i="'+pp.id+'">Удалить</button></div>';
+    }
+    h += '<div class="cap" style="margin:4px 4px 6px">Подписки</div>';
+    for(var fs=0;fs<D.subs.length;fs++){
+      var ss=D.subs[fs];
+      h += '<div class="dig-item"><span>'+ss.n+(ss.off?' · отключена':'')+'</span><b>'+fmt(ss.s)+'/мес</b></div>'
+        + '<div class="dlg-btns" style="margin:6px 0 12px"><button class="sh-btn ghost" style="margin:0" data-act="edit" data-t="sub" data-i="'+ss.id+'">Изменить</button><button class="sh-btn danger" style="margin:0" data-act="fix-del" data-t="sub" data-i="'+ss.id+'">Удалить</button></div>';
+    }
+    h += '<div class="cap" style="margin:4px 4px 6px">Кредиты и рассрочки</div>';
+    for(var fc=0;fc<D.credits.length;fc++){
+      var cc=D.credits[fc];
+      h += '<div class="dig-item"><span>'+cc.n+'</span><b>'+fmt(cc.cur)+'</b></div>'
+        + '<div class="dlg-btns" style="margin:6px 0 12px"><button class="sh-btn ghost" style="margin:0" data-act="edit" data-t="cred" data-i="'+cc.id+'">Изменить</button><button class="sh-btn danger" style="margin:0" data-act="fix-del" data-t="cred" data-i="'+cc.id+'">Удалить</button></div>';
+    }
+    for(var fi=0;fi<D.insts.length;fi++){
+      var ii=D.insts[fi];
+      h += '<div class="dig-item"><span>'+ii.n+' · '+ii.d+'</span><b>'+fmt(ii.s)+'</b></div>'
+        + '<div class="dlg-btns" style="margin:6px 0 12px"><button class="sh-btn ghost" style="margin:0" data-act="edit" data-t="inst" data-i="'+ii.id+'">Изменить</button><button class="sh-btn danger" style="margin:0" data-act="fix-del" data-t="inst" data-i="'+ii.id+'">Удалить</button></div>';
+    }
+    h += '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="add" data-t="pay">+ Платёж</button><button class="sh-btn ghost" style="margin:0" data-act="add" data-t="sub">+ Подписка</button></div>';
+  }
+  
   $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
@@ -451,6 +480,25 @@ function delEdit(){
     if(f.t==='cred'){ rm('credits'); }
     if(f.t==='inst'){ rm('insts'); }
     save(); closeSheet(); render(); toast('Удалено');
+  });
+}
+
+function fixDel(t, i){
+  dConfirm('Удалить эту обязательную трату?', 'Удаление', true).then(function(ok){
+    if(!ok){ return; }
+    var key = t==='pay' ? 'pays' : (t==='sub' ? 'subs' : (t==='cred' ? 'credits' : 'insts'));
+    var arr = D[key];
+    for(var k=0;k<arr.length;k++){ if(arr[k].id===i){ arr.splice(k,1); break; } }
+    save(); render(); openSheet('fixed'); toast('Удалено');
+  });
+}
+function fixPostpone(t, i){
+  dPrompt('До какой даты отложить платёж?', 'Отложить платёж', '2026-09-20').then(function(v){
+    if(!v){ return; }
+    var key = t==='pay' ? 'pays' : 'subs';
+    var arr = D[key];
+    for(var k=0;k<arr.length;k++){ if(arr[k].id===i){ arr[k].postponed = v; break; } }
+    save(); render(); openSheet('fixed'); toast('Платёж отложен до '+v);
   });
 }
 
@@ -1340,6 +1388,8 @@ document.addEventListener('click', function(e){
     
   }
           else if(act === 'cal-event-del'){ calEventDel(el.getAttribute('data-i')); }
+              else if(act === 'fix-del'){ fixDel(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i'),10)); }
+  else if(act === 'postpone'){ fixPostpone(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
   else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
   else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
