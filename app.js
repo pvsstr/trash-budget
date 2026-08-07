@@ -24,13 +24,29 @@ function parseD(s){
   var q=s.split('-'); return new Date(+q[0], +q[1]-1, +q[2]);
 }
 function addM(dt, k){ return new Date(dt.getFullYear(), dt.getMonth()+k, dt.getDate()); }
+// Реальная дата ЗП в месяце: обычно salaryDay-е, но суббота->пятница, воскресенье->понедельник
+function salaryDate(y, m){
+  var day = D.salaryDay || 20;
+  var wd = new Date(y, m, day).getDay();
+  if(wd === 6){ return new Date(y, m, day - 1); }
+  if(wd === 0){ return new Date(y, m, day + 1); }
+  return new Date(y, m, day);
+}
 function cycleStart(dt){
-  if(dt.getDate() >= 20){ return new Date(dt.getFullYear(), dt.getMonth(), 20); }
-  return new Date(dt.getFullYear(), dt.getMonth()-1, 20);
+  var cur = salaryDate(dt.getFullYear(), dt.getMonth());
+  if(dt >= cur){ return cur; }
+  return salaryDate(dt.getFullYear(), dt.getMonth() - 1);
+}
+function cycleEnd(cs){
+  return salaryDate(cs.getFullYear(), cs.getMonth() + 1);
+}
+var WEEKDAYS = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+function payDateStr(d){
+  return d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()+' ('+WEEKDAYS[d.getDay()]+')';
 }
 function cycLabel(cs){
-  var ce = addM(cs,1);
-  return cs.getDate()+'.'+String(cs.getMonth()+1).padStart(2,'0')+' – '+String(ce.getDate()-1).padStart(2,'0')+'.'+String(ce.getMonth()+1).padStart(2,'0')+'.'+ce.getFullYear();
+  var ce = cycleEnd(cs);
+  return cs.getDate()+'.'+String(cs.getMonth()+1).padStart(2,'0')+' – '+ce.getDate()+'.'+String(ce.getMonth()+1).padStart(2,'0')+'.'+ce.getFullYear();
 }
 function toast(m){ var t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(function(){ t.remove(); },2500); }
 
@@ -156,7 +172,7 @@ function sums(){
   return {inc:si, spend:ss};
 }
 function realBal(){ var t = sums(); return (D.baseBalance||0) + t.inc - t.spend; }
-function inCycle(dt, cs){ var ce = addM(cs,1); return dt >= cs && dt < ce; }
+function inCycle(dt, cs){ var ce = cycleEnd(cs); return dt >= cs && dt < ce; }
 
 function nextPay(days){
   var now = new Date(); var sum = 0; var i;
@@ -189,8 +205,9 @@ function calcSafeBalance() {
 function calcDailyLimit() {
   var safe = calcSafeBalance();
   var now = new Date();
-  var salaryDay = D.salaryDay || 20;
-  var daysLeft = ((salaryDay - now.getDate()) + 30) % 30 || 30;
+  var cur = salaryDate(now.getFullYear(), now.getMonth());
+  var next = now < cur ? cur : cycleEnd(cur);
+  var daysLeft = Math.max(1, Math.round((next - now) / 864e5));
   return { perDay: Math.round(safe / daysLeft), daysLeft: daysLeft };
 }
 
@@ -247,11 +264,14 @@ function openSheet(t, i){
     var now = new Date();
     var cs = cycleStart(now);
     var daily = calcDailyLimit();
+       var curPay = salaryDate(now.getFullYear(), now.getMonth());
+    var nextPay = now < curPay ? curPay : cycleEnd(curPay);
     h = sheetHead('i-cal','c-pur','Цикл зарплаты', cycLabel(cs))
+      + rowHtml('Ближайшая зарплата', payDateStr(nextPay))
       + rowHtml('Дней до зарплаты', daily.daysLeft + ' дн.')
       + rowHtml('Дневной лимит', fmt(daily.perDay))
       + rowHtml('Чистый остаток', fmt(calcSafeBalance()))
-      + tipHtml('Расчёт привязан к вашей зарплате '+D.salaryDay+'-го числа.');
+      + tipHtml('Зарплата '+D.salaryDay+'-го числа; если выпадает на выходные — приходит в пятницу или понедельник. Цикл считается от реальной даты поступления.');
   } else if(t === 'upcoming-detail'){
     h = sheetHead('i-card','c-blu','Платежи на 3 дня', fmt(nextPay(3)))
       + rowHtml('Ближайшие 3 дня', fmt(nextPay(3)))
@@ -740,7 +760,7 @@ function renderDashboardNew() {
   }
 
   var cs = cycleStart(now);
-  var ce = addM(cs, 1);
+   var ce = cycleEnd(cs);
   var totalDaysInCycle = Math.round((ce - cs) / 864e5);
   var daysPassed = Math.round((now - cs) / 864e5);
   var cyclePct = Math.min(100, Math.max(0, Math.round((daysPassed / totalDaysInCycle) * 100)));
