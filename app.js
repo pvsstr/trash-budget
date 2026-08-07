@@ -382,30 +382,42 @@ function openSheet(t, i){
       + rowHtml('Лимит на день', fmt(dailyD.perDay))
       + tipHtml('Формула: (остаток − платежи на 30 дней) ÷ дней до зарплаты. Столько можно тратить каждый день, чтобы денег гарантированно хватило до зарплаты.');
   
-  } else if(t === 'fixed'){
-    h = sheetHead('i-card','c-blu','Обязательные траты','всё, что нужно платить каждый месяц');
-    h += '<div class="cap" style="margin:4px 4px 6px">Платежи</div>';
+   } else if(t === 'fixed'){
+    var paysSum = 0, subsSum = 0;
+    for(var a1=0;a1<D.pays.length;a1++){ paysSum += D.pays[a1].s; }
+    for(var a2=0;a2<D.subs.length;a2++){ if(!D.subs[a2].off){ subsSum += D.subs[a2].s; } }
+    h = sheetHead('i-card','c-blu','Обязательные траты','из чего складывается сумма на панели')
+      + rowHtml('Платежи в месяц', fmt(paysSum))
+      + rowHtml('Активные подписки', fmt(subsSum))
+      + rowHtml('Итого / мес', fmt(paysSum + subsSum))
+      + tipHtml('Карточка «Обязательства / мес» на панели = платежи + активные подписки. Кредиты и рассрочки показаны ниже отдельным списком и в эту сумму не входят.')
+      + '<div class="cap" style="margin:10px 4px 6px">Платежи</div>';
     for(var fp=0;fp<D.pays.length;fp++){
       var pp=D.pays[fp];
-      h += '<div class="dig-item"><span>'+pp.n+' · '+pp.d+'-го'+(pp.postponed?' · отложен до '+pp.postponed:'')+'</span><b>'+fmt(pp.s)+'</b></div>'
-        + '<div class="dlg-btns" style="margin:6px 0 12px"><button class="sh-btn ghost" style="margin:0" data-act="edit" data-t="pay" data-i="'+pp.id+'">Изменить</button><button class="sh-btn ghost" style="margin:0" data-act="postpone" data-t="pay" data-i="'+pp.id+'">Отложить</button><button class="sh-btn danger" style="margin:0" data-act="fix-del" data-t="pay" data-i="'+pp.id+'">Удалить</button></div>';
+      h += '<div class="dig-item"><span>'+pp.n+' · '+pp.d+'-го'+(pp.postponed?' · отложен до '+pp.postponed:'')+'</span><span class="row-actions"><b>'+fmt(pp.s)+'</b>'
+        + '<button class="mini-btn" data-act="edit" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+        + '<button class="mini-btn" data-act="postpone" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-cal"/></svg></button>'
+        + '<button class="mini-btn danger" data-act="fix-del" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
-    h += '<div class="cap" style="margin:4px 4px 6px">Подписки</div>';
+    h += '<div class="cap" style="margin:10px 4px 6px">Подписки</div>';
     for(var fs=0;fs<D.subs.length;fs++){
       var ss=D.subs[fs];
-      h += '<div class="dig-item"><span>'+ss.n+(ss.off?' · отключена':'')+'</span><b>'+fmt(ss.s)+'/мес</b></div>'
-        + '<div class="dlg-btns" style="margin:6px 0 12px"><button class="sh-btn ghost" style="margin:0" data-act="edit" data-t="sub" data-i="'+ss.id+'">Изменить</button><button class="sh-btn danger" style="margin:0" data-act="fix-del" data-t="sub" data-i="'+ss.id+'">Удалить</button></div>';
+      h += '<div class="dig-item"><span>'+ss.n+(ss.off?' · отключена':'')+'</span><span class="row-actions"><b>'+fmt(ss.s)+'/мес</b>'
+        + '<button class="mini-btn" data-act="edit" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+        + '<button class="mini-btn danger" data-act="fix-del" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
-    h += '<div class="cap" style="margin:4px 4px 6px">Кредиты и рассрочки</div>';
+    h += '<div class="cap" style="margin:10px 4px 6px">Кредиты и рассрочки (вне итога)</div>';
     for(var fc=0;fc<D.credits.length;fc++){
       var cc=D.credits[fc];
-      h += '<div class="dig-item"><span>'+cc.n+'</span><b>'+fmt(cc.cur)+'</b></div>'
-        + '<div class="dlg-btns" style="margin:6px 0 12px"><button class="sh-btn ghost" style="margin:0" data-act="edit" data-t="cred" data-i="'+cc.id+'">Изменить</button><button class="sh-btn danger" style="margin:0" data-act="fix-del" data-t="cred" data-i="'+cc.id+'">Удалить</button></div>';
+      h += '<div class="dig-item"><span>'+cc.n+'</span><span class="row-actions"><b>'+fmt(cc.cur)+'</b>'
+        + '<button class="mini-btn" data-act="edit" data-t="cred" data-i="'+cc.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+        + '<button class="mini-btn danger" data-act="fix-del" data-t="cred" data-i="'+cc.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
     for(var fi=0;fi<D.insts.length;fi++){
       var ii=D.insts[fi];
-      h += '<div class="dig-item"><span>'+ii.n+' · '+ii.d+'</span><b>'+fmt(ii.s)+'</b></div>'
-        + '<div class="dlg-btns" style="margin:6px 0 12px"><button class="sh-btn ghost" style="margin:0" data-act="edit" data-t="inst" data-i="'+ii.id+'">Изменить</button><button class="sh-btn danger" style="margin:0" data-act="fix-del" data-t="inst" data-i="'+ii.id+'">Удалить</button></div>';
+      h += '<div class="dig-item"><span>'+ii.n+' · '+ii.d+'</span><span class="row-actions"><b>'+fmt(ii.s)+'</b>'
+        + '<button class="mini-btn" data-act="edit" data-t="inst" data-i="'+ii.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+        + '<button class="mini-btn danger" data-act="fix-del" data-t="inst" data-i="'+ii.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
     h += '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="add" data-t="pay">+ Платёж</button><button class="sh-btn ghost" style="margin:0" data-act="add" data-t="sub">+ Подписка</button></div>';
   }
