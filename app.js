@@ -1142,7 +1142,7 @@ onAuthStateChanged(auth, function(u){
 });
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
-// Индикатор деплоя + автоприменение обновлений (больше без Ctrl+Shift+R)
+// Индикатор деплоя + автоприменение обновлений (без Ctrl+Shift+R)
 var watchBaseSuccess = null;
 
 function deployPaint(color, txt){
@@ -1158,12 +1158,19 @@ function deploySchedule(ms){
   setTimeout(deployCheck, ms);
 }
 function deployCheck(){
-  // cache:'no-cache' — если ничего не изменилось, GitHub ответит 304 и НЕ потратит лимит запросов
   fetch('https://api.github.com/repos/pvsstr/trash-budget/actions/runs?per_page=10', { cache: 'no-cache' })
-    .then(function(r){ return r.json(); })
+    .then(function(r){
+      if(r.status === 403 || r.status === 429){
+        deployPaint('#8b91a7', 'лимит API · пауза 10 мин');
+        deploySchedule(600000);
+        return null;
+      }
+      return r.json();
+    })
     .then(function(data){
+      if(!data){ return; }
       var list = (data && data.workflow_runs) ? data.workflow_runs : [];
-      if(!list.length){ deploySchedule(60000); return; }
+      if(!list.length){ deployPaint('#8b91a7','деплой: —'); deploySchedule(300000); return; }
       var run = null;
       for(var i=0;i<list.length;i++){
         if(String(list[i].name||'').toLowerCase().indexOf('pages') !== -1){ run = list[i]; break; }
@@ -1177,11 +1184,10 @@ function deployCheck(){
       var st = run.status;
       var con = run.conclusion;
       var num = '#' + run.run_number;
-      var delay = 30000; // спокойное время: проверка каждые 30 секунд
+      var delay = 60000; // проверка раз в 60 секунд — безопасно для лимита
 
       if(st !== 'completed'){
         deployPaint('#ff9f0a', 'деплоится… · ' + num);
-        delay = 15000; // идёт деплой: каждые 15 секунд
       } else if(con === 'success'){
         deployPaint('#30d158', 'деплой ' + deployFtime(run.updated_at) + ' · ' + num);
       } else {
@@ -1205,6 +1211,9 @@ function deployCheck(){
 
       deploySchedule(delay);
     })
-    .catch(function(){ deploySchedule(60000); });
+    .catch(function(){
+      deployPaint('#8b91a7', 'деплой: —');
+      deploySchedule(60000);
+    });
 }
 deployCheck();
