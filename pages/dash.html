@@ -31,9 +31,9 @@
     </div>
 
     <div class="glass card-padding cal-card">
-            <div class="cap-title"><span>Производственный календарь РФ</span><button id="calCancelBtn" class="cal-add hidden" style="background:rgba(255,69,58,.14);color:var(--red)" data-act="cal-cancel">отмена</button><button id="calSelectBtn" class="cal-add" data-act="cal-select">+ план</button></div>
+                  <div class="cap-title"><span>Производственный календарь РФ</span><button class="cal-add" style="background:rgba(255,255,255,.08);color:var(--txt)" data-act="cal-month">список</button><button id="calCancelBtn" class="cal-add hidden" style="background:rgba(255,69,58,.14);color:var(--red)" data-act="cal-cancel">отмена</button><button id="calSelectBtn" class="cal-add" data-act="cal-select">+ план</button></div>
       
-      <div class="cal-nav"><button data-act="cal-prev" data-w="my">‹</button><b id="myCalTitle">--</b><button data-act="cal-next" data-w="my">›</button></div>
+            <div class="cal-nav"><button data-act="cal-prev" data-w="my">‹</button><b id="myCalTitle" data-act="cal-month" style="cursor:pointer">--</b><button data-act="cal-next" data-w="my">›</button></div>
       <div id="myCal" class="cal-grid"></div>
             <div class="cal-legend" id="myCalLegend"></div>
     </div>
