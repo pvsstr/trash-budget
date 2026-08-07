@@ -314,3 +314,10 @@ html{scroll-behavior:smooth}
 .dlg-inp{margin-bottom:16px;text-align:center}
 .dlg-btns{display:flex;gap:10px}
 .dlg-btns .sh-btn{margin-top:0}
+/* Компактные кнопки-иконки (стандарт для всех списков) */
+.mini-btn{width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.07);color:var(--mut);display:inline-flex;align-items:center;justify-content:center;flex:none;transition:background .2s,color .2s}
+.mini-btn:hover{background:rgba(255,255,255,.14);color:var(--txt)}
+.mini-btn.danger:hover{background:rgba(255,69,58,.16);color:var(--red)}
+.mini-btn .ic{width:15px;height:15px}
+.row-actions{display:flex;gap:6px;align-items:center;flex:none}
+.row-actions b{margin-right:2px}
