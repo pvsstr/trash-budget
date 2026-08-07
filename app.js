@@ -154,7 +154,7 @@ function normalize(){
     D.insts=[{id:1,n:'Рассрочка',d:'2026-08-23',s:5000},{id:2,n:'Рассрочка',d:'2026-09-23',s:12000},{id:3,n:'Рассрочка',d:'2026-10-23',s:12000},{id:4,n:'Рассрочка',d:'2026-11-23',s:12000},{id:5,n:'Рассрочка',d:'2026-12-23',s:12000},{id:6,n:'Рассрочка (финал)',d:'2027-01-23',s:4624}];
   }
   D.learned=D.learned||[];
-  D.events=D.events||[]; D.her=D.her||{};
+   D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[];
   D.goals=D.goals||{cushion:0,cushionT:100000,vacation:0,vacationT:200000};
 }
 
@@ -793,13 +793,22 @@ function myDayData(y, m, day){
   var rings = [];
   var plans = [];
   var sd = salaryDate(y, m);
-  if(sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === day){ rings.push({c:'#30d158', n:'Зарплата'}); }
-  for(var i=0;i<(D.pays||[]).length;i++){
-    if((D.pays[i].d||0) === day){ rings.push({c:'#ff453a', n:'Платёж: '+D.pays[i].n}); }
+    if(sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === day){
+    var ck0 = 'salary-'+iso2;
+    if((D.cancelled||[]).indexOf(ck0) === -1){ rings.push({c:'#30d158', n:'Зарплата', id:'salary', type:'salary', date:iso2}); }
+  }
+    for(var i=0;i<(D.pays||[]).length;i++){
+    if((D.pays[i].d||0) === day){
+      var ck1 = 'pay-'+D.pays[i].id+'-'+iso2;
+      if((D.cancelled||[]).indexOf(ck1) === -1){ rings.push({c:'#ff453a', n:'Платёж: '+D.pays[i].n, id:D.pays[i].id, type:'pay', date:iso2}); }
+    }
   }
   for(var j=0;j<(D.insts||[]).length;j++){
     var dd = parseD(D.insts[j].d);
-    if(dd.getFullYear() === y && dd.getMonth() === m && dd.getDate() === day){ rings.push({c:'#ff9f0a', n:'Рассрочка: '+D.insts[j].n}); }
+    if(dd.getFullYear() === y && dd.getMonth() === m && dd.getDate() === day){
+      var ck2 = 'inst-'+D.insts[j].id+'-'+iso2;
+      if((D.cancelled||[]).indexOf(ck2) === -1){ rings.push({c:'#ff9f0a', n:'Рассрочка: '+D.insts[j].n, id:D.insts[j].id, type:'inst', date:iso2}); }
+    }
   }
   var md2 = String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
   var iso2 = y+'-'+md2;
@@ -881,7 +890,9 @@ function calGridHtml(y, m, dataFn, which, ruWeekend){
   for(var d=1;d<=days;d++){
     var dt = new Date(y, m, d);
     var cls = 'cal-day';
+        var dayOfWeek = dt.getDay();
     if(ruWeekend && isRuWeekend(dt)){ cls += ' wknd'; }
+    else if(dayOfWeek === 0 || dayOfWeek === 6){ cls += ' wknd'; }
     var isToday = (dt.getFullYear()===now.getFullYear() && dt.getMonth()===now.getMonth() && dt.getDate()===now.getDate());
     if(isToday){ cls += ' today'; }
     var key = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
@@ -901,18 +912,23 @@ function calGridHtml(y, m, dataFn, which, ruWeekend){
 function renderMyCal(){
   var now = new Date();
   var dt = new Date(now.getFullYear(), now.getMonth() + calOff, 1);
-  $('myCalTitle').textContent = MONTHS[dt.getMonth()]+' '+dt.getFullYear();
-  $('myCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), myDayData, 'my', true);
+  var y = dt.getFullYear(), m = dt.getMonth();
+  $('myCalTitle').textContent = MONTHS[m]+' '+y;
+  $('myCal').innerHTML = calGridHtml(y, m, myDayData, 'my', true);
   var lg = '<span><i style="background:#30d158"></i>ЗП</span>'
     + '<span><i style="background:#ff453a"></i>Платёж</span>'
-    + '<span><i style="background:#ff9f0a"></i>Рассрочка</span>'
-    + '<span><i style="background:rgba(255,255,255,.14)"></i>Выходной РФ</span>';
+    + '<span><i style="background:#ff9f0a"></i>Рассрочка</span>';
   var seen = {};
-  for(var i=0;i<(D.events||[]).length;i++){
-    var e = D.events[i];
-    var c = e.c || '#bf5af2';
-    if(!seen[c]){ seen[c] = []; }
-    if(seen[c].indexOf(e.n) === -1 && seen[c].length < 2){ seen[c].push(e.n); }
+  var daysInM = new Date(y, m+1, 0).getDate();
+  for(var d=1; d<=daysInM; d++){
+    var dd2 = myDayData(y, m, d);
+    var evs = dd2.plans;
+    for(var i=0;i<evs.length;i++){
+      var e = evs[i];
+      var c = e.c || '#bf5af2';
+      if(!seen[c]){ seen[c] = []; }
+      if(seen[c].indexOf(e.n) === -1 && seen[c].length < 2){ seen[c].push(e.n); }
+    }
   }
   for(var c2 in seen){
     lg += '<span><i style="background:'+c2+'"></i>'+seen[c2].join(', ')+'</span>';
@@ -938,9 +954,14 @@ function openCalSheet(dstr, noHl){
     for(var i=0;i<evs.length;i++){
       var e = evs[i];
       var left = String(d).padStart(2,'0')+'.'+String(m+1).padStart(2,'0')+' · '+e.n;
-      var right = e.personal
-        ? '<button class="del" data-act="cal-event-del" data-i="'+e.id+'"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></button>'
-        : '<span style="color:var(--mut);font-size:10px">авто</span>';
+            var right;
+      if(e.personal){
+        right = '<button class="del" data-act="cal-event-del" data-i="'+e.id+'"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></button>';
+      } else if(e.type){
+        right = '<button class="del" data-act="cal-auto-del" data-t="'+e.type+'" data-i="'+e.id+'" data-d="'+e.date+'"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></button>';
+      } else {
+        right = '<span style="color:var(--mut);font-size:10px">авто</span>';
+      }
       var hl = (d === day) ? ' style="background:rgba(10,132,255,.08);border-radius:8px;padding-left:6px"' : '';
       rows += '<div class="dig-item"'+hl+'><span>'+left+'</span>'+right+'</div>';
     }
@@ -1239,7 +1260,18 @@ document.addEventListener('click', function(e){
     toast('План добавлен: '+nm);
   }
   else if(act === 'cal-event-add'){ calEventAdd(); }
-  else if(act === 'cal-event-del'){ calEventDel(parseInt(el.getAttribute('data-i'),10)); }
+   else if(act === 'cal-auto-del'){
+    var t = el.getAttribute('data-t');
+    var i2 = el.getAttribute('data-i');
+    var d2 = el.getAttribute('data-d');
+    if(!confirm('Отменить это авто-событие на данную дату?')){ return; }
+    D.cancelled.push(t+'-'+i2+'-'+d2);
+    save(); render();
+    var now2 = new Date();
+    var dt2 = new Date(now2.getFullYear(), now2.getMonth()+calOff, 1);
+    openCalSheet(dt2.getFullYear()+'-'+String(dt2.getMonth()+1).padStart(2,'0')+'-01', 1);
+    toast('Авто-событие отменено');
+  }
   else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
   else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
   else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
