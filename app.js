@@ -802,7 +802,7 @@ function myDayEvents(y, m, day){
   var iso2 = y+'-'+md2;
   for(var k=0;k<(D.events||[]).length;k++){
     var e2 = D.events[k];
-    if(e2.d === iso2 || (e2.yearly && e2.d === md2)){ ev.push({c:'#bf5af2', n:e2.n}); }
+       if(e2.d === iso2 || (e2.yearly && e2.d === md2)){ ev.push({c:'#bf5af2', n:e2.n, id:e2.id, personal:1}); }
   }
   return ev;
 }
@@ -857,6 +857,54 @@ function renderHerCal(){
   var dt = new Date(now.getFullYear(), now.getMonth() + herOff, 1);
   $('herCalTitle').textContent = MONTHS[dt.getMonth()]+' '+dt.getFullYear();
   $('herCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), herDayEvents, 'her', false);
+}
+
+function openCalSheet(dstr){
+  var p = dstr.split('-');
+  var y = +p[0], m = +p[1]-1, day = +p[2];
+  var daysInM = new Date(y, m+1, 0).getDate();
+  var rows = '';
+  for(var d=1; d<=daysInM; d++){
+    var evs = myDayEvents(y, m, d);
+    for(var i=0;i<evs.length;i++){
+      var e = evs[i];
+      var left = String(d).padStart(2,'0')+'.'+String(m+1).padStart(2,'0')+' · '+e.n;
+      var right = e.personal
+        ? '<button class="del" data-act="cal-event-del" data-i="'+e.id+'"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></button>'
+        : '<span style="color:var(--mut);font-size:10px">авто</span>';
+      var hl = (d === day) ? ' style="background:rgba(10,132,255,.08);border-radius:8px;padding-left:6px"' : '';
+      rows += '<div class="dig-item"'+hl+'><span>'+left+'</span>'+right+'</div>';
+    }
+  }
+  if(!rows){ rows = '<div class="dig-item"><span>В этом месяце пока пусто</span><b>—</b></div>'; }
+  $('sheetBody').innerHTML = sheetHead('i-cal','c-pur','Планы на '+MONTHS[m]+' '+y,'авто — зарплата, платежи и рассрочки; свои события можно удалять')
+    + '<div style="max-height:260px;overflow-y:auto">'+rows+'</div>'
+    + '<div class="cap" style="margin:14px 4px 6px">Добавить своё событие</div>'
+    + '<div class="form">'
+    + '<div class="row2"><input class="inp" id="evDate" type="date" value="'+dstr+'"><input class="inp" id="evName" placeholder="Название (отпуск, ДР...)"></div>'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut)"><input type="checkbox" id="evYear" style="width:18px;height:18px"> повторять ежегодно (день рождения и т.п.)</label>'
+    + '</div>'
+    + '<button class="sh-btn" data-act="cal-event-add">Добавить в календарь</button>';
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+function calEventAdd(){
+  var dv = $('evDate').value;
+  var nm = $('evName').value.trim();
+  if(!dv || !nm){ alert('Укажи дату и название события.'); return; }
+  var yearly = $('evYear').checked ? 1 : 0;
+  D.events.push({id:Date.now(), d: yearly ? dv.slice(5) : dv, n:nm, yearly:yearly});
+  save(); render();
+  openCalSheet(dv);
+  toast('Событие добавлено');
+}
+function calEventDel(id){
+  if(!confirm('Удалить событие?')){ return; }
+  D.events = D.events.filter(function(x){ return x.id !== id; });
+  save(); render();
+  var now = new Date();
+  var dt = new Date(now.getFullYear(), now.getMonth()+calOff, 1);
+  openCalSheet(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-01');
 }
 
 function render(){
@@ -1002,6 +1050,9 @@ document.addEventListener('click', function(e){
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
       else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
+      else if(act === 'cal-day'){ if(el.getAttribute('data-w')==='my'){ openCalSheet(el.getAttribute('data-d')); } }
+  else if(act === 'cal-event-add'){ calEventAdd(); }
+  else if(act === 'cal-event-del'){ calEventDel(parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
   else if(act === 'send'){ ask(); }
   else if(act === 'exit'){ signOut(auth); }
