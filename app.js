@@ -1,4 +1,4 @@
-//оаоао
+// restart deploy
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
@@ -154,7 +154,7 @@ function normalize(){
     D.insts=[{id:1,n:'Рассрочка',d:'2026-08-23',s:5000},{id:2,n:'Рассрочка',d:'2026-09-23',s:12000},{id:3,n:'Рассрочка',d:'2026-10-23',s:12000},{id:4,n:'Рассрочка',d:'2026-11-23',s:12000},{id:5,n:'Рассрочка',d:'2026-12-23',s:12000},{id:6,n:'Рассрочка (финал)',d:'2027-01-23',s:4624}];
   }
   D.learned=D.learned||[];
-    D.events=D.events||[]; D.her=D.her||{};
+  D.events=D.events||[]; D.her=D.her||{};
   D.goals=D.goals||{cushion:0,cushionT:100000,vacation:0,vacationT:200000};
 }
 
@@ -269,10 +269,10 @@ function openSheet(t, i){
     var now = new Date();
     var cs = cycleStart(now);
     var daily = calcDailyLimit();
-       var curPay = salaryDate(now.getFullYear(), now.getMonth());
-    var nextPay = now < curPay ? curPay : cycleEnd(curPay);
+    var curPay = salaryDate(now.getFullYear(), now.getMonth());
+    var nextPayDate = now < curPay ? curPay : cycleEnd(curPay);
     h = sheetHead('i-cal','c-pur','Цикл зарплаты', cycLabel(cs))
-      + rowHtml('Ближайшая зарплата', payDateStr(nextPay))
+      + rowHtml('Ближайшая зарплата', payDateStr(nextPayDate))
       + rowHtml('Дней до зарплаты', daily.daysLeft + ' дн.')
       + rowHtml('Дневной лимит', fmt(daily.perDay))
       + rowHtml('Чистый остаток', fmt(calcSafeBalance()))
@@ -300,7 +300,7 @@ function openSheet(t, i){
     var ls = 0; var lr = '';
     for(var l=0;l<act.length;l++){ ls += act[l].s; lr += rowHtml(act[l].n, fmt(act[l].s)+'/мес'); }
     h = sheetHead('i-shield','c-red','Утечки', fmt(ls)+' в месяц активных') + (lr || rowHtml('Активных утечек нет','—'));
-    } else if(t === 'tip'){
+  } else if(t === 'tip'){
     h = sheetHead('i-cap','c-pur','Финграмотность','совет дня')
       + '<p style="font-size:14px">'+TIPS[new Date().getDate() % TIPS.length]+'</p>'
       + '<button class="sh-btn" data-act="nexttip">Следующий совет</button>';
@@ -765,7 +765,7 @@ function renderDashboardNew() {
   }
 
   var cs = cycleStart(now);
-   var ce = cycleEnd(cs);
+  var ce = cycleEnd(cs);
   var totalDaysInCycle = Math.round((ce - cs) / 864e5);
   var daysPassed = Math.round((now - cs) / 864e5);
   var cyclePct = Math.min(100, Math.max(0, Math.round((daysPassed / totalDaysInCycle) * 100)));
@@ -923,7 +923,7 @@ function renderHerCal(){
   var now = new Date();
   var dt = new Date(now.getFullYear(), now.getMonth() + herOff, 1);
   $('herCalTitle').textContent = MONTHS[dt.getMonth()]+' '+dt.getFullYear();
-   $('herCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), herDayData, 'her', false);
+  $('herCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), herDayData, 'her', false);
 }
 
 function openCalSheet(dstr, noHl){
@@ -933,7 +933,7 @@ function openCalSheet(dstr, noHl){
   var daysInM = new Date(y, m+1, 0).getDate();
   var rows = '';
   for(var d=1; d<=daysInM; d++){
-        var dd2 = myDayData(y, m, d);
+    var dd2 = myDayData(y, m, d);
     var evs = dd2.rings.concat(dd2.plans);
     for(var i=0;i<evs.length;i++){
       var e = evs[i];
@@ -947,7 +947,8 @@ function openCalSheet(dstr, noHl){
   }
   if(!rows){ rows = '<div class="dig-item"><span>В этом месяце пока пусто</span><b>—</b></div>'; }
   $('sheetBody').innerHTML = sheetHead('i-cal','c-pur','Планы на '+MONTHS[m]+' '+y,'авто — зарплата, платежи и рассрочки; свои события можно удалять')
-        + '<button class="sh-btn" data-act="cal-select-from-sheet">Выбрать дни и добавить план</button>';
+    + '<div style="max-height:300px;overflow-y:auto">'+rows+'</div>'
+    + '<button class="sh-btn" data-act="cal-select-from-sheet">Выбрать дни и добавить план</button>';
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
 }
@@ -1070,7 +1071,7 @@ function render(){
   try { renderSpend(); } catch(e) { console.error('Ошибка в renderSpend:', e); }
   try { renderIncome(); } catch(e) { console.error('Ошибка в renderIncome:', e); }
   try { renderLearn(); } catch(e) { console.error('Ошибка в renderLearn:', e); }
-    try { renderMyCal(); } catch(e) { console.error('Ошибка в renderMyCal:', e); }
+  try { renderMyCal(); } catch(e) { console.error('Ошибка в renderMyCal:', e); }
   try { renderHerCal(); } catch(e) { console.error('Ошибка в renderHerCal:', e); }
 }
 
@@ -1182,7 +1183,7 @@ document.addEventListener('click', function(e){
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
-      else if(act === 'cal-month'){
+  else if(act === 'cal-month'){
     var now0 = new Date();
     var dt0 = new Date(now0.getFullYear(), now0.getMonth() + calOff, 1);
     openCalSheet(dt0.getFullYear()+'-'+String(dt0.getMonth()+1).padStart(2,'0')+'-01', 1);
@@ -1274,7 +1275,7 @@ function loadPages() {
         div.innerHTML = html.trim();
         var pageDiv = div.firstElementChild;
         if (pageDiv && pageDiv.classList.contains('page')) {
-          pageDiv.id = 'p-' + pageName; // Автоматически добавляем нужный ID
+          pageDiv.id = 'p-' + pageName;
           container.appendChild(pageDiv);
         }
       });
@@ -1283,7 +1284,6 @@ function loadPages() {
   return Promise.all(promises);
 }
 
-// Сохраняем промис, чтобы дождаться загрузки перед авторизацией
 window._pagesLoaded = loadPages();
 
 onAuthStateChanged(auth, function(u){
@@ -1296,7 +1296,6 @@ onAuthStateChanged(auth, function(u){
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
   
-  // Ждем, пока все страницы подгрузятся в DOM
   (window._pagesLoaded || Promise.resolve()).then(function() {
     var name = (u.displayName || 'друг').split(' ')[0];
     if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
@@ -1323,13 +1322,14 @@ onAuthStateChanged(auth, function(u){
       $('spCat').addEventListener('change', function(){ catTouched = true; });
       $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } });
 
-      render(); // Запускаем отрисовку данных
-      go('dash'); // И переключаемся на главную
+      render();
+      go('dash');
     }).catch(function(){ normalize(); render(); go('dash'); });
   });
 });
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+
 // Индикатор деплоя + автоприменение обновлений (без Ctrl+Shift+R)
 var watchBaseSuccess = null;
 
@@ -1372,7 +1372,7 @@ function deployCheck(){
       var st = run.status;
       var con = run.conclusion;
       var num = '#' + run.run_number;
-      var delay = 60000; // проверка раз в 60 секунд — безопасно для лимита
+      var delay = 60000;
 
       if(st !== 'completed'){
         deployPaint('#ff9f0a', 'деплоится… · ' + num);
@@ -1382,14 +1382,12 @@ function deployCheck(){
         deployPaint('#ff453a', 'ошибка деплоя · ' + num);
       }
 
-      // Первый запуск: запоминаем номер последнего успешного деплоя
       if(watchBaseSuccess === null){
         watchBaseSuccess = success ? success.run_number : 0;
         deploySchedule(delay);
         return;
       }
 
-      // Новый успешный деплой новее открытой страницы — применяем обновление
       if(success && success.run_number > watchBaseSuccess){
         watchBaseSuccess = success.run_number;
         deployPaint('#30d158', 'применяю обновление… · #' + success.run_number);
