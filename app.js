@@ -16,6 +16,7 @@ var calOff = 0;
 var herOff = 0;
 var calSel = [];
 var calSelectMode = false;
+var leakOff = 0;
 var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 var MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 
@@ -28,7 +29,6 @@ function parseD(s){
   var q=s.split('-'); return new Date(+q[0], +q[1]-1, +q[2]);
 }
 function addM(dt, k){ return new Date(dt.getFullYear(), dt.getMonth()+k, dt.getDate()); }
-// Реальная дата ЗП в месяце: обычно salaryDay-е, но суббота->пятница, воскресенье->понедельник
 function salaryDate(y, m){
   var day = D.salaryDay || 20;
   var wd = new Date(y, m, day).getDay();
@@ -41,9 +41,7 @@ function cycleStart(dt){
   if(dt >= cur){ return cur; }
   return salaryDate(dt.getFullYear(), dt.getMonth() - 1);
 }
-function cycleEnd(cs){
-  return salaryDate(cs.getFullYear(), cs.getMonth() + 1);
-}
+function cycleEnd(cs){ return salaryDate(cs.getFullYear(), cs.getMonth() + 1); }
 var WEEKDAYS = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
 function payDateStr(d){
   return d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()+' ('+WEEKDAYS[d.getDay()]+')';
@@ -92,14 +90,14 @@ function autoCat(t){
 }
 
 var LESSONS = [
-{id:1,t:'Подушка безопасности',x:'Это 3–6 месяцев обязательных трат (аренда, еда, транспорт) на отдельном счёте. Она защищает от кредиток при форс-мажоре. Начните с 10% дохода в месяц — первые 20 000 ₽ дают спокойствие.'},
-{id:2,t:'Платите себе первыми',x:'В день зарплаты сразу переводите план в накопления, до любых трат. Тратите то, что осталось — а не наоборот. Это главное правило богатства.'},
-{id:3,t:'Лавина долгов',x:'Гасите сначала долг с самой высокой ставкой. Кредитка выгодна только при полном погашении в грейс-период, иначе ~40% годовых съедают бюджет.'},
-{id:4,t:'Метод конвертов',x:'Разделите деньги по категориям с лимитами сразу после зарплаты. Конверт пуст — траты в категории стоп до следующего цикла. В этом приложении конверты живут в разделе «Бюджет».'},
-{id:5,t:'Правило 24 часов',x:'Любое незапланированное желание дороже 500 ₽ — ждите сутки и согласуйте с Копилотом. В 70% случаев желание уходит, деньги остаются на отпуске.'},
-{id:6,t:'Аудит подписок',x:'Раз в месяц смотрите все автоплатежи. Треть не используется — это до 10 000 ₽ в год скрытых потерь. Отключайте прямо в разделе «Бюджет».'},
-{id:7,t:'Обязательное и гибкое',x:'Аренда и подписки урезать трудно. Кафе, самокаты, такси — гибкие траты, именно там живёт экономия. Управляйте ими дневным лимитом из утреннего дайджеста.'},
-{id:8,t:'Рассрочка без ловушек',x:'Рассрочка безопасна, только если платёж уже вписан в бюджет и не вытесняет конверты. Проверяйте до, а не после. График ваших рассрочек — в разделе «Бюджет».'}];
+{id:1,t:'Подушка безопасности',x:'Это 3–6 месяцев обязательных трат (аренда, еда, транспорт) на отдельном счёте.'},
+{id:2,t:'Платите себе первыми',x:'В день зарплаты сразу переводите план в накопления, до любых трат.'},
+{id:3,t:'Лавина долгов',x:'Гасите сначала долг с самой высокой ставкой.'},
+{id:4,t:'Метод конвертов',x:'Разделите деньги по категориям с лимитами сразу после зарплаты.'},
+{id:5,t:'Правило 24 часов',x:'Любое незапланированное желание дороже 500 ₽ — ждите сутки.'},
+{id:6,t:'Аудит подписок',x:'Раз в месяц смотрите все автоплатежи.'},
+{id:7,t:'Обязательное и гибкое',x:'Аренда и подписки урезать трудно. Кафе, самокаты, такси — гибкие траты.'},
+{id:8,t:'Рассрочка без ловушек',x:'Рассрочка безопасна, только если платёж уже вписан в бюджет.'}];
 
 var DEMO = {demo:true, income:114493, salaryDay:20, baseBalance:0,
 goals:{cushion:0, cushionT:100000, vacation:0, vacationT:200000},
@@ -121,10 +119,7 @@ pays:[
 {d:22, n:'Симка жены', s:300},
 {d:23, n:'Интернет', s:610}],
 subs:[{n:'Telegram Premium', s:299, off:0},{n:'Яндекс Плюс', s:449, off:0},{n:'Getcontact', s:299, off:1},{n:'ivi.ru', s:99, off:1},{n:'Привилегии M', s:399, off:1}],
-leaks:[
-{n:'Самокаты и каршеринг', s:4700, tx:96, adv:'Лимит 2 500 ₽/мес: часть поездок заменяйте электричкой и Тройкой.'},
-{n:'Кафе сверх лимита', s:7600, tx:41, adv:'Правило 24 часов: желания дороже 500 ₽ согласовывайте с Копилотом.'},
-{n:'Подписки к отключению', s:797, tx:3, adv:'Getcontact, ivi и Привилегии M отключаются в разделе «Бюджет» за минуту.'}],
+leaks:[],
 tx:[]};
 var D = DEMO;
 
@@ -154,7 +149,7 @@ function normalize(){
     D.insts=[{id:1,n:'Рассрочка',d:'2026-08-23',s:5000},{id:2,n:'Рассрочка',d:'2026-09-23',s:12000},{id:3,n:'Рассрочка',d:'2026-10-23',s:12000},{id:4,n:'Рассрочка',d:'2026-11-23',s:12000},{id:5,n:'Рассрочка',d:'2026-12-23',s:12000},{id:6,n:'Рассрочка (финал)',d:'2027-01-23',s:4624}];
   }
   D.learned=D.learned||[];
-    D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{};
+  D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{};
   D.goals=D.goals||{cushion:0,cushionT:100000,vacation:0,vacationT:200000};
 }
 
@@ -193,20 +188,17 @@ function nextPay(days){
   return sum;
 }
 
-// РАСЧЕТЫ ДЛЯ НОВОГО ДАШБОРДА
 function calcMonthlyFixedPay() {
   var paysSum = 0;
   for (var i = 0; i < D.pays.length; i++) { paysSum += D.pays[i].s; }
   for (var j = 0; j < D.subs.length; j++) { if (!D.subs[j].off) paysSum += D.subs[j].s; }
   return paysSum;
 }
-
 function calcSafeBalance() {
   var real = realBal();
   var upcomingPay = nextPay(30);
   return Math.max(0, real - upcomingPay);
 }
-
 function calcDailyLimit() {
   var safe = calcSafeBalance();
   var now = new Date();
@@ -215,7 +207,6 @@ function calcDailyLimit() {
   var daysLeft = Math.max(1, Math.round((next - now) / 864e5));
   return { perDay: Math.round(safe / daysLeft), daysLeft: daysLeft };
 }
-
 function calcHealthScore() {
   var score = 50;
   var safe = calcSafeBalance();
@@ -223,7 +214,7 @@ function calcHealthScore() {
   var cushionTarget = (D.goals && D.goals.cushionT) || 100000;
   score += Math.min(30, Math.round((cushion / cushionTarget) * 30));
   if (safe > 0) score += 20;
-    var actLeakN = activeLeaks().length;
+  var actLeakN = activeLeaks().length;
   score -= (actLeakN * 7);
   return Math.max(10, Math.min(100, score));
 }
@@ -240,6 +231,7 @@ function ensureSalary(){
     save();
   }
 }
+
 function periodRange(){
   var now = new Date(); var y = now.getFullYear(), m = now.getMonth();
   var from, to, label;
@@ -257,7 +249,7 @@ function sheetHead(ic, k, t, s){
 }
 function closeSheet(){ $('sheet').classList.remove('on'); $('shb').classList.remove('on'); }
 
-// ===== КАСТОМНЫЕ ДИАЛОГИ (вместо alert/confirm/prompt) =====
+// ===== КАСТОМНЫЕ ДИАЛОГИ =====
 var dlgResolve = null;
 function dlgBuild(){
   if($('dlgBox')){ return; }
@@ -306,231 +298,7 @@ function dAlert(text, title){ return dlgShow({text:text, title:title||'Вним�
 function dConfirm(text, title, danger){ return dlgShow({text:text, title:title||'Подтверждение', confirm:true, btn:'Да', danger:danger}); }
 function dPrompt(text, title, placeholder){ return dlgShow({text:text, title:title||'Ввод', input:true, placeholder:placeholder}); }
 
-function openSheet(t, i){
-  var h = '';
-  if(t === 'balance'){
-    h = sheetHead('i-wallet','c-blu','Реальный остаток','поступления − траты')
-      + rowHtml('Сейчас', fmt(realBal()))
-      + rowHtml('Платежи на 30 дней', fmt(nextPay(30)))
-      + rowHtml('Безопасно к трате', fmt(calcSafeBalance()))
-      + '<button class="sh-btn" data-act="balance-edit">Обновить базовый баланс</button>';
-  } else if(t === 'cycle-detail'){
-    var now = new Date();
-    var cs = cycleStart(now);
-    var daily = calcDailyLimit();
-    var curPay = salaryDate(now.getFullYear(), now.getMonth());
-    var nextPayDate = now < curPay ? curPay : cycleEnd(curPay);
-    h = sheetHead('i-cal','c-pur','Цикл зарплаты', cycLabel(cs))
-      + rowHtml('Ближайшая зарплата', payDateStr(nextPayDate))
-      + rowHtml('Дней до зарплаты', daily.daysLeft + ' дн.')
-      + rowHtml('Дневной лимит', fmt(daily.perDay))
-      + rowHtml('Чистый остаток', fmt(calcSafeBalance()))
-      + tipHtml('Зарплата '+D.salaryDay+'-го числа; если выпадает на выходные — приходит в пятницу или понедельник. Цикл считается от реальной даты поступления.');
-  } else if(t === 'upcoming-detail'){
-    h = sheetHead('i-card','c-blu','Платежи на 3 дня', fmt(nextPay(3)))
-      + rowHtml('Ближайшие 3 дня', fmt(nextPay(3)))
-      + rowHtml('За весь текущий месяц', fmt(nextPay(30)))
-      + tipHtml('Контролируйте списания, чтобы не выходить за лимиты.');
-  } else if(t === 'goals'){
-    var cushion = (D.goals && D.goals.cushion) || 0;
-    var vacation = (D.goals && D.goals.vacation) || 0;
-    h = sheetHead('i-target','c-pur','Цели и копилки','накопления')
-      + rowHtml('Подушка безопасности', fmt(cushion))
-      + rowHtml('Копилка на отпуск', fmt(vacation))
-      + rowHtml('Всего накоплено', fmt(cushion + vacation))
-      + '<button class="sh-btn" data-act="edit" data-t="goal">Изменить цели</button>';
-  } else if(t === 'income'){
-    h = sheetHead('i-wallet','c-grn','Доход', fmt(D.income)+' в месяц')
-      + rowHtml('Зарплата', D.salaryDay+'-го числа, авто')
-      + '<div class="form" style="margin-top:12px"><input class="inp" id="in1" type="number" value="'+D.income+'" placeholder="Зарплата, ₽"><input class="inp" id="in2" type="number" value="'+D.salaryDay+'" placeholder="День зарплаты"></div>'
-      + '<button class="sh-btn" data-act="income-edit">Сохранить</button>';
-   } else if(t === 'leaks'){
-    var nowL = new Date();
-    var dL = new Date(nowL.getFullYear(), nowL.getMonth() + leakOff, 1);
-    var listLk = leaksFor(dL.getFullYear(), dL.getMonth());
-    var ls2 = 0; var lr2 = '';
-    for(var l2=0;l2<listLk.length;l2++){
-      if(!listLk[l2].fixed){ ls2 += listLk[l2].over; }
-      lr2 += '<div class="dig-item" style="cursor:pointer" data-act="sheet" data-t="leak" data-i="'+listLk[l2].id+'" data-m="'+leakOff+'"><span>'+listLk[l2].n+(listLk[l2].fixed?' · устранено':'')+'</span><b>+'+fmt(listLk[l2].over)+' ›</b></div>';
-    }
-    h = sheetHead('i-shield','c-red','Утечки','перерасход '+fmt(ls2)+' за месяц')
-      + '<div class="msw" style="margin:0 0 10px"><button data-act="leak-prev">‹</button><b>'+MONTHS[dL.getMonth()]+' '+dL.getFullYear()+'</b><button data-act="leak-next">›</button></div>'
-      + (lr2 || rowHtml('В этом месяце утечек нет','—'))
-      + tipHtml('Утечка = категория, где траты превысили лимит. Нажми на строку, чтобы увидеть транзакции.');
-  }
-   } else if(t === 'leak'){
-    var env2 = null;
-    for(var q2=0;q2<D.envs.length;q2++){ if(D.envs[q2].id === i){ env2 = D.envs[q2]; } }
-    if(env2){
-      var mOff = window._sheetM || 0;
-      var nowL2 = new Date();
-      var dL2 = new Date(nowL2.getFullYear(), nowL2.getMonth() + mOff, 1);
-      var from2 = new Date(dL2.getFullYear(), dL2.getMonth(), 1);
-      var to2 = new Date(dL2.getFullYear(), dL2.getMonth()+1, 1);
-      var txs = allSpends().filter(function(x){ return envMatch(env2, x) && x.d >= from2 && x.d < to2; }).sort(function(a,b){ return b.d - a.d; });
-      var tot2 = 0; for(var t2=0;t2<txs.length;t2++){ tot2 += txs[t2].s; }
-      h = sheetHead('i-shield','c-red', env2.n, txs.length+' транзакций · '+MONTHS[dL2.getMonth()]+' '+dL2.getFullYear())
-        + rowHtml('Потрачено', fmt(tot2))
-        + rowHtml('Лимит', fmt(env2.lim))
-        + rowHtml('Перерасход', fmt(Math.max(0, tot2 - env2.lim)))
-        + '<div class="cap" style="margin:10px 4px 6px">Все транзакции категории</div>';
-      for(var t3=0;t3<txs.length;t3++){
-        h += '<div class="dig-item"><span>'+txs[t3].d.getDate()+'.'+String(txs[t3].d.getMonth()+1).padStart(2,'0')+' · '+txs[t3].n+'</span><b>-'+fmt(txs[t3].s)+'</b></div>';
-      }
-      if(!txs.length){ h += '<div class="dig-item"><span>Транзакций за месяц нет</span><b>—</b></div>'; }
-      if(mOff === 0){ h += '<button class="sh-btn" style="margin-top:12px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="leak-fix" data-i="'+env2.id+'" data-m="0">Устранено</button>'; }
-    }
-  }
-      } else {
-        h += '<div class="dig-item"><span>Транзакций за период не найдено</span><b>—</b></div>';
-      }
-      h += '<button class="sh-btn" style="margin-top:12px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="leak-fix" data-i="'+lk.id+'">Устранено</button>';
-    }
-
-  } else if(t === 'tip'){
-    h = sheetHead('i-cap','c-pur','Финграмотность','совет дня')
-      + '<p style="font-size:14px">'+TIPS[new Date().getDate() % TIPS.length]+'</p>'
-      + '<button class="sh-btn" data-act="nexttip">Следующий совет</button>';
-  } else if(t === 'health'){
-    var safeH = calcSafeBalance();
-    var cush = (D.goals && D.goals.cushion) || 0;
-    var cushT = (D.goals && D.goals.cushionT) || 100000;
-    var actL = D.leaks.filter(function(x){ return !x.fixed; }).length;
-    var pCush = Math.min(30, Math.round((cush / cushT) * 30));
-    var pSafe = safeH > 0 ? 20 : 0;
-    var pLeak = actL * 7;
-    var score = Math.max(10, Math.min(100, 50 + pCush + pSafe - pLeak));
-    h = sheetHead('i-shield','c-pur','Индекс прочности','как считается балл')
-      + rowHtml('База каждого', '50 баллов')
-      + rowHtml('Подушка: '+fmt(cush)+' из '+fmt(cushT), '+'+pCush+' баллов')
-      + rowHtml('Свободные деньги после платежей', pSafe > 0 ? '+20 баллов' : '0 баллов')
-      + rowHtml('Активные утечки ('+actL+')', '−'+pLeak+' баллов')
-      + rowHtml('Твой индекс', score+' / 100')
-      + tipHtml('Индекс показывает, насколько бюджет устойчив к форс-мажорам. Растёт от подушки безопасности и свободных денег, падает от активных утечек.');
-  } else if(t === 'daily'){
-    var realD = realBal();
-    var payD = nextPay(30);
-    var safeD = calcSafeBalance();
-    var dailyD = calcDailyLimit();
-    h = sheetHead('i-cal','c-blu','Дневной лимит','откуда берётся цифра')
-      + rowHtml('Реальный остаток', fmt(realD))
-      + rowHtml('Платежи на 30 дней', '−'+fmt(payD))
-      + rowHtml('Безопасно к трате', fmt(safeD))
-      + rowHtml('Дней до зарплаты', dailyD.daysLeft+' дн.')
-      + rowHtml('Лимит на день', fmt(dailyD.perDay))
-      + tipHtml('Формула: (остаток − платежи на 30 дней) ÷ дней до зарплаты. Столько можно тратить каждый день, чтобы денег гарантированно хватило до зарплаты.');
-  }
-   } else if(t === 'fixed'){
-    var paysSum = 0, subsSum = 0;
-    for(var a1=0;a1<D.pays.length;a1++){ paysSum += D.pays[a1].s; }
-    for(var a2=0;a2<D.subs.length;a2++){ if(!D.subs[a2].off){ subsSum += D.subs[a2].s; } }
-    h = sheetHead('i-card','c-blu','Обязательные траты','из чего складывается сумма на панели')
-      + rowHtml('Платежи в месяц', fmt(paysSum))
-      + rowHtml('Активные подписки', fmt(subsSum))
-      + rowHtml('Итого / мес', fmt(paysSum + subsSum))
-      + tipHtml('Карточка «Обязательства / мес» на панели = платежи + активные подписки. Кредиты и рассрочки показаны ниже отдельным списком и в эту сумму не входят.')
-      + '<div class="cap" style="margin:10px 4px 6px">Платежи</div>';
-    for(var fp=0;fp<D.pays.length;fp++){
-      var pp=D.pays[fp];
-      h += '<div class="dig-item"><span>'+pp.n+' · '+pp.d+'-го'+(pp.postponed?' · отложен до '+pp.postponed:'')+'</span><span class="row-actions"><b>'+fmt(pp.s)+'</b>'
-        + '<button class="mini-btn" data-act="edit" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
-        + '<button class="mini-btn" data-act="postpone" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-cal"/></svg></button>'
-        + '<button class="mini-btn danger" data-act="fix-del" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
-    }
-    h += '<div class="cap" style="margin:10px 4px 6px">Подписки</div>';
-    for(var fs=0;fs<D.subs.length;fs++){
-      var ss=D.subs[fs];
-      h += '<div class="dig-item"><span>'+ss.n+(ss.off?' · отключена':'')+'</span><span class="row-actions"><b>'+fmt(ss.s)+'/мес</b>'
-        + '<button class="mini-btn" data-act="edit" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
-        + '<button class="mini-btn danger" data-act="fix-del" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
-    }
-    h += '<div class="cap" style="margin:10px 4px 6px">Кредиты и рассрочки (вне итога)</div>';
-    for(var fc=0;fc<D.credits.length;fc++){
-      var cc=D.credits[fc];
-      h += '<div class="dig-item"><span>'+cc.n+'</span><span class="row-actions"><b>'+fmt(cc.cur)+'</b>'
-        + '<button class="mini-btn" data-act="edit" data-t="cred" data-i="'+cc.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
-        + '<button class="mini-btn danger" data-act="fix-del" data-t="cred" data-i="'+cc.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
-    }
-    for(var fi=0;fi<D.insts.length;fi++){
-      var ii=D.insts[fi];
-      h += '<div class="dig-item"><span>'+ii.n+' · '+ii.d+'</span><span class="row-actions"><b>'+fmt(ii.s)+'</b>'
-        + '<button class="mini-btn" data-act="edit" data-t="inst" data-i="'+ii.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
-        + '<button class="mini-btn danger" data-act="fix-del" data-t="inst" data-i="'+ii.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
-    }
-    h += '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="add" data-t="pay">+ Платёж</button><button class="sh-btn ghost" style="margin:0" data-act="add" data-t="sub">+ Подписка</button></div>';
-  }
-  
-  $('sheetBody').innerHTML = h;
-  $('sheet').classList.add('on');
-  $('shb').classList.add('on');
-}
-
-function openEdit(t, i){
-  var it = null; var h = ''; var title = '';
-  function get(arr){ for(var k=0;k<arr.length;k++){ if(arr[k].id === i){ return arr[k]; } } return null; }
-  if(t==='sub'){ it = i?get(D.subs):null; title = it?'Подписка':'Новая подписка';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><input class="inp" id="in2" type="number" placeholder="Сумма в месяц, ₽" value="'+(it?it.s:'')+'"></div>';
-  }
-  if(t==='pay'){ it = i?get(D.pays):null; title = it?'Платёж':'Новый платёж';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Сумма, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="number" placeholder="День (1-31)" value="'+(it?it.d:'')+'"></div></div>';
-  }
-  if(t==='cred'){ it = i?get(D.credits):null; title = it?'Кредит':'Новый кредит';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Текущий долг, ₽" value="'+(it?it.cur:'')+'"><input class="inp" id="in3" type="number" placeholder="Итоговая сумма, ₽" value="'+(it?it.total:'')+'"></div></div>';
-  }
-  if(t==='inst'){ it = i?get(D.insts):null; title = it?'Рассрочка':'Новая рассрочка';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Платёж, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="date" value="'+(it?it.d:'')+'"></div></div>';
-  }
-  if(t==='env'){ it = i?get(D.envs):null; title = it?it.n:'Конверт';
-    h = '<div class="form"><input class="inp" id="in2" type="number" placeholder="Лимит в месяц, ₽" value="'+(it?it.lim:'')+'"></div>';
-  }
-  if(t==='goal'){ title = 'Цели и копилки';
-    h = '<div class="form"><div class="row2"><input class="inp" id="in1" type="number" placeholder="Подушка: есть, ₽" value="'+D.goals.cushion+'"><input class="inp" id="in2" type="number" placeholder="Подушка: цель, ₽" value="'+D.goals.cushionT+'"></div><div class="row2"><input class="inp" id="in3" type="number" placeholder="Отпуск: есть, ₽" value="'+D.goals.vacation+'"><input class="inp" id="in4" type="number" placeholder="Отпуск: цель, ₽" value="'+D.goals.vacationT+'"></div></div>';
-  }
-  window._ef = {t:t, id:i};
-  $('sheetBody').innerHTML = sheetHead('i-target','c-pur', title, 'редактирование')
-    + h
-    + '<button class="sh-btn" data-act="form-save">Сохранить</button>'
-    + (i ? '<button class="sh-btn danger" data-act="form-del">Удалить</button>' : '');
-  $('sheet').classList.add('on');
-  $('shb').classList.add('on');
-}
-function saveEdit(){
-  var f = window._ef; if(!f){ return; }
-  function g(id){ return $(id) ? $(id).value : ''; }
-  function find(arr){ for(var k=0;k<arr.length;k++){ if(arr[k].id === f.id){ return arr[k]; } } return null; }
-  var it;
-  if(f.t==='sub'){
-    if(f.id){ it=find(D.subs); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; } }
-    else { D.subs.push({id:Date.now(), n:g('in1')||'Подписка', s:parseFloat(g('in2'))||0, off:0}); }
-  }
-  if(f.t==='pay'){
-    if(f.id){ it=find(D.pays); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; it.d=parseInt(g('in3'))||it.d; } }
-    else { D.pays.push({id:Date.now(), n:g('in1')||'Платёж', s:parseFloat(g('in2'))||0, d:parseInt(g('in3'))||1}); }
-  }
-  if(f.t==='cred'){
-    if(f.id){ it=find(D.credits); if(it){ it.n=g('in1')||it.n; it.cur=parseFloat(g('in2'))||0; it.total=parseFloat(g('in3'))||it.cur; } }
-    else { var c0=parseFloat(g('in2'))||0; D.credits.push({id:Date.now(), n:g('in1')||'Кредит', cur:c0, total:parseFloat(g('in3'))||c0}); }
-  }
-  if(f.t==='inst'){
-    if(f.id){ it=find(D.insts); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; it.d=g('in3')||it.d; } }
-    else { D.insts.push({id:Date.now(), n:g('in1')||'Рассрочка', s:parseFloat(g('in2'))||0, d:g('in3')||iso(new Date())}); }
-  }
-  if(f.t==='env'){ it=find(D.envs); if(it){ it.lim=parseFloat(g('in2'))||it.lim; } }
-  if(f.t==='goal'){ D.goals={cushion:parseFloat(g('in1'))||0, cushionT:parseFloat(g('in2'))||100000, vacation:parseFloat(g('in3'))||0, vacationT:parseFloat(g('in4'))||200000}; }
-  save(); closeSheet(); render(); toast('Сохранено');
-}
-function delEdit(){
-  var f = window._ef; if(!f || !f.id){ return; }
-  dConfirm('Удалить запись?', 'Удаление', true).then(function(ok){
-    if(!ok){ return; }
-    function rm(key){ var arr=D[key]; for(var k=0;k<arr.length;k++){ if(arr[k].id===f.id){ arr.splice(k,1); break; } } }
-    if(f.t==='sub'){ rm('subs'); }
-    if(f.t==='pay'){ rm('pays'); }
-    if(f.t==='cred'){ rm('credits'); }
-    if(f.t==='inst'){ rm('insts'); }
-    save(); closeSheet(); render(); toast('Удалено');
-  });
-}
+// ===== ДВИЖОК УТЕЧЕК =====
 function leakCat(l){
   var s = (l.n||'').toLowerCase();
   if(s.indexOf('самокат') !== -1 || s.indexOf('каршер') !== -1){ return 'scooters'; }
@@ -541,8 +309,6 @@ function leakCat(l){
   if(s.indexOf('продукт') !== -1){ return 'grocery'; }
   return l.cat || 'other';
 }
-
-var leakOff = 0;
 function leaksFor(y, m){
   var from = new Date(y, m, 1), to = new Date(y, m+1, 1);
   var list = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
@@ -589,6 +355,226 @@ function envMatch(e, x){
   if(e.n.indexOf('Тройка') === 0){ return (x.cat === 'transport') && !isTrain; }
   var key = CAT2ENV[x.cat] || 'Личное';
   return e.n.indexOf(key) === 0;
+}
+
+// ===== ОКНОШКИ (openSheet) =====
+function openSheet(t, i){
+  var h = '';
+  if(t === 'balance'){
+    h = sheetHead('i-wallet','c-blu','Реальный остаток','поступления − траты')
+      + rowHtml('Сейчас', fmt(realBal()))
+      + rowHtml('Платежи на 30 дней', fmt(nextPay(30)))
+      + rowHtml('Безопасно к трате', fmt(calcSafeBalance()))
+      + '<button class="sh-btn" data-act="balance-edit">Обновить базовый баланс</button>';
+  } else if(t === 'cycle-detail'){
+    var now = new Date();
+    var cs = cycleStart(now);
+    var daily = calcDailyLimit();
+    var curPay = salaryDate(now.getFullYear(), now.getMonth());
+    var nextPayDate = now < curPay ? curPay : cycleEnd(curPay);
+    h = sheetHead('i-cal','c-pur','Цикл зарплаты', cycLabel(cs))
+      + rowHtml('Ближайшая зарплата', payDateStr(nextPayDate))
+      + rowHtml('Дней до зарплаты', daily.daysLeft + ' дн.')
+      + rowHtml('Дневной лимит', fmt(daily.perDay))
+      + rowHtml('Чистый остаток', fmt(calcSafeBalance()))
+      + tipHtml('Зарплата '+D.salaryDay+'-го числа; если выпадает на выходные — приходит в пятницу или понедельник. Цикл считается от реальной даты поступления.');
+  } else if(t === 'upcoming-detail'){
+    h = sheetHead('i-card','c-blu','Платежи на 3 дня', fmt(nextPay(3)))
+      + rowHtml('Ближайшие 3 дня', fmt(nextPay(3)))
+      + rowHtml('За весь текущий месяц', fmt(nextPay(30)))
+      + tipHtml('Контролируйте списания, чтобы не выходить за лимиты.');
+  } else if(t === 'goals'){
+    var cushion = (D.goals && D.goals.cushion) || 0;
+    var vacation = (D.goals && D.goals.vacation) || 0;
+    h = sheetHead('i-target','c-pur','Цели и копилки','накопления')
+      + rowHtml('Подушка безопасности', fmt(cushion))
+      + rowHtml('Копилка на отпуск', fmt(vacation))
+      + rowHtml('Всего накоплено', fmt(cushion + vacation))
+      + '<button class="sh-btn" data-act="edit" data-t="goal">Изменить цели</button>';
+  } else if(t === 'income'){
+    h = sheetHead('i-wallet','c-grn','Доход', fmt(D.income)+' в месяц')
+      + rowHtml('Зарплата', D.salaryDay+'-го числа, авто')
+      + '<div class="form" style="margin-top:12px"><input class="inp" id="in1" type="number" value="'+D.income+'" placeholder="Зарплата, ₽"><input class="inp" id="in2" type="number" value="'+D.salaryDay+'" placeholder="День зарплаты"></div>'
+      + '<button class="sh-btn" data-act="income-edit">Сохранить</button>';
+  } else if(t === 'leaks'){
+    var nowL = new Date();
+    var dL = new Date(nowL.getFullYear(), nowL.getMonth() + leakOff, 1);
+    var listLk = leaksFor(dL.getFullYear(), dL.getMonth());
+    var ls2 = 0; var lr2 = '';
+    for(var l2=0;l2<listLk.length;l2++){
+      if(!listLk[l2].fixed){ ls2 += listLk[l2].over; }
+      lr2 += '<div class="dig-item" style="cursor:pointer" data-act="sheet" data-t="leak" data-i="'+listLk[l2].id+'" data-m="'+leakOff+'"><span>'+listLk[l2].n+(listLk[l2].fixed?' · устранено':'')+'</span><b>+'+fmt(listLk[l2].over)+' ›</b></div>';
+    }
+    h = sheetHead('i-shield','c-red','Утечки','перерасход '+fmt(ls2)+' за месяц')
+      + '<div class="msw" style="margin:0 0 10px"><button data-act="leak-prev">‹</button><b>'+MONTHS[dL.getMonth()]+' '+dL.getFullYear()+'</b><button data-act="leak-next">›</button></div>'
+      + (lr2 || rowHtml('В этом месяце утечек нет','—'))
+      + tipHtml('Утечка = категория, где траты превысили лимит. Нажми на строку, чтобы увидеть транзакции.');
+  } else if(t === 'leak'){
+    var env2 = null;
+    for(var q2=0;q2<D.envs.length;q2++){ if(D.envs[q2].id === i){ env2 = D.envs[q2]; } }
+    if(env2){
+      var mOff = window._sheetM || 0;
+      var nowL2 = new Date();
+      var dL2 = new Date(nowL2.getFullYear(), nowL2.getMonth() + mOff, 1);
+      var from2 = new Date(dL2.getFullYear(), dL2.getMonth(), 1);
+      var to2 = new Date(dL2.getFullYear(), dL2.getMonth()+1, 1);
+      var txs = allSpends().filter(function(x){ return envMatch(env2, x) && x.d >= from2 && x.d < to2; }).sort(function(a,b){ return b.d - a.d; });
+      var tot2 = 0; for(var t2=0;t2<txs.length;t2++){ tot2 += txs[t2].s; }
+      h = sheetHead('i-shield','c-red', env2.n, txs.length+' транзакций · '+MONTHS[dL2.getMonth()]+' '+dL2.getFullYear())
+        + rowHtml('Потрачено', fmt(tot2))
+        + rowHtml('Лимит', fmt(env2.lim))
+        + rowHtml('Перерасход', fmt(Math.max(0, tot2 - env2.lim)))
+        + '<div class="cap" style="margin:10px 4px 6px">Все транзакции категории</div>';
+      for(var t3=0;t3<txs.length;t3++){
+        h += '<div class="dig-item"><span>'+txs[t3].d.getDate()+'.'+String(txs[t3].d.getMonth()+1).padStart(2,'0')+' · '+txs[t3].n+'</span><b>-'+fmt(txs[t3].s)+'</b></div>';
+      }
+      if(!txs.length){ h += '<div class="dig-item"><span>Транзакций за месяц нет</span><b>—</b></div>'; }
+      if(mOff === 0){ h += '<button class="sh-btn" style="margin-top:12px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="leak-fix" data-i="'+env2.id+'" data-m="0">Устранено</button>'; }
+    }
+  } else if(t === 'tip'){
+    h = sheetHead('i-cap','c-pur','Финграмотность','совет дня')
+      + '<p style="font-size:14px">'+TIPS[new Date().getDate() % TIPS.length]+'</p>'
+      + '<button class="sh-btn" data-act="nexttip">Следующий совет</button>';
+  } else if(t === 'health'){
+    var safeH = calcSafeBalance();
+    var cush = (D.goals && D.goals.cushion) || 0;
+    var cushT = (D.goals && D.goals.cushionT) || 100000;
+    var actL = activeLeaks().length;
+    var pCush = Math.min(30, Math.round((cush / cushT) * 30));
+    var pSafe = safeH > 0 ? 20 : 0;
+    var pLeak = actL * 7;
+    var score = Math.max(10, Math.min(100, 50 + pCush + pSafe - pLeak));
+    h = sheetHead('i-shield','c-pur','Индекс прочности','как считается балл')
+      + rowHtml('База каждого', '50 баллов')
+      + rowHtml('Подушка: '+fmt(cush)+' из '+fmt(cushT), '+'+pCush+' баллов')
+      + rowHtml('Свободные деньги после платежей', pSafe > 0 ? '+20 баллов' : '0 баллов')
+      + rowHtml('Активные утечки ('+actL+')', '−'+pLeak+' баллов')
+      + rowHtml('Твой индекс', score+' / 100')
+      + tipHtml('Индекс показывает, насколько бюджет устойчив к форс-мажорам. Растёт от подушки безопасности и свободных денег, падает от активных утечек.');
+  } else if(t === 'daily'){
+    var realD = realBal();
+    var payD = nextPay(30);
+    var safeD = calcSafeBalance();
+    var dailyD = calcDailyLimit();
+    h = sheetHead('i-cal','c-blu','Дневной лимит','откуда берётся цифра')
+      + rowHtml('Реальный остаток', fmt(realD))
+      + rowHtml('Платежи на 30 дней', '−'+fmt(payD))
+      + rowHtml('Безопасно к трате', fmt(safeD))
+      + rowHtml('Дней до зарплаты', dailyD.daysLeft+' дн.')
+      + rowHtml('Лимит на день', fmt(dailyD.perDay))
+      + tipHtml('Формула: (остаток − платежи на 30 дней) ÷ дней до зарплаты. Столько можно тратить каждый день, чтобы денег гарантированно хватило до зарплаты.');
+  } else if(t === 'fixed'){
+    var paysSum = 0, subsSum = 0;
+    for(var a1=0;a1<D.pays.length;a1++){ paysSum += D.pays[a1].s; }
+    for(var a2=0;a2<D.subs.length;a2++){ if(!D.subs[a2].off){ subsSum += D.subs[a2].s; } }
+    h = sheetHead('i-card','c-blu','Обязательные траты','из чего складывается сумма на панели')
+      + rowHtml('Платежи в месяц', fmt(paysSum))
+      + rowHtml('Активные подписки', fmt(subsSum))
+      + rowHtml('Итого / мес', fmt(paysSum + subsSum))
+      + tipHtml('Карточка «Обязательства / мес» на панели = платежи + активные подписки. Кредиты и рассрочки показаны ниже отдельным списком и в эту сумму не входят.')
+      + '<div class="cap" style="margin:10px 4px 6px">Платежи</div>';
+    for(var fp=0;fp<D.pays.length;fp++){
+      var pp=D.pays[fp];
+      h += '<div class="dig-item"><span>'+pp.n+' · '+pp.d+'-го'+(pp.postponed?' · отложен до '+pp.postponed:'')+'</span><span class="row-actions"><b>'+fmt(pp.s)+'</b>'
+        + '<button class="mini-btn" data-act="edit" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+        + '<button class="mini-btn" data-act="postpone" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-cal"/></svg></button>'
+        + '<button class="mini-btn danger" data-act="fix-del" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
+    }
+    h += '<div class="cap" style="margin:10px 4px 6px">Подписки</div>';
+    for(var fs=0;fs<D.subs.length;fs++){
+      var ss=D.subs[fs];
+      h += '<div class="dig-item"><span>'+ss.n+(ss.off?' · отключена':'')+'</span><span class="row-actions"><b>'+fmt(ss.s)+'/мес</b>'
+        + '<button class="mini-btn" data-act="edit" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+        + '<button class="mini-btn danger" data-act="fix-del" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
+    }
+    h += '<div class="cap" style="margin:10px 4px 6px">Кредиты и рассрочки (вне итога)</div>';
+    for(var fc=0;fc<D.credits.length;fc++){
+      var cc=D.credits[fc];
+      h += '<div class="dig-item"><span>'+cc.n+'</span><span class="row-actions"><b>'+fmt(cc.cur)+'</b>'
+        + '<button class="mini-btn" data-act="edit" data-t="cred" data-i="'+cc.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+        + '<button class="mini-btn danger" data-act="fix-del" data-t="cred" data-i="'+cc.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
+    }
+    for(var fi=0;fi<D.insts.length;fi++){
+      var ii=D.insts[fi];
+      h += '<div class="dig-item"><span>'+ii.n+' · '+ii.d+'</span><span class="row-actions"><b>'+fmt(ii.s)+'</b>'
+        + '<button class="mini-btn" data-act="edit" data-t="inst" data-i="'+ii.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+        + '<button class="mini-btn danger" data-act="fix-del" data-t="inst" data-i="'+ii.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
+    }
+    h += '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="add" data-t="pay">+ Платёж</button><button class="sh-btn ghost" style="margin:0" data-act="add" data-t="sub">+ Подписка</button></div>';
+  }
+
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+
+function openEdit(t, i){
+  var it = null; var h = ''; var title = '';
+  function get(arr){ for(var k=0;k<arr.length;k++){ if(arr[k].id === i){ return arr[k]; } } return null; }
+  if(t==='sub'){ it = i?get(D.subs):null; title = it?'Подписка':'Новая подписка';
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><input class="inp" id="in2" type="number" placeholder="Сумма в месяц, ₽" value="'+(it?it.s:'')+'"></div>';
+  }
+  if(t==='pay'){ it = i?get(D.pays):null; title = it?'Платёж':'Новый платёж';
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Сумма, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="number" placeholder="День (1-31)" value="'+(it?it.d:'')+'"></div></div>';
+  }
+  if(t==='cred'){ it = i?get(D.credits):null; title = it?'Кредит':'Новый кредит';
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Текущий долг, ₽" value="'+(it?it.cur:'')+'"><input class="inp" id="in3" type="number" placeholder="Итоговая сумма, ₽" value="'+(it?it.total:'')+'"></div></div>';
+  }
+  if(t==='inst'){ it = i?get(D.insts):null; title = it?'Рассрочка':'Новая рассрочка';
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Платёж, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="date" value="'+(it?it.d:'')+'"></div></div>';
+  }
+  if(t==='env'){ it = i?get(D.envs):null; title = it?it.n:'Конверт';
+    h = '<div class="form"><input class="inp" id="in2" type="number" placeholder="Лимит в месяц, ₽" value="'+(it?it.lim:'')+'"></div>';
+  }
+  if(t==='goal'){ title = 'Цели и копилки';
+    h = '<div class="form"><div class="row2"><input class="inp" id="in1" type="number" placeholder="Подушка: есть, ₽" value="'+D.goals.cushion+'"><input class="inp" id="in2" type="number" placeholder="Подушка: цель, ₽" value="'+D.goals.cushionT+'"></div><div class="row2"><input class="inp" id="in3" type="number" placeholder="Отпуск: есть, ₽" value="'+D.goals.vacation+'"><input class="inp" id="in4" type="number" placeholder="Отпуск: цель, ₽" value="'+D.goals.vacationT+'"></div></div>';
+  }
+  window._ef = {t:t, id:i};
+  $('sheetBody').innerHTML = sheetHead('i-target','c-pur', title, 'редактирование')
+    + h
+    + '<button class="sh-btn" data-act="form-save">Сохранить</button>'
+    + (i ? '<button class="sh-btn danger" data-act="form-del">Удалить</button>' : '');
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+
+function saveEdit(){
+  var f = window._ef; if(!f){ return; }
+  function g(id){ return $(id) ? $(id).value : ''; }
+  function find(arr){ for(var k=0;k<arr.length;k++){ if(arr[k].id === f.id){ return arr[k]; } } return null; }
+  var it;
+  if(f.t==='sub'){
+    if(f.id){ it=find(D.subs); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; } }
+    else { D.subs.push({id:Date.now(), n:g('in1')||'Подписка', s:parseFloat(g('in2'))||0, off:0}); }
+  }
+  if(f.t==='pay'){
+    if(f.id){ it=find(D.pays); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; it.d=parseInt(g('in3'))||it.d; } }
+    else { D.pays.push({id:Date.now(), n:g('in1')||'Платёж', s:parseFloat(g('in2'))||0, d:parseInt(g('in3'))||1}); }
+  }
+  if(f.t==='cred'){
+    if(f.id){ it=find(D.credits); if(it){ it.n=g('in1')||it.n; it.cur=parseFloat(g('in2'))||0; it.total=parseFloat(g('in3'))||it.cur; } }
+    else { var c0=parseFloat(g('in2'))||0; D.credits.push({id:Date.now(), n:g('in1')||'Кредит', cur:c0, total:parseFloat(g('in3'))||c0}); }
+  }
+  if(f.t==='inst'){
+    if(f.id){ it=find(D.insts); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; it.d=g('in3')||it.d; } }
+    else { D.insts.push({id:Date.now(), n:g('in1')||'Рассрочка', s:parseFloat(g('in2'))||0, d:g('in3')||iso(new Date())}); }
+  }
+  if(f.t==='env'){ it=find(D.envs); if(it){ it.lim=parseFloat(g('in2'))||it.lim; } }
+  if(f.t==='goal'){ D.goals={cushion:parseFloat(g('in1'))||0, cushionT:parseFloat(g('in2'))||100000, vacation:parseFloat(g('in3'))||0, vacationT:parseFloat(g('in4'))||200000}; }
+  save(); closeSheet(); render(); toast('Сохранено');
+}
+
+function delEdit(){
+  var f = window._ef; if(!f || !f.id){ return; }
+  dConfirm('Удалить запись?', 'Удаление', true).then(function(ok){
+    if(!ok){ return; }
+    function rm(key){ var arr=D[key]; for(var k=0;k<arr.length;k++){ if(arr[k].id===f.id){ arr.splice(k,1); break; } } }
+    if(f.t==='sub'){ rm('subs'); }
+    if(f.t==='pay'){ rm('pays'); }
+    if(f.t==='cred'){ rm('credits'); }
+    if(f.t==='inst'){ rm('insts'); }
+    save(); closeSheet(); render(); toast('Удалено');
+  });
 }
 
 function renderEnv(){
@@ -643,6 +629,7 @@ function renderPays(){
   }
   $('paysList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Платежей нет — добавьте первый</p>';
 }
+
 function renderSubs(){
   var h = '';
   for(var i=0;i<D.subs.length;i++){
@@ -651,6 +638,7 @@ function renderSubs(){
   }
   $('subsList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Подписок нет</p>';
 }
+
 function renderCredits(){
   var h = '';
   for(var i=0;i<D.credits.length;i++){
@@ -660,6 +648,7 @@ function renderCredits(){
   }
   $('credList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Кредитов нет — отлично!</p>';
 }
+
 function renderInsts(){
   if(!$('instsList')){ return; }
   var now = new Date();
@@ -929,35 +918,30 @@ function renderBanner(){
     + '<div><b>Обнаружены утечки бюджета</b><p>'+act.length+' зоны перерасхода съедают '+fmt(ls)+' в месяц.</p></div>'
     + '<button data-act="nav" data-p="budget">В бюджет</button></div>';
 }
+
 function renderDashboardNew() {
   var now = new Date();
   var safeBal = calcSafeBalance();
   var daily = calcDailyLimit();
   var health = calcHealthScore();
-  
   if ($('healthScore')) $('healthScore').textContent = health + ' / 100';
   if ($('safeBalanceHint')) $('safeBalanceHint').textContent = 'Безопасно: ' + fmt(safeBal);
   if ($('dailyLimitVal')) $('dailyLimitVal').textContent = fmt(daily.perDay) + ' / день';
-  
   if ($('dailyLimitProgress')) {
     var maxDailyBudget = Math.max(1, daily.perDay * 1.5);
     var limitPct = Math.min(100, Math.round((daily.perDay / maxDailyBudget) * 100));
     $('dailyLimitProgress').style.width = limitPct + '%';
   }
-
   var cs = cycleStart(now);
   var ce = cycleEnd(cs);
   var totalDaysInCycle = Math.round((ce - cs) / 864e5);
   var daysPassed = Math.round((now - cs) / 864e5);
   var cyclePct = Math.min(100, Math.max(0, Math.round((daysPassed / totalDaysInCycle) * 100)));
-  
   if ($('cycleProgressBar')) $('cycleProgressBar').style.width = cyclePct + '%';
   if ($('cycleDaysLeft')) $('cycleDaysLeft').textContent = 'Осталось ' + daily.daysLeft + ' дн.';
   if ($('cycleDates')) $('cycleDates').textContent = cycLabel(cs);
-
   var fixedPay = calcMonthlyFixedPay();
   if ($('sFixedPay')) $('sFixedPay').textContent = fmt(fixedPay);
-  
   var goalsTotal = ((D.goals && D.goals.cushion) || 0) + ((D.goals && D.goals.vacation) || 0);
   if ($('sGoalsVal')) $('sGoalsVal').textContent = fmt(goalsTotal);
 }
@@ -970,15 +954,18 @@ function isRuWeekend(d){
   var md = String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   return RU_HOLIDAYS.indexOf(md) !== -1;
 }
+
 function myDayData(y, m, day){
   var rings = [];
   var plans = [];
+  var md2 = String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  var iso2 = y+'-'+md2;
   var sd = salaryDate(y, m);
-    if(sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === day){
+  if(sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === day){
     var ck0 = 'salary-'+iso2;
     if((D.cancelled||[]).indexOf(ck0) === -1){ rings.push({c:'#30d158', n:'Зарплата', id:'salary', type:'salary', date:iso2}); }
   }
-    for(var i=0;i<(D.pays||[]).length;i++){
+  for(var i=0;i<(D.pays||[]).length;i++){
     if((D.pays[i].d||0) === day){
       var ck1 = 'pay-'+D.pays[i].id+'-'+iso2;
       if((D.cancelled||[]).indexOf(ck1) === -1){ rings.push({c:'#ff453a', n:'Платёж: '+D.pays[i].n, id:D.pays[i].id, type:'pay', date:iso2}); }
@@ -991,14 +978,13 @@ function myDayData(y, m, day){
       if((D.cancelled||[]).indexOf(ck2) === -1){ rings.push({c:'#ff9f0a', n:'Рассрочка: '+D.insts[j].n, id:D.insts[j].id, type:'inst', date:iso2}); }
     }
   }
-  var md2 = String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
-  var iso2 = y+'-'+md2;
   for(var k=0;k<(D.events||[]).length;k++){
     var e2 = D.events[k];
     if(e2.d === iso2 || (e2.yearly && e2.d === md2)){ plans.push({c:e2.c||'#bf5af2', n:e2.n, id:e2.id, personal:1}); }
   }
   return {rings:rings, plans:plans, bg: bgFor(plans)};
 }
+
 function herDayData(y, m, day){
   return {rings: herDayEvents(y, m, day), plans: [], bg: ''};
 }
@@ -1011,6 +997,7 @@ function herDayEvents(y, m, day){
   if(st === 0){ ev.push({c:'#bf5af2', n:'Выходной'}); }
   return ev;
 }
+
 function ringStyle(ev){
   if(!ev.length){ return ''; }
   if(ev.length === 1){ return 'background:'+ev[0].c+';'; }
@@ -1021,12 +1008,10 @@ function ringStyle(ev){
   }
   return 'background:conic-gradient('+parts.join(',')+');';
 }
-
 function bgFor(list){
   if(!list.length){ return ''; }
   return ringStyle(list).substring('background:'.length);
 }
-
 function rgba(hex, a){
   var h = hex.replace('#','');
   if(h.length === 3){ h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2]; }
@@ -1043,6 +1028,7 @@ function semiGrad(list){
   }
   return 'conic-gradient('+parts.join(',')+')';
 }
+
 var EV_COLORS = ['#a3e635','#f5c518','#0a84ff','#bf5af2','#ff375f','#ff9f0a','#64d2ff','#30d158','#ff6b35','#e0aaff','#4cc9f0','#f72585','#80ed99','#ffd60a','#9d4edd','#48bfe3'];
 var planColor = null;
 function freeColor(){
@@ -1059,6 +1045,7 @@ function autoColor(name){
   if(s.indexOf('день рожд') !== -1 || s.indexOf('др ') !== -1 || s === 'др'){ return '#f5c518'; }
   return null;
 }
+
 function calGridHtml(y, m, dataFn, which, ruWeekend){
   var h = '';
   var dows = ['пн','вт','ср','чт','пт','сб','вс'];
@@ -1071,7 +1058,7 @@ function calGridHtml(y, m, dataFn, which, ruWeekend){
   for(var d=1;d<=days;d++){
     var dt = new Date(y, m, d);
     var cls = 'cal-day';
-        var dayOfWeek = dt.getDay();
+    var dayOfWeek = dt.getDay();
     if(ruWeekend && isRuWeekend(dt)){ cls += ' wknd'; }
     else if(dayOfWeek === 0 || dayOfWeek === 6){ cls += ' wknd'; }
     var isToday = (dt.getFullYear()===now.getFullYear() && dt.getMonth()===now.getMonth() && dt.getDate()===now.getDate());
@@ -1116,6 +1103,7 @@ function renderMyCal(){
   }
   $('myCalLegend').innerHTML = lg;
 }
+
 function renderHerCal(){
   var now = new Date();
   var dt = new Date(now.getFullYear(), now.getMonth() + herOff, 1);
@@ -1135,7 +1123,7 @@ function openCalSheet(dstr, noHl){
     for(var i=0;i<evs.length;i++){
       var e = evs[i];
       var left = String(d).padStart(2,'0')+'.'+String(m+1).padStart(2,'0')+' · '+e.n;
-            var right;
+      var right;
       if(e.personal){
         right = '<button class="del" data-act="cal-event-del" data-i="'+e.id+'"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></button>';
       } else if(e.type){
@@ -1154,6 +1142,7 @@ function openCalSheet(dstr, noHl){
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
 }
+
 function calEventAdd(){
   var dv = $('evDate').value;
   var nm = $('evName').value.trim();
@@ -1164,6 +1153,7 @@ function calEventAdd(){
   openCalSheet(dv);
   toast('Событие добавлено');
 }
+
 function calEventDel(id){
   dConfirm('Удалить это событие из календаря?', 'Удаление плана', true).then(function(ok){
     if(!ok){ return; }
@@ -1198,6 +1188,7 @@ function openHerSheet(dstr){
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
 }
+
 function herSet(dstr, v){
   D.her = D.her || {};
   if(v === 'x'){ delete D.her[dstr]; }
@@ -1205,6 +1196,7 @@ function herSet(dstr, v){
   save(); render();
   openHerSheet(dstr);
 }
+
 function herFill(dstr){
   var p = dstr.split('-');
   var start = new Date(+p[0], +p[1]-1, +p[2]);
@@ -1218,6 +1210,7 @@ function herFill(dstr){
   openHerSheet(dstr);
   toast('График 3/3 заполнен на 60 дней');
 }
+
 function openPlanSheet(){
   planColor = freeColor();
   var dates = calSel.slice().sort();
@@ -1240,6 +1233,7 @@ function openPlanSheet(){
     if(ac){ planColor = ac; paintPal(); }
   });
 }
+
 function paintPal(){
   var h = '';
   var found = false;
@@ -1250,6 +1244,7 @@ function paintPal(){
   if(!found){ h += '<button data-act="ev-color" data-c="'+planColor+'" class="on" style="background:'+planColor+'"></button>'; }
   $('evPal').innerHTML = h;
 }
+
 function render(){
   var now = new Date();
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
@@ -1257,15 +1252,12 @@ function render(){
   if ($('hBal')) $('hBal').textContent = fmt(realBal());
   if ($('sInc')) $('sInc').textContent = fmt(D.income);
   if ($('sIncP')) $('sIncP').textContent = 'зарплата, '+D.salaryDay+'-го числа';
-  
-    var act = activeLeaks();
+  var act = activeLeaks();
   var leakSum = 0;
   for(var j=0;j<act.length;j++){ leakSum += act[j].over; }
   if ($('sLeakV')) $('sLeakV').textContent = fmt(leakSum);
   if ($('sLeakP')) $('sLeakP').textContent = act.length+' зоны перерасхода';
   if ($('tipText')) $('tipText').textContent = TIPS[now.getDate() % TIPS.length];
-  
-  // Вызываем функции отрисовки в try/catch, чтобы ошибка в одном блоке не ломала всё приложение
   try { renderDashboardNew(); } catch(e) { console.error('Ошибка в renderDashboardNew:', e); }
   try { renderGoals(); } catch(e) { console.error('Ошибка в renderGoals:', e); }
   try { renderBanner(); } catch(e) { console.error('Ошибка в renderBanner:', e); }
@@ -1301,6 +1293,7 @@ function addMsg(cls, html){
   log.insertAdjacentHTML('beforeend', '<div class="msg '+cls+'">'+html+'</div>');
   log.scrollTop = 1000000;
 }
+
 function answer(t){
   var s = t.toLowerCase();
   if(s.indexOf('сегодня') !== -1){
@@ -1309,9 +1302,9 @@ function answer(t){
     return 'До зарплаты <b>'+days+' дн</b>. Свободный лимит: <b>'+fmt(free/days)+' в день</b>. Крупнее 500 ₽ — согласовывайте со мной.';
   }
   if(s.indexOf('утеч') !== -1){
-    var act = D.leaks.filter(function(x){ return !x.fixed; });
+    var act = activeLeaks();
     if(act.length === 0){ return 'Активных утечек нет — вы молодец!'; }
-    return 'Главная утечка: <b>'+act[0].n+'</b> — '+fmt(act[0].s)+'/мес. '+act[0].adv;
+    return 'Главная утечка: <b>'+act[0].n+'</b> — '+fmt(act[0].over)+' перерасхода. Нажми на утечки в панели для деталей.';
   }
   if(s.indexOf('долг') !== -1 || s.indexOf('кредит') !== -1){
     var cs = D.credits.slice().sort(function(a,b){ return a.cur - b.cur; });
@@ -1320,6 +1313,7 @@ function answer(t){
   }
   return 'Спросите: «сколько можно сегодня», «могу купить», «где утечки», «как закрыть долги».';
 }
+
 function ask(q){
   var t = q || $('chatIn').value.trim();
   if(!t){ return; }
@@ -1333,13 +1327,13 @@ document.addEventListener('click', function(e){
   if(!el){ return; }
   var act = el.getAttribute('data-act');
   if(act === 'nav'){ go(el.getAttribute('data-p')); }
-   else if(act === 'sheet'){ window._sheetM = parseInt(el.getAttribute('data-m')||'0',10); openSheet(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
+  else if(act === 'sheet'){ window._sheetM = parseInt(el.getAttribute('data-m')||'0',10); openSheet(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
   else if(act === 'env'){ openEnv(parseInt(el.getAttribute('data-i'), 10)); }
   else if(act === 'edit'){ openEdit(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
   else if(act === 'add'){ openEdit(el.getAttribute('data-t'), 0); }
   else if(act === 'form-save'){ saveEdit(); }
   else if(act === 'form-del'){ delEdit(); }
-   else if(act === 'leak-fix'){
+  else if(act === 'leak-fix'){
     var id1 = parseInt(el.getAttribute('data-i'), 10);
     var m1 = parseInt(el.getAttribute('data-m')||'0', 10);
     var n1 = new Date();
@@ -1354,7 +1348,7 @@ document.addEventListener('click', function(e){
   else if(act === 'leak-next'){ if(leakOff < 0){ leakOff++; openSheet('leaks'); } }
   else if(act === 'close'){ closeSheet(); }
   else if(act === 'nexttip'){ TIPS.push(TIPS.shift()); $('tipText').textContent = TIPS[0]; closeSheet(); }
-    else if(act === 'balance-edit'){
+  else if(act === 'balance-edit'){
     dPrompt('Текущая сумма на всех картах, ₽:', 'Базовый баланс', 'Например: 150000').then(function(v){
       if(v === null){ return; }
       var n = parseFloat(v);
@@ -1364,7 +1358,6 @@ document.addEventListener('click', function(e){
       save(); closeSheet(); render(); toast('Баланс обновлён');
     });
   }
-       
   else if(act === 'income-edit'){
     D.income = parseFloat($('in1').value) || D.income;
     D.salaryDay = parseInt($('in2').value) || D.salaryDay;
@@ -1372,7 +1365,7 @@ document.addEventListener('click', function(e){
   }
   else if(act === 'spend-add'){
     var amt = parseFloat($('spAmt').value);
-     if(isNaN(amt) || amt <= 0){ dAlert('Введите сумму траты.', 'Новая трата'); return; }
+    if(isNaN(amt) || amt <= 0){ dAlert('Введите сумму траты.', 'Новая трата'); return; }
     var cat = $('spCat').value || 'other';
     var note = $('spNote').value.trim();
     var d = $('spDate').value || iso(new Date());
@@ -1381,7 +1374,7 @@ document.addEventListener('click', function(e){
     catTouched = false;
     save(); render(); toast('Трата добавлена: −'+fmt(amt));
   }
-    else if(act === 'del-spend'){
+  else if(act === 'del-spend'){
     var id5 = parseInt(el.getAttribute('data-id'), 10);
     dConfirm('Удалить трату?', 'Удаление', true).then(function(ok){
       if(!ok){ return; }
@@ -1398,7 +1391,7 @@ document.addEventListener('click', function(e){
   }
   else if(act === 'income-save'){
     var a2 = parseFloat($('incAmt').value);
-     if(isNaN(a2) || a2 <= 0){ dAlert('Введите сумму поступления.', 'Поступление'); return; }
+    if(isNaN(a2) || a2 <= 0){ dAlert('Введите сумму поступления.', 'Поступление'); return; }
     D.incomes.push({id:Date.now(), d: $('incDate').value || iso(new Date()), n: $('incNote').value.trim() || 'Поступление', s:a2});
     save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
   }
@@ -1446,7 +1439,7 @@ document.addEventListener('click', function(e){
   else if(act === 'ev-color'){ planColor = el.getAttribute('data-c'); paintPal(); }
   else if(act === 'plan-save'){
     var nm = $('evName').value.trim();
-      if(!nm){ dAlert('Дай плану название.', 'Новый план'); return; }
+    if(!nm){ dAlert('Дай плану название.', 'Новый план'); return; }
     var col = autoColor(nm) || planColor || freeColor();
     var yearly = $('evYear').checked ? 1 : 0;
     var gid = Date.now();
@@ -1461,24 +1454,22 @@ document.addEventListener('click', function(e){
     toast('План добавлен: '+nm);
   }
   else if(act === 'cal-event-add'){ calEventAdd(); }
-   else if(act === 'cal-auto-del'){
-    var t = el.getAttribute('data-t');
+  else if(act === 'cal-auto-del'){
+    var t2 = el.getAttribute('data-t');
     var i2 = el.getAttribute('data-i');
     var d2 = el.getAttribute('data-d');
-      dConfirm('Отменить это авто-событие на данную дату?', 'Отмена', true).then(function(ok){
+    dConfirm('Отменить это авто-событие на данную дату?', 'Отмена', true).then(function(ok){
       if(!ok){ return; }
-      D.cancelled.push(t+'-'+i2+'-'+d2);
+      D.cancelled.push(t2+'-'+i2+'-'+d2);
       save(); render();
       var now2 = new Date();
       var dt2 = new Date(now2.getFullYear(), now2.getMonth()+calOff, 1);
       openCalSheet(dt2.getFullYear()+'-'+String(dt2.getMonth()+1).padStart(2,'0')+'-01', 1);
       toast('Авто-событие отменено');
     });
-    return;
-    
   }
-          else if(act === 'cal-event-del'){ calEventDel(el.getAttribute('data-i')); }
-              else if(act === 'fix-del'){ fixDel(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i'),10)); }
+  else if(act === 'cal-event-del'){ calEventDel(el.getAttribute('data-i')); }
+  else if(act === 'fix-del'){ fixDel(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'postpone'){ fixPostpone(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
   else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
@@ -1489,24 +1480,23 @@ document.addEventListener('click', function(e){
 
 $('shb').addEventListener('click', closeSheet);
 
-
 var gbtn = $('googleBtn');
-gbtn.addEventListener('click', function(){
-  gbtn.textContent = 'Подключаюсь...';
-  signInWithPopup(auth, prov).catch(function(err){
-    return signInWithRedirect(auth, prov);
-  }).catch(function(err2){
-    gbtn.textContent = 'Войти через Google';
-       dAlert('Не удалось войти: ' + ((err2 && err2.code) || err2), 'Ошибка входа');
+if(gbtn){
+  gbtn.addEventListener('click', function(){
+    gbtn.textContent = 'Подключаюсь...';
+    signInWithPopup(auth, prov).catch(function(err){
+      return signInWithRedirect(auth, prov);
+    }).catch(function(err2){
+      gbtn.textContent = 'Войти через Google';
+      dAlert('Не удалось войти: ' + ((err2 && err2.code) || err2), 'Ошибка входа');
+    });
   });
-});
+}
 
-// Функция для скрытой загрузки HTML-страниц из папки pages/
 function loadPages() {
   var pages = ['dash', 'spend', 'income', 'budget', 'learn', 'chat'];
   var container = document.getElementById('pageContent');
   if (!container) return Promise.resolve();
-  
   var promises = pages.map(function(pageName) {
     return fetch('pages/' + pageName + '.html')
       .then(function(response) { return response.text(); })
@@ -1520,7 +1510,6 @@ function loadPages() {
         }
       });
   });
-  
   return Promise.all(promises);
 }
 
@@ -1535,12 +1524,10 @@ onAuthStateChanged(auth, function(u){
   uid = u.uid;
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
-  
   (window._pagesLoaded || Promise.resolve()).then(function() {
     var name = (u.displayName || 'друг').split(' ')[0];
     if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
     if ($('mMail')) $('mMail').textContent = name;
-    
     getDoc(doc(db,'users',uid)).then(function(s){
       if(s.exists() && s.data() && s.data().data){ D = s.data().data; }
       normalize();
@@ -1556,12 +1543,10 @@ onAuthStateChanged(auth, function(u){
       }
       var spDate = $('spDate');
       if (spDate) spDate.value = iso(new Date());
-      
-      $('q').addEventListener('input', renderTx);
-      $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } });
-      $('spCat').addEventListener('change', function(){ catTouched = true; });
-      $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } });
-
+      if($('q')){ $('q').addEventListener('input', renderTx); }
+      if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
+      if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
+      if($('spNote')){ $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } }); }
       render();
       go('dash');
     }).catch(function(){ normalize(); render(); go('dash'); });
@@ -1570,9 +1555,7 @@ onAuthStateChanged(auth, function(u){
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
 
-// Индикатор деплоя + автоприменение обновлений (без Ctrl+Shift+R)
 var watchBaseSuccess = null;
-
 function deployPaint(color, txt){
   var el = $('buildInfo');
   if(!el){ return; }
@@ -1582,9 +1565,7 @@ function deployFtime(s){
   var d = new Date(s);
   return String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
-function deploySchedule(ms){
-  setTimeout(deployCheck, ms);
-}
+function deploySchedule(ms){ setTimeout(deployCheck, ms); }
 function deployCheck(){
   fetch('https://api.github.com/repos/pvsstr/trash-budget/actions/runs?per_page=10', { cache: 'no-cache' })
     .then(function(r){
@@ -1608,12 +1589,10 @@ function deployCheck(){
       for(var j=0;j<list.length;j++){
         if(list[j].status === 'completed' && list[j].conclusion === 'success'){ success = list[j]; break; }
       }
-
       var st = run.status;
       var con = run.conclusion;
       var num = '#' + run.run_number;
       var delay = 60000;
-
       if(st !== 'completed'){
         deployPaint('#ff9f0a', 'деплоится… · ' + num);
       } else if(con === 'success'){
@@ -1621,20 +1600,17 @@ function deployCheck(){
       } else {
         deployPaint('#ff453a', 'ошибка деплоя · ' + num);
       }
-
       if(watchBaseSuccess === null){
         watchBaseSuccess = success ? success.run_number : 0;
         deploySchedule(delay);
         return;
       }
-
       if(success && success.run_number > watchBaseSuccess){
         watchBaseSuccess = success.run_number;
         deployPaint('#30d158', 'применяю обновление… · #' + success.run_number);
         setTimeout(function(){ window.location.reload(); }, 2000);
         return;
       }
-
       deploySchedule(delay);
     })
     .catch(function(){
