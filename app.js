@@ -419,7 +419,7 @@ function openSheet(t, i){
       + rowHtml('Дней до зарплаты', dailyD.daysLeft+' дн.')
       + rowHtml('Лимит на день', fmt(dailyD.perDay))
       + tipHtml('Формула: (остаток − платежи на 30 дней) ÷ дней до зарплаты. Столько можно тратить каждый день, чтобы денег гарантированно хватило до зарплаты.');
-  
+  }
    } else if(t === 'fixed'){
     var paysSum = 0, subsSum = 0;
     for(var a1=0;a1<D.pays.length;a1++){ paysSum += D.pays[a1].s; }
