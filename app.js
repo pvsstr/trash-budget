@@ -661,6 +661,7 @@ function renderCredits(){
   $('credList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Кредитов нет — отлично!</p>';
 }
 function renderInsts(){
+  if(!$('instsList')){ return; }
   var now = new Date();
   var h = '';
   for(var i=0;i<D.insts.length;i++){
