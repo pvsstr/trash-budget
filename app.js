@@ -154,7 +154,7 @@ function normalize(){
     D.insts=[{id:1,n:'Рассрочка',d:'2026-08-23',s:5000},{id:2,n:'Рассрочка',d:'2026-09-23',s:12000},{id:3,n:'Рассрочка',d:'2026-10-23',s:12000},{id:4,n:'Рассрочка',d:'2026-11-23',s:12000},{id:5,n:'Рассрочка',d:'2026-12-23',s:12000},{id:6,n:'Рассрочка (финал)',d:'2027-01-23',s:4624}];
   }
   D.learned=D.learned||[];
-   D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[];
+    D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{};
   D.goals=D.goals||{cushion:0,cushionT:100000,vacation:0,vacationT:200000};
 }
 
@@ -223,8 +223,8 @@ function calcHealthScore() {
   var cushionTarget = (D.goals && D.goals.cushionT) || 100000;
   score += Math.min(30, Math.round((cushion / cushionTarget) * 30));
   if (safe > 0) score += 20;
-  var activeLeaks = D.leaks ? D.leaks.filter(function(x) { return !x.fixed; }).length : 0;
-  score -= (activeLeaks * 7);
+    var actLeakN = activeLeaks().length;
+  score -= (actLeakN * 7);
   return Math.max(10, Math.min(100, score));
 }
 
@@ -345,28 +345,42 @@ function openSheet(t, i){
       + '<div class="form" style="margin-top:12px"><input class="inp" id="in1" type="number" value="'+D.income+'" placeholder="Зарплата, ₽"><input class="inp" id="in2" type="number" value="'+D.salaryDay+'" placeholder="День зарплаты"></div>'
       + '<button class="sh-btn" data-act="income-edit">Сохранить</button>';
    } else if(t === 'leaks'){
-    var act = D.leaks.filter(function(x){ return !x.fixed; });
-    var ls = 0; var lr = '';
-    for(var l=0;l<act.length;l++){
-      ls += act[l].s;
-      lr += '<div class="dig-item" style="cursor:pointer" data-act="sheet" data-t="leak" data-i="'+act[l].id+'"><span>'+act[l].n+'</span><b>'+fmt(act[l].s)+'/мес ›</b></div>';
+    var nowL = new Date();
+    var dL = new Date(nowL.getFullYear(), nowL.getMonth() + leakOff, 1);
+    var listLk = leaksFor(dL.getFullYear(), dL.getMonth());
+    var ls2 = 0; var lr2 = '';
+    for(var l2=0;l2<listLk.length;l2++){
+      if(!listLk[l2].fixed){ ls2 += listLk[l2].over; }
+      lr2 += '<div class="dig-item" style="cursor:pointer" data-act="sheet" data-t="leak" data-i="'+listLk[l2].id+'" data-m="'+leakOff+'"><span>'+listLk[l2].n+(listLk[l2].fixed?' · устранено':'')+'</span><b>+'+fmt(listLk[l2].over)+' ›</b></div>';
     }
-    h = sheetHead('i-shield','c-red','Утечки', fmt(ls)+' в месяц активных')
-      + (lr || rowHtml('Активных утечек нет','—'))
-      + tipHtml('Нажми на утечку, чтобы увидеть, из каких транзакций она сложилась.');
-  } else if(t === 'leak'){
-    var lk = null;
-    for(var q=0;q<D.leaks.length;q++){ if(D.leaks[q].id === i){ lk = D.leaks[q]; } }
-    if(lk){
-      var lcat = leakCat(lk);
-      var listL = allSpends().filter(function(x){ return x.cat === lcat; }).sort(function(a,b){ return b.d - a.d; }).slice(0, 30);
-      h = sheetHead('i-shield','c-red', lk.n, fmt(lk.s)+' в месяц · '+lk.tx+' транзакций')
-        + '<p style="font-size:13px;color:var(--mut);margin:4px 4px 10px">'+lk.adv+'</p>'
-        + '<div class="cap" style="margin:4px 4px 6px">Транзакции утечки</div>';
-      if(listL.length){
-        for(var tl=0;tl<listL.length;tl++){
-          h += '<div class="dig-item"><span>'+listL[tl].d.getDate()+'.'+String(listL[tl].d.getMonth()+1).padStart(2,'0')+' · '+listL[tl].n+'</span><b>-'+fmt(listL[tl].s)+'</b></div>';
-        }
+    h = sheetHead('i-shield','c-red','Утечки','перерасход '+fmt(ls2)+' за месяц')
+      + '<div class="msw" style="margin:0 0 10px"><button data-act="leak-prev">‹</button><b>'+MONTHS[dL.getMonth()]+' '+dL.getFullYear()+'</b><button data-act="leak-next">›</button></div>'
+      + (lr2 || rowHtml('В этом месяце утечек нет','—'))
+      + tipHtml('Утечка = категория, где траты превысили лимит. Нажми на строку, чтобы увидеть транзакции.');
+  }
+   } else if(t === 'leak'){
+    var env2 = null;
+    for(var q2=0;q2<D.envs.length;q2++){ if(D.envs[q2].id === i){ env2 = D.envs[q2]; } }
+    if(env2){
+      var mOff = window._sheetM || 0;
+      var nowL2 = new Date();
+      var dL2 = new Date(nowL2.getFullYear(), nowL2.getMonth() + mOff, 1);
+      var from2 = new Date(dL2.getFullYear(), dL2.getMonth(), 1);
+      var to2 = new Date(dL2.getFullYear(), dL2.getMonth()+1, 1);
+      var txs = allSpends().filter(function(x){ return envMatch(env2, x) && x.d >= from2 && x.d < to2; }).sort(function(a,b){ return b.d - a.d; });
+      var tot2 = 0; for(var t2=0;t2<txs.length;t2++){ tot2 += txs[t2].s; }
+      h = sheetHead('i-shield','c-red', env2.n, txs.length+' транзакций · '+MONTHS[dL2.getMonth()]+' '+dL2.getFullYear())
+        + rowHtml('Потрачено', fmt(tot2))
+        + rowHtml('Лимит', fmt(env2.lim))
+        + rowHtml('Перерасход', fmt(Math.max(0, tot2 - env2.lim)))
+        + '<div class="cap" style="margin:10px 4px 6px">Все транзакции категории</div>';
+      for(var t3=0;t3<txs.length;t3++){
+        h += '<div class="dig-item"><span>'+txs[t3].d.getDate()+'.'+String(txs[t3].d.getMonth()+1).padStart(2,'0')+' · '+txs[t3].n+'</span><b>-'+fmt(txs[t3].s)+'</b></div>';
+      }
+      if(!txs.length){ h += '<div class="dig-item"><span>Транзакций за месяц нет</span><b>—</b></div>'; }
+      if(mOff === 0){ h += '<button class="sh-btn" style="margin-top:12px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="leak-fix" data-i="'+env2.id+'" data-m="0">Устранено</button>'; }
+    }
+  }
       } else {
         h += '<div class="dig-item"><span>Транзакций за период не найдено</span><b>—</b></div>';
       }
@@ -527,6 +541,28 @@ function leakCat(l){
   if(s.indexOf('продукт') !== -1){ return 'grocery'; }
   return l.cat || 'other';
 }
+
+var leakOff = 0;
+function leaksFor(y, m){
+  var from = new Date(y, m, 1), to = new Date(y, m+1, 1);
+  var list = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
+  var fixed = D.leakFixed || {};
+  var fkey = y+'-'+m;
+  var out = [];
+  for(var i=0;i<D.envs.length;i++){
+    var e = D.envs[i];
+    if(e.lim <= 0){ continue; }
+    var f = 0, cnt = 0;
+    for(var a=0;a<list.length;a++){ if(envMatch(e, list[a])){ f += list[a].s; cnt++; } }
+    if(f > e.lim){
+      out.push({id:e.id, n:e.n, s:f, lim:e.lim, over:f-e.lim, tx:cnt, fixed:((fixed[fkey]||[]).indexOf(e.id)!==-1)?1:0, ic:e.ic, k:e.k});
+    }
+  }
+  out.sort(function(a,b){ return b.over - a.over; });
+  return out;
+}
+function curLeaks(){ var n = new Date(); return leaksFor(n.getFullYear(), n.getMonth()); }
+function activeLeaks(){ return curLeaks().filter(function(x){ return !x.fixed; }); }
 
 function fixDel(t, i){
   dConfirm('Удалить эту обязательную трату?', 'Удаление', true).then(function(ok){
@@ -767,7 +803,7 @@ function renderTx(){
 }
 
 function renderRec(){
-  var act = D.leaks.filter(function(x){ return !x.fixed; });
+  var act = activeLeaks();
   if(act.length === 0){
     $('recList').innerHTML = '<div class="rec glass"><header><div class="sic c-grn"><svg class="ic"><use href="#i-check"/></svg></div><div><h5>Все утечки устранены!</h5><span>Отличная работа — деньги остаются у вас</span></div></header></div>';
     return;
@@ -775,9 +811,10 @@ function renderRec(){
   var h = '';
   for(var i=0;i<act.length;i++){
     var l = act[i];
-    h += '<div class="rec glass hov" data-act="sheet" data-t="leak" data-i="'+l.id+'">'
-      + '<header><div class="sic c-red"><svg class="ic"><use href="#i-shield"/></svg></div><div><h5>'+l.n+'</h5><span>'+l.tx+' транзакций за период</span></div><svg class="ic chev"><use href="#i-chev"/></svg></header>'
-      + '<p>'+l.adv+'</p><footer><span>Потери бюджета</span><b>~ '+fmt(l.s)+' / мес</b><button class="chip" style="background:rgba(48,209,88,.15);color:var(--grn)" data-act="leak-fix" data-i="'+l.id+'">Устранено</button></footer></div>';
+    h += '<div class="rec glass hov" data-act="sheet" data-t="leak" data-i="'+l.id+'" data-m="0">'
+      + '<header><div class="sic c-red"><svg class="ic"><use href="#i-shield"/></svg></div><div><h5>'+l.n+'</h5><span>'+l.tx+' транзакций за месяц</span></div><svg class="ic chev"><use href="#i-chev"/></svg></header>'
+      + '<p>Перерасход '+fmt(l.over)+' при лимите '+fmt(l.lim)+'. Нажми, чтобы увидеть транзакции.</p>'
+      + '<footer><span>Потрачено в этом месяце</span><b>'+fmt(l.s)+'</b><button class="chip" style="background:rgba(48,209,88,.15);color:var(--grn)" data-act="leak-fix" data-i="'+l.id+'" data-m="0">Устранено</button></footer></div>';
   }
   $('recList').innerHTML = h;
 }
@@ -879,19 +916,18 @@ function renderDigest(){
 }
 
 function renderBanner(){
-  var act = D.leaks.filter(function(x){ return !x.fixed; });
+  var act = activeLeaks();
   if(act.length === 0){
     $('bannerBox').innerHTML = '<div class="banner ok glass"><div class="sic"><svg class="ic"><use href="#i-check"/></svg></div><div><b>Все утечки устранены</b><p>Деньги остаются у вас. Так держать!</p></div></div>';
     return;
   }
   var ls = 0;
-  for(var i=0;i<act.length;i++){ ls += act[i].s; }
+  for(var i=0;i<act.length;i++){ ls += act[i].over; }
   $('bannerBox').innerHTML = '<div class="banner glass hov" data-act="sheet" data-t="leaks">'
     + '<div class="sic"><svg class="ic"><use href="#i-alert"/></svg></div>'
     + '<div><b>Обнаружены утечки бюджета</b><p>'+act.length+' зоны перерасхода съедают '+fmt(ls)+' в месяц.</p></div>'
     + '<button data-act="nav" data-p="budget">В бюджет</button></div>';
 }
-
 function renderDashboardNew() {
   var now = new Date();
   var safeBal = calcSafeBalance();
@@ -1221,9 +1257,9 @@ function render(){
   if ($('sInc')) $('sInc').textContent = fmt(D.income);
   if ($('sIncP')) $('sIncP').textContent = 'зарплата, '+D.salaryDay+'-го числа';
   
-  var act = D.leaks.filter(function(x){ return !x.fixed; });
+    var act = activeLeaks();
   var leakSum = 0;
-  for(var j=0;j<act.length;j++){ leakSum += act[j].s; }
+  for(var j=0;j<act.length;j++){ leakSum += act[j].over; }
   if ($('sLeakV')) $('sLeakV').textContent = fmt(leakSum);
   if ($('sLeakP')) $('sLeakP').textContent = act.length+' зоны перерасхода';
   if ($('tipText')) $('tipText').textContent = TIPS[now.getDate() % TIPS.length];
@@ -1296,17 +1332,25 @@ document.addEventListener('click', function(e){
   if(!el){ return; }
   var act = el.getAttribute('data-act');
   if(act === 'nav'){ go(el.getAttribute('data-p')); }
-  else if(act === 'sheet'){ openSheet(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
+   else if(act === 'sheet'){ window._sheetM = parseInt(el.getAttribute('data-m')||'0',10); openSheet(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
   else if(act === 'env'){ openEnv(parseInt(el.getAttribute('data-i'), 10)); }
   else if(act === 'edit'){ openEdit(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
   else if(act === 'add'){ openEdit(el.getAttribute('data-t'), 0); }
   else if(act === 'form-save'){ saveEdit(); }
   else if(act === 'form-del'){ delEdit(); }
-  else if(act === 'leak-fix'){
+   else if(act === 'leak-fix'){
     var id1 = parseInt(el.getAttribute('data-i'), 10);
-    for(var s1=0;s1<D.leaks.length;s1++){ if(D.leaks[s1].id === id1){ D.leaks[s1].fixed = 1; } }
-    save(); render(); toast('Утечка устранена!');
+    var m1 = parseInt(el.getAttribute('data-m')||'0', 10);
+    var n1 = new Date();
+    var d1 = new Date(n1.getFullYear(), n1.getMonth()+m1, 1);
+    var fkey1 = d1.getFullYear()+'-'+d1.getMonth();
+    D.leakFixed = D.leakFixed || {};
+    D.leakFixed[fkey1] = D.leakFixed[fkey1] || [];
+    if(D.leakFixed[fkey1].indexOf(id1) === -1){ D.leakFixed[fkey1].push(id1); }
+    save(); render(); openSheet('leaks'); toast('Утечка устранена!');
   }
+  else if(act === 'leak-prev'){ leakOff--; openSheet('leaks'); }
+  else if(act === 'leak-next'){ if(leakOff < 0){ leakOff++; openSheet('leaks'); } }
   else if(act === 'close'){ closeSheet(); }
   else if(act === 'nexttip'){ TIPS.push(TIPS.shift()); $('tipText').textContent = TIPS[0]; closeSheet(); }
     else if(act === 'balance-edit'){
