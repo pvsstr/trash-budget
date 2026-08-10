@@ -1544,6 +1544,8 @@ document.addEventListener('click', function(e){
     save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
   }
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
+      else if(act === 'p-prev'){ pOff--; renderAnalytics(); }
+  else if(act === 'p-next'){ if(pOff < 0){ pOff++; renderAnalytics(); } }
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
   else if(act === 'cal-month'){
