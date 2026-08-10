@@ -799,10 +799,12 @@ function openCompareSheet(){
     + rowHtml(per(r.from), fmt(totC))
     + '<div class="sh-row"><span>Итог</span><b style="color:'+(diff>0?'var(--red)':'var(--grn)')+'">'+(diff>0?'+':'−')+fmt(Math.abs(diff))+' ('+(diff>0?'+':'')+pct+'%)</b></div>'
     + '<div class="cap" style="margin:10px 4px 6px">По категориям · самые большие изменения</div>';
-  for(i=0;i<rows.length && i<12;i++){
+   for(i=0;i<rows.length && i<12;i++){
     var d2 = rows[i].c - rows[i].p;
     if(rows[i].c === 0 && rows[i].p === 0){ continue; }
-    h += '<div class="dig-item"><span>'+catById(rows[i].id).n+'</span><b>'+fmt(rows[i].p)+' → '+fmt(rows[i].c)+' <span style="color:'+(d2>0?'var(--red)':(d2<0?'var(--grn)':'var(--mut)')+'">'+(d2>0?'+':(d2<0?'−':''))+fmt(Math.abs(d2))+'</span></b></div>';
+    var dCol = d2 > 0 ? 'var(--red)' : (d2 < 0 ? 'var(--grn)' : 'var(--mut)');
+    var dSign = d2 > 0 ? '+' : (d2 < 0 ? '-' : '');
+    h += '<div class="dig-item"><span>' + catById(rows[i].id).n + '</span><b>' + fmt(rows[i].p) + ' &rarr; ' + fmt(rows[i].c) + ' <span style="color:' + dCol + '">' + dSign + fmt(Math.abs(d2)) + '</span></b></div>';
   }
   var grow = null, shrink = null;
   for(i=0;i<rows.length;i++){
