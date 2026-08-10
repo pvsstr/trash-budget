@@ -1034,7 +1034,7 @@ function renderAnalytics(){
   }
   cmpBox.innerHTML = '<button class="sh-btn ghost" style="margin-top:12px" data-act="an-compare">⇄ Сравнить с прошлым периодом</button>';
 
-  // ===== ИДЕЯ 7: ПРИВЫЧКИ В ЦИФРАХ =====
+  // ИДЕЯ 7: ПРИВЫЧКИ В ЦИФРАХ
   var avgCheck = sp.length ? tot / sp.length : 0;
   var maxOp = null;
   for(i=0;i<sp.length;i++){
@@ -1090,10 +1090,7 @@ function renderAnalytics(){
     var cEl = $('cmpBtnBox');
     if(cEl && cEl.parentNode){ cEl.parentNode.insertBefore(habBox, cEl.nextSibling); }
   }
-  habBox.innerHTML = hRow
-    ? '<div class="cap" style="margin:14px 4px 6px">Привычки в цифрах · твоё зеркало за период</div>' + hRow
-      + '<div class="sh-tip">Нажми на «крупнейшую трату» или «самый дорогой день» — откроются все операции. Нажми на самокаты или кафе — увидишь полный список.</div>'
-    : '';
+  habBox.innerHTML = hRow ? '<div class="cap" style="margin:14px 4px 6px">Привычки в цифрах · твоё зеркало за период</div>' + hRow + '<div class="sh-tip">Нажми на «крупнейшую трату» или «самый дорогой день» — откроются все операции. Нажми на самокаты или кафе — увидишь полный список.</div>' : '';
 }
 
 function renderTx(){
