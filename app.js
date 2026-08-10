@@ -941,17 +941,8 @@ function renderDigest(){
 }
 
 function renderBanner(){
-  var act = activeLeaks();
-  if(act.length === 0){
-    $('bannerBox').innerHTML = '<div class="banner ok glass"><div class="sic"><svg class="ic"><use href="#i-check"/></svg></div><div><b>Все утечки устранены</b><p>Деньги остаются у вас. Так держать!</p></div></div>';
-    return;
-  }
-  var ls = 0;
-  for(var i=0;i<act.length;i++){ ls += act[i].over; }
-  $('bannerBox').innerHTML = '<div class="banner glass hov" data-act="sheet" data-t="leaks">'
-    + '<div class="sic"><svg class="ic"><use href="#i-alert"/></svg></div>'
-    + '<div><b>Обнаружены утечки бюджета</b><p>'+act.length+' зоны перерасхода съедают '+fmt(ls)+' в месяц.</p></div>'
-    + '<button data-act="nav" data-p="budget">В бюджет</button></div>';
+  var box = $('bannerBox');
+  if(box){ box.innerHTML = ''; }
 }
 
 function renderDashboardNew() {
@@ -1391,6 +1382,11 @@ function render(){
   for(var j=0;j<act.length;j++){ leakSum += act[j].over; }
   if ($('sLeakV')) $('sLeakV').textContent = fmt(leakSum);
   if ($('sLeakP')) $('sLeakP').textContent = act.length+' зоны перерасхода';
+    var badge = $('leakBadge');
+  if(badge){
+    if(act.length > 0){ badge.classList.remove('hidden'); badge.innerHTML = '<svg class="ic"><use href="#i-alert"/></svg> '+act.length; }
+    else { badge.classList.add('hidden'); badge.innerHTML = ''; }
+  }
   if ($('tipText')) $('tipText').textContent = TIPS[now.getDate() % TIPS.length];
   try { renderDashboardNew(); } catch(e) { console.error('Ошибка в renderDashboardNew:', e); }
   try { renderGoals(); } catch(e) { console.error('Ошибка в renderGoals:', e); }
