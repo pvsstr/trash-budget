@@ -906,7 +906,37 @@ function renderAnalytics(){
     var rankEl = $('catRank');
     if(rankEl && rankEl.parentNode){ rankEl.parentNode.insertBefore(structBox, rankEl.nextSibling); }
   }
-  structBox.innerHTML = struct;
+    structBox.innerHTML = struct;
+  var LEAKCATS = [
+    ['scooters','Самокаты / каршеринг','i-scoot','c-org'],
+    ['cafe','Кафе и доставка','i-coffee','c-red'],
+    ['taxi','Такси','i-taxi','c-blu'],
+    ['fun','Развлечения','i-fun','c-pur']];
+  var leakRows = ''; var leakSum2 = 0; var leakList = [];
+  for(i=0;i<LEAKCATS.length;i++){
+    var ltot = 0, lcnt = 0;
+    for(var s2=0;s2<sp.length;s2++){ if((sp[s2].cat||'other') === LEAKCATS[i][0]){ ltot += sp[s2].s; lcnt++; } }
+    if(ltot > 0){ leakList.push({id:LEAKCATS[i][0], n:LEAKCATS[i][1], ic:LEAKCATS[i][2], k:LEAKCATS[i][3], t:ltot, c:lcnt}); leakSum2 += ltot; }
+  }
+  leakList.sort(function(a,b){ return b.t - a.t; });
+  for(i=0;i<leakList.length;i++){
+    var L = leakList[i];
+    leakRows += '<div class="leak-row" data-act="an-cat" data-c="'+L.id+'">'
+      + '<div class="sic '+L.k+'" style="width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none"><svg class="ic"><use href="#'+L.ic+'"/></svg></div>'
+      + '<div class="leak-info"><b>'+L.n+'</b><span>'+L.c+' транзакций · средний чек '+fmt(L.t / L.c)+'</span></div>'
+      + '<b class="leak-sum">'+fmt(L.t)+'</b></div>';
+  }
+  var leakBox = $('leakTop');
+  if(!leakBox){
+    leakBox = document.createElement('div');
+    leakBox.id = 'leakTop';
+    var sEl = $('structBox');
+    if(sEl && sEl.parentNode){ sEl.parentNode.insertBefore(leakBox, sEl.nextSibling); }
+  }
+  leakBox.innerHTML = leakRows
+    ? '<div class="cap" style="margin:14px 4px 6px">Топ утечек за период</div>' + leakRows
+      + '<div class="sh-tip">Утечки = '+fmt(leakSum2)+' · '+(tot>0?Math.round(leakSum2/tot*100):0)+'% всех трат за период. Нажми на строку — откроются все операции категории.</div>'
+    : '';
 }
 function renderTx(){
   var q = ($('q').value || '').toLowerCase();
