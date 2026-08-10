@@ -877,6 +877,66 @@ function openCatSheet(catId){
   $('shb').classList.add('on');
 }
 
+function openHabitSheet(kind){
+  var r = periodRange();
+  var sp = allSpends().filter(function(x){ return x.d >= r.from && x.d < r.to; });
+  if(!sp.length){ dAlert('За этот период операций нет.', 'Привычки'); return; }
+  var tot = 0, i;
+  for(i=0;i<sp.length;i++){ tot += sp[i].s; }
+  var h = '';
+  if(kind === 'avg'){
+    var mx = 0, mn = Infinity, mxN = '', mnN = '';
+    for(i=0;i<sp.length;i++){
+      if(sp[i].s > mx){ mx = sp[i].s; mxN = sp[i].n; }
+      if(sp[i].s < mn){ mn = sp[i].s; mnN = sp[i].n; }
+    }
+    h = sheetHead('i-card','c-blu','Средний чек', r.label)
+      + rowHtml('Транзакций', sp.length)
+      + rowHtml('Потрачено', fmt(tot))
+      + rowHtml('Средний чек', fmt(tot / sp.length))
+      + rowHtml('Минимальная', fmt(mn) + ' - ' + mnN)
+      + rowHtml('Максимальная', fmt(mx) + ' - ' + mxN)
+      + '<div class="cap" style="margin:10px 4px 6px">Чеки выше среднего</div>';
+    var above = sp.filter(function(x){ return x.s > tot / sp.length; }).sort(function(a,b){ return b.s - a.s; });
+    for(i=0;i<above.length && i<15;i++){
+      h += '<div class="dig-item"><span>'+above[i].d.getDate()+'.'+String(above[i].d.getMonth()+1).padStart(2,'0')+' - '+above[i].n+'</span><b>-'+fmt(above[i].s)+'</b></div>';
+    }
+    if(!above.length){ h += '<div class="dig-item"><span>Нет чеков выше среднего</span><b>-</b></div>'; }
+    h += '<div class="sh-tip">Всё, что выше среднего чека, - кандидат на правило 24 часов. Средний чек растёт из-за крупных импульсивных покупок.</div>';
+  } else if(kind === 'max'){
+    var sorted = sp.slice().sort(function(a,b){ return b.s - a.s; });
+    var top = sorted[0];
+    var c = catById(top.cat || 'other');
+    h = sheetHead('i-alert','c-red','Крупнейшая трата', r.label)
+      + rowHtml('Что', top.n)
+      + rowHtml('Когда', top.d.getDate()+'.'+String(top.d.getMonth()+1).padStart(2,'0')+'.'+top.d.getFullYear())
+      + rowHtml('Категория', c.n)
+      + rowHtml('Сумма', fmt(top.s))
+      + rowHtml('Доля от всех трат', Math.round(top.s / tot * 100) + '%')
+      + '<div class="cap" style="margin:10px 4px 6px">Топ-5 трат за период</div>';
+    for(i=0;i<sorted.length && i<5;i++){
+      h += '<div class="dig-item"><span>'+sorted[i].d.getDate()+'.'+String(sorted[i].d.getMonth()+1).padStart(2,'0')+' - '+sorted[i].n+'</span><b>-'+fmt(sorted[i].s)+'</b></div>';
+    }
+    h += '<div class="sh-tip">Одна эта трата = '+Math.round(top.s / tot * 100)+'% всех расходов периода. Проверь, была ли она запланирована.</div>';
+  } else if(kind === 'wd'){
+    var WD = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+    var wdTot = [0,0,0,0,0,0,0], wdCnt = [0,0,0,0,0,0,0];
+    for(i=0;i<sp.length;i++){ var w = sp[i].d.getDay(); wdTot[w] += sp[i].s; wdCnt[w]++; }
+    var maxW = 0;
+    for(i=1;i<7;i++){ if(wdTot[i] > wdTot[maxW]){ maxW = i; } }
+    h = sheetHead('i-cal','c-org','Дорогие дни недели', r.label);
+    for(i=0;i<7;i++){
+      var p = tot > 0 ? Math.round(wdTot[i] / tot * 100) : 0;
+      h += '<div class="g-row"><div class="g-head"><span>'+WD[i]+(i===maxW?' - максимум':'')+'</span><b>'+fmt(wdTot[i])+' - '+wdCnt[i]+' оп.</b></div>'
+        + '<div class="bar-large" style="height:6px"><i style="width:'+p+'%;background:'+(i===maxW?'var(--org)':'var(--blu)')+'"></i></div></div>';
+    }
+    h += '<div class="sh-tip">По '+WD[maxW].toLowerCase()+' траты максимальные ('+fmt(wdTot[maxW])+'). Крупные покупки планируй на другие дни недели.</div>';
+  }
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+
 function renderAnalytics(){
   var r = periodRange();
   $('pLabel').textContent = r.label;
@@ -1069,11 +1129,11 @@ function renderAnalytics(){
   var WD_LONG = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
   var hRow = '';
   if(sp.length){
-    hRow += '<div class="habit-row"><div class="habit-ic c-blu"><svg class="ic"><use href="#i-card"/></svg></div><div class="habit-info"><b>Средний чек</b><span>'+sp.length+' транзакций за период</span></div><b>'+fmt(avgCheck)+'</b></div>';
+       hRow += '<div class="habit-row" data-act="an-habit" data-h="avg"><div class="habit-ic c-blu"><svg class="ic"><use href="#i-card"/></svg></div><div class="habit-info"><b>Средний чек</b><span>'+sp.length+' транзакций за период</span></div><b>'+fmt(avgCheck)+' ›</b></div>';
     if(maxOp){
-      hRow += '<div class="habit-row" data-act="an-day" data-d="'+iso(maxOp.d)+'"><div class="habit-ic c-red"><svg class="ic"><use href="#i-alert"/></svg></div><div class="habit-info"><b>Крупнейшая трата</b><span>'+maxOp.n+' · '+maxOp.d.getDate()+'.'+String(maxOp.d.getMonth()+1).padStart(2,'0')+'</span></div><b>'+fmt(maxOp.s)+'</b></div>';
+      hRow += '<div class="habit-row" data-act="an-habit" data-h="max"><div class="habit-ic c-red"><svg class="ic"><use href="#i-alert"/></svg></div><div class="habit-info"><b>Крупнейшая трата</b><span>'+maxOp.n+' · '+maxOp.d.getDate()+'.'+String(maxOp.d.getMonth()+1).padStart(2,'0')+'</span></div><b>'+fmt(maxOp.s)+' ›</b></div>';
     }
-    hRow += '<div class="habit-row"><div class="habit-ic c-org"><svg class="ic"><use href="#i-cal"/></svg></div><div class="habit-info"><b>Самый дорогой день недели</b><span>всего '+fmt(wdTot[maxWd])+' за период</span></div><b>'+WD_LONG[maxWd]+'</b></div>';
+    hRow += '<div class="habit-row" data-act="an-habit" data-h="wd"><div class="habit-ic c-org"><svg class="ic"><use href="#i-cal"/></svg></div><div class="habit-info"><b>Самый дорогой день недели</b><span>всего '+fmt(wdTot[maxWd])+' за период</span></div><b>'+WD_LONG[maxWd]+' ›</b></div>';
     if(maxDayKey){
       var md3 = parseD(maxDayKey);
       hRow += '<div class="habit-row" data-act="an-day" data-d="'+maxDayKey+'"><div class="habit-ic c-pur"><svg class="ic"><use href="#i-cal"/></svg></div><div class="habit-info"><b>Самый дорогой день</b><span>'+md3.getDate()+' '+MONTHS[md3.getMonth()]+' · '+WD_SHORT[md3.getDay()]+'</span></div><b>'+fmt(maxDayVal)+'</b></div>';
@@ -1868,6 +1928,7 @@ document.addEventListener('click', function(e){
   else if(act === 'an-cat'){ openCatSheet(el.getAttribute('data-c')); }
   else if(act === 'an-day'){ openDaySheet(el.getAttribute('data-d')); }
   else if(act === 'an-compare'){ openCompareSheet(); }
+      else if(act === 'an-habit'){ openHabitSheet(el.getAttribute('data-h')); }
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
   else if(act === 'cal-month'){
