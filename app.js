@@ -1090,7 +1090,7 @@ function renderAnalytics(){
     var cEl = $('cmpBtnBox');
     if(cEl && cEl.parentNode){ cEl.parentNode.insertBefore(habBox, cEl.nextSibling); }
   }
-  habBox.innerHTML = hRow ? '<div class="cap" style="margin:14px 4px 6px">Привычки в цифрах · твоё зеркало за период</div>' + hRow + '<div class="sh-tip">Нажми на «крупнейшую трату» или «самый дорогой день» — откроются все операции. Нажми на самокаты или кафе — увидишь полный список.</div>' : '';
+    habBox.innerHTML = hRow ? '<div class="cap" style="margin:14px 4px 6px">Привычки в цифрах · твоё зеркало за период</div>' + hRow + '<div class="sh-tip">Нажми на "крупнейшую трату" или "самый дорогой день" — откроются все операции. Нажми на самокаты или кафе — увидишь полный список.</div>' : '';
 }
 
 function renderTx(){
