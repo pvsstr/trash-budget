@@ -786,8 +786,8 @@ function renderTx(){
   }
   var all = list.concat(incs);
   all.sort(function(a,b){ return b.d - a.d; });
-  var h = ''; var cnt = 0;
-  for(var i=0;i<all.length && cnt<25;i++){
+   var h = '';
+  for(var i=0;i<all.length;i++){
     var t = all[i];
     if(t.n.toLowerCase().indexOf(q) === -1){ continue; }
     var isInc = t.s < 0 && t.cat === 'income';
@@ -795,7 +795,6 @@ function renderTx(){
     h += '<div class="tx"><div class="tx-ic '+(isInc?'c-grn':cc.k)+'"><svg class="ic"><use href="#'+(isInc?'i-in':cc.i)+'"/></svg></div>'
       + '<div class="tx-body"><b>'+t.n+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+'.'+t.d.getFullYear()+'</span></div>'
       + '<div class="tx-right"><b class="'+(isInc?'pos':'')+'">'+(isInc?'+':'-')+fmt(Math.abs(t.s))+'</b><span>'+(isInc?'ДОХОД':cc.n)+'</span></div></div>';
-    cnt++;
   }
   $('txList').innerHTML = h || '<p style="color:var(--mut);font-size:13px;padding:12px">Пока пусто — добавьте траты или импортируйте выписку</p>';
 }
@@ -1370,6 +1369,14 @@ function paintPal(){
   $('evPal').innerHTML = h;
 }
 
+function applySeed(S){
+  D.tx = (S.tx||[]).map(function(r){ return {d:r[0], n:r[1], s:r[2], c:r[3]}; });
+  if(S.subs){ D.subs = S.subs; }
+  if(S.credits){ D.credits = S.credits; }
+  D.seedVersion = S.version;
+  save();
+}
+
 function render(){
   var now = new Date();
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
@@ -1677,8 +1684,9 @@ onAuthStateChanged(auth, function(u){
     if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
     if ($('mMail')) $('mMail').textContent = name;
     getDoc(doc(db,'users',uid)).then(function(s){
-      if(s.exists() && s.data() && s.data().data){ D = s.data().data; }
+            if(s.exists() && s.data() && s.data().data){ D = s.data().data; }
       normalize();
+      if(window.SEED && (D.seedVersion||0) !== window.SEED.version){ applySeed(window.SEED); }
       ensureSalary();
       var sel = $('spCat');
       if (sel) {
