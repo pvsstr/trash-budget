@@ -400,9 +400,8 @@ function openSheet(t, i){
       total += D.goals[ig3].cur || 0;
       if(D.goals[ig3].done){ doneN++; } else { actN++; }
     }
-    h = sheetHead('i-target','c-pur','Цели и копилки', actN+' активн. · '+doneN+' выполн. · '+fmt(total)+' накоплено')
-      + tipHtml('Управляй целями прямо с главной панели — там есть пополнение, редактирование и секция выполненных.')
-      + '<button class="sh-btn" style="margin-top:12px" data-act="goal-add">+ Добавить цель</button>';
+       h = sheetHead('i-target','c-pur','Цели и копилки', actN+' активн. · '+doneN+' выполн. · '+fmt(total)+' накоплено')
+      + goalsHtml();
 
   } else if(t === 'income'){
     h = sheetHead('i-wallet','c-grn','Доход', fmt(D.income)+' в месяц')
@@ -818,7 +817,7 @@ function renderRec(){
   $('recList').innerHTML = h;
 }
 
-function renderGoals(){
+function goalsHtml(){
   var act = (D.goals||[]).filter(function(g){ return !g.done; });
   var done = (D.goals||[]).filter(function(g){ return g.done; });
   var h = '';
@@ -853,10 +852,12 @@ function renderGoals(){
       }
     }
   }
-  $('goalCard').innerHTML = h
-    + '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="goal-add">+ Добавить цель</button></div>';
+  return h + '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="goal-add">+ Добавить цель</button></div>';
 }
-
+function renderGoals(){
+  var el = $('goalCard');
+  if(el){ el.innerHTML = ''; }
+}
 function renderLearn(){
   var done = D.learned.length;
   var tot = LESSONS.length;
