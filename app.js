@@ -150,7 +150,14 @@ function normalize(){
   }
   D.learned=D.learned||[];
   D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{};
-  D.goals=D.goals||{cushion:0,cushionT:100000,vacation:0,vacationT:200000};
+  // Миграция: старые цели были объектом, новые — массив
+  if(D.goals && !Array.isArray(D.goals)){
+    D.goals = [
+      {id:1, n:'Подушка безопасности', cur:D.goals.cushion||0, target:D.goals.cushionT||100000, done:false},
+      {id:2, n:'Отпуск', cur:D.goals.vacation||0, target:D.goals.vacationT||200000, done:false}
+    ];
+  }
+  D.goals = D.goals || [];
 }
 
 function allSpends(){
@@ -210,8 +217,12 @@ function calcDailyLimit() {
 function calcHealthScore() {
   var score = 50;
   var safe = calcSafeBalance();
-  var cushion = (D.goals && D.goals.cushion) || 0;
-  var cushionTarget = (D.goals && D.goals.cushionT) || 100000;
+  var cushGoal = null;
+  for(var ig=0;ig<(D.goals||[]).length;ig++){
+    if(/подушк/i.test(D.goals[ig].n) && !D.goals[ig].done){ cushGoal = D.goals[ig]; break; }
+  }
+  var cushion = cushGoal ? cushGoal.cur : 0;
+  var cushionTarget = cushGoal ? cushGoal.target : 100000;
   score += Math.min(30, Math.round((cushion / cushionTarget) * 30));
   if (safe > 0) score += 20;
   var actLeakN = activeLeaks().length;
@@ -383,14 +394,16 @@ function openSheet(t, i){
       + rowHtml('Ближайшие 3 дня', fmt(nextPay(3)))
       + rowHtml('За весь текущий месяц', fmt(nextPay(30)))
       + tipHtml('Контролируйте списания, чтобы не выходить за лимиты.');
-  } else if(t === 'goals'){
-    var cushion = (D.goals && D.goals.cushion) || 0;
-    var vacation = (D.goals && D.goals.vacation) || 0;
-    h = sheetHead('i-target','c-pur','Цели и копилки','накопления')
-      + rowHtml('Подушка безопасности', fmt(cushion))
-      + rowHtml('Копилка на отпуск', fmt(vacation))
-      + rowHtml('Всего накоплено', fmt(cushion + vacation))
-      + '<button class="sh-btn" data-act="edit" data-t="goal">Изменить цели</button>';
+   } else if(t === 'goals'){
+    var total = 0, actN = 0, doneN = 0;
+    for(var ig3=0;ig3<(D.goals||[]).length;ig3++){
+      total += D.goals[ig3].cur || 0;
+      if(D.goals[ig3].done){ doneN++; } else { actN++; }
+    }
+    h = sheetHead('i-target','c-pur','Цели и копилки', actN+' активн. · '+doneN+' выполн. · '+fmt(total)+' накоплено')
+      + tipHtml('Управляй целями прямо с главной панели — там есть пополнение, редактирование и секция выполненных.')
+      + '<button class="sh-btn" style="margin-top:12px" data-act="goal-add">+ Добавить цель</button>';
+
   } else if(t === 'income'){
     h = sheetHead('i-wallet','c-grn','Доход', fmt(D.income)+' в месяц')
       + rowHtml('Зарплата', D.salaryDay+'-го числа, авто')
@@ -526,9 +539,6 @@ function openEdit(t, i){
   if(t==='env'){ it = i?get(D.envs):null; title = it?it.n:'Конверт';
     h = '<div class="form"><input class="inp" id="in2" type="number" placeholder="Лимит в месяц, ₽" value="'+(it?it.lim:'')+'"></div>';
   }
-  if(t==='goal'){ title = 'Цели и копилки';
-    h = '<div class="form"><div class="row2"><input class="inp" id="in1" type="number" placeholder="Подушка: есть, ₽" value="'+D.goals.cushion+'"><input class="inp" id="in2" type="number" placeholder="Подушка: цель, ₽" value="'+D.goals.cushionT+'"></div><div class="row2"><input class="inp" id="in3" type="number" placeholder="Отпуск: есть, ₽" value="'+D.goals.vacation+'"><input class="inp" id="in4" type="number" placeholder="Отпуск: цель, ₽" value="'+D.goals.vacationT+'"></div></div>';
-  }
   window._ef = {t:t, id:i};
   $('sheetBody').innerHTML = sheetHead('i-target','c-pur', title, 'редактирование')
     + h
@@ -560,7 +570,6 @@ function saveEdit(){
     else { D.insts.push({id:Date.now(), n:g('in1')||'Рассрочка', s:parseFloat(g('in2'))||0, d:g('in3')||iso(new Date())}); }
   }
   if(f.t==='env'){ it=find(D.envs); if(it){ it.lim=parseFloat(g('in2'))||it.lim; } }
-  if(f.t==='goal'){ D.goals={cushion:parseFloat(g('in1'))||0, cushionT:parseFloat(g('in2'))||100000, vacation:parseFloat(g('in3'))||0, vacationT:parseFloat(g('in4'))||200000}; }
   save(); closeSheet(); render(); toast('Сохранено');
 }
 
@@ -810,17 +819,42 @@ function renderRec(){
 }
 
 function renderGoals(){
-  var g = D.goals;
-  var p1 = Math.min(100, Math.round(g.cushion / Math.max(1,g.cushionT) * 100));
-  var p2 = Math.min(100, Math.round(g.vacation / Math.max(1,g.vacationT) * 100));
-  $('goalCard').innerHTML = '<div class="env glass hov" data-act="edit" data-t="goal" style="margin-bottom:16px">'
-    + '<header><div class="env-name"><div class="sic c-pur" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-target"/></svg></div>Подушка безопасности</div><b>'+fmt(g.cushion)+' / '+fmt(g.cushionT)+'</b></header>'
-    + '<div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+p1+'%;background:linear-gradient(90deg,var(--pur),var(--pink))"></i></div>'
-    + '<div class="note">'+p1+'% · нажмите, чтобы изменить цель или пополнить</div></div>'
-    + '<div class="env glass hov" data-act="edit" data-t="goal" style="margin-bottom:16px">'
-    + '<header><div class="env-name"><div class="sic c-org" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-beach"/></svg></div>Копилка на отпуск</div><b>'+fmt(g.vacation)+' / '+fmt(g.vacationT)+'</b></header>'
-    + '<div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+p2+'%;background:linear-gradient(90deg,var(--org),var(--red))"></i></div>'
-    + '<div class="note">'+p2+'% · нажмите, чтобы изменить или пополнить</div></div>';
+  var act = (D.goals||[]).filter(function(g){ return !g.done; });
+  var done = (D.goals||[]).filter(function(g){ return g.done; });
+  var h = '';
+  if(act.length === 0 && done.length === 0){
+    h = '<div class="rec glass"><header><div class="sic c-pur"><svg class="ic"><use href="#i-target"/></svg></div><div><h5>Целей пока нет</h5><span>Добавь первую — и начни копить</span></div></header></div>';
+  } else {
+    for(var i=0;i<act.length;i++){
+      var g = act[i];
+      var p = Math.min(100, Math.round((g.cur||0) / Math.max(1,g.target||1) * 100));
+      var dl = g.deadline ? ' · до '+parseD(g.deadline).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) : '';
+      h += '<div class="env glass hov" style="margin-bottom:12px">'
+        + '<header><div class="env-name"><div class="sic c-pur" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-target"/></svg></div>'+g.n+'</div><b>'+fmt(g.cur||0)+' / '+fmt(g.target)+'</b></header>'
+        + '<div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+p+'%;background:linear-gradient(90deg,var(--pur),var(--pink))"></i></div>'
+        + '<div class="note">'+p+'%'+dl+'</div>'
+        + '<div class="row-actions" style="margin-top:8px;gap:6px">'
+        + '<button class="sh-btn" style="margin:0;flex:1;background:rgba(48,209,88,.15);color:var(--grn)" data-act="goal-fund" data-i="'+g.id+'">+ Пополнить</button>'
+        + '<button class="mini-btn" data-act="goal-edit" data-i="'+g.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+        + '<button class="mini-btn danger" data-act="goal-del" data-i="'+g.id+'"><svg class="ic"><use href="#i-trash"/></svg></button>'
+        + '</div></div>';
+    }
+    if(done.length > 0){
+      h += '<div class="cap" style="margin:16px 4px 8px;color:var(--grn)">✓ Выполненные цели</div>';
+      for(var j=0;j<done.length;j++){
+        var g2 = done[j];
+        h += '<div class="env glass hov" style="margin-bottom:8px;opacity:.85">'
+          + '<header><div class="env-name"><div class="sic c-grn" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-check"/></svg></div>'+g2.n+'</div><b>'+fmt(g2.cur||0)+' / '+fmt(g2.target)+'</b></header>'
+          + '<div class="row-actions" style="margin-top:8px;gap:6px">'
+          + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="goal-uncomplete" data-i="'+g2.id+'">Вернуть в активные</button>'
+          + '<button class="mini-btn" data-act="goal-edit" data-i="'+g2.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
+          + '<button class="mini-btn danger" data-act="goal-del" data-i="'+g2.id+'"><svg class="ic"><use href="#i-trash"/></svg></button>'
+          + '</div></div>';
+      }
+    }
+  }
+  $('goalCard').innerHTML = h
+    + '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="goal-add">+ Добавить цель</button></div>';
 }
 
 function renderLearn(){
@@ -942,8 +976,14 @@ function renderDashboardNew() {
   if ($('cycleDates')) $('cycleDates').textContent = cycLabel(cs);
   var fixedPay = calcMonthlyFixedPay();
   if ($('sFixedPay')) $('sFixedPay').textContent = fmt(fixedPay);
-  var goalsTotal = ((D.goals && D.goals.cushion) || 0) + ((D.goals && D.goals.vacation) || 0);
+   var goalsTotal = 0, goalsActive = 0;
+  for(var ig2=0;ig2<(D.goals||[]).length;ig2++){
+    goalsTotal += D.goals[ig2].cur || 0;
+    if(!D.goals[ig2].done){ goalsActive++; }
+  }
   if ($('sGoalsVal')) $('sGoalsVal').textContent = fmt(goalsTotal);
+  var pill = document.querySelector('.stat .c-pur + .pill, .stat:has(#sGoalsVal) .pill');
+  if(pill){ pill.textContent = goalsActive+' активн. · нажми'; }
 }
 
 // ===== КАЛЕНДАРИ =====
@@ -1211,6 +1251,99 @@ function herFill(dstr){
   toast('График 3/3 заполнен на 60 дней');
 }
 
+// ===== ЦЕЛИ: добавление, редактирование, пополнение, выполнение =====
+function findGoal(id){
+  for(var i=0;i<(D.goals||[]).length;i++){ if(D.goals[i].id === id){ return D.goals[i]; } }
+  return null;
+}
+function openGoalAdd(){
+  $('sheetBody').innerHTML = sheetHead('i-target','c-pur','Новая цель','накопить на что-то важное')
+    + '<div class="form">'
+    + '<input class="inp" id="gName" placeholder="Название (машина, ремонт, MacBook...)">'
+    + '<div class="row2"><input class="inp" id="gTarget" type="number" placeholder="Цель, ₽"><input class="inp" id="gCur" type="number" placeholder="Уже есть, ₽" value="0"></div>'
+    + '<input class="inp" id="gDeadline" type="date" placeholder="Срок (необязательно)">'
+    + '</div>'
+    + '<button class="sh-btn" data-act="goal-add-save">Создать цель</button>';
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+function openGoalEdit(id){
+  var g = findGoal(id);
+  if(!g){ return; }
+  $('sheetBody').innerHTML = sheetHead('i-pen','c-pur','Редактировать цель', g.n)
+    + '<div class="form">'
+    + '<input class="inp" id="gName" placeholder="Название" value="'+g.n+'">'
+    + '<div class="row2"><input class="inp" id="gTarget" type="number" placeholder="Цель, ₽" value="'+(g.target||0)+'"><input class="inp" id="gCur" type="number" placeholder="Уже есть, ₽" value="'+(g.cur||0)+'"></div>'
+    + '<input class="inp" id="gDeadline" type="date" value="'+(g.deadline||'')+'">'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);margin-top:8px"><input type="checkbox" id="gDone" '+(g.done?'checked':'')+'> отметить как выполненную</label>'
+    + '</div>'
+    + '<button class="sh-btn" data-act="goal-edit-save" data-i="'+g.id+'">Сохранить</button>';
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+function goalFund(id){
+  var g = findGoal(id);
+  if(!g){ return; }
+  dPrompt('Сколько откладываешь на «'+g.n+'», ₽?', 'Пополнить цель', '10000').then(function(v){
+    if(!v){ return; }
+    var amt = parseFloat(v);
+    if(isNaN(amt) || amt === 0){ return; }
+    g.cur = (g.cur||0) + amt;
+    if(g.cur >= g.target && g.target > 0){ g.done = true; toast('🎉 Цель «'+g.n+'» выполнена!'); }
+    else { toast('+'+fmt(amt)+' к «'+g.n+'»'); }
+    save(); render();
+  });
+}
+function goalAddSave(){
+  var n = $('gName').value.trim();
+  var t = parseFloat($('gTarget').value) || 0;
+  var c = parseFloat($('gCur').value) || 0;
+  var dl = $('gDeadline').value;
+  if(!n){ dAlert('Дай цели название.', 'Новая цель'); return; }
+  if(t <= 0){ dAlert('Укажи целевую сумму.', 'Новая цель'); return; }
+  D.goals.push({id:Date.now(), n:n, cur:c, target:t, deadline:dl||null, done: c >= t});
+  save(); closeSheet(); render();
+  toast('Цель «'+n+'» создана');
+}
+function goalEditSave(id){
+  var g = findGoal(id);
+  if(!g){ return; }
+  var n = $('gName').value.trim();
+  var t = parseFloat($('gTarget').value) || 0;
+  var c = parseFloat($('gCur').value) || 0;
+  var dl = $('gDeadline').value;
+  var done = $('gDone').checked;
+  if(!n){ dAlert('Дай цели название.', 'Редактирование'); return; }
+  if(t <= 0){ dAlert('Укажи целевую сумму.', 'Редактирование'); return; }
+  g.n = n; g.target = t; g.cur = c; g.deadline = dl||null;
+  if(c >= t && t > 0){ g.done = true; }
+  else if(done){ g.done = true; }
+  else { g.done = false; }
+  save(); closeSheet(); render();
+  toast('Цель обновлена');
+}
+function goalDel(id){
+  var g = findGoal(id);
+  if(!g){ return; }
+  dConfirm('Удалить цель «'+g.n+'»? Накопления исчезнут.', 'Удаление цели', true).then(function(ok){
+    if(!ok){ return; }
+    D.goals = (D.goals||[]).filter(function(x){ return x.id !== id; });
+    save(); render(); toast('Цель удалена');
+  });
+}
+function goalUncomplete(id){
+  var g = findGoal(id);
+  if(!g){ return; }
+  dPrompt('Новая целевая сумма для «'+g.n+'», ₽ (если больше текущей — вернётся в активные):', 'Вернуть в активные', String(g.target)).then(function(v){
+    if(!v){ return; }
+    var nt = parseFloat(v);
+    if(isNaN(nt) || nt <= 0){ return; }
+    g.target = nt;
+    g.done = (g.cur||0) >= nt;
+    save(); render(); toast('Цель возвращена');
+  });
+}
+  
 function openPlanSheet(){
   planColor = freeColor();
   var dates = calSel.slice().sort();
@@ -1471,6 +1604,13 @@ document.addEventListener('click', function(e){
   else if(act === 'cal-event-del'){ calEventDel(el.getAttribute('data-i')); }
   else if(act === 'fix-del'){ fixDel(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'postpone'){ fixPostpone(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i'),10)); }
+      else if(act === 'goal-add'){ openGoalAdd(); }
+  else if(act === 'goal-add-save'){ goalAddSave(); }
+  else if(act === 'goal-edit'){ openGoalEdit(parseInt(el.getAttribute('data-i'),10)); }
+  else if(act === 'goal-edit-save'){ goalEditSave(parseInt(el.getAttribute('data-i'),10)); }
+  else if(act === 'goal-fund'){ goalFund(parseInt(el.getAttribute('data-i'),10)); }
+  else if(act === 'goal-del'){ goalDel(parseInt(el.getAttribute('data-i'),10)); }
+  else if(act === 'goal-uncomplete'){ goalUncomplete(parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
   else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
   else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
