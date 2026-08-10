@@ -321,3 +321,10 @@ html{scroll-behavior:smooth}
 .mini-btn .ic{width:15px;height:15px}
 .row-actions{display:flex;gap:6px;align-items:center;flex:none}
 .row-actions b{margin-right:2px}
+
+/* Тревога об утечках на карточке */
+.stat{position:relative}
+.leak-badge{position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:5px;background:rgba(255,69,58,.16);color:var(--red);font-size:10.5px;font-weight:800;padding:5px 9px;border-radius:999px;z-index:2}
+.leak-badge .ic{width:12px;height:12px}
+.leak-badge::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--red);animation:leakPulse 1.4s ease-in-out infinite;flex:none}
+@keyframes leakPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.65)}}
