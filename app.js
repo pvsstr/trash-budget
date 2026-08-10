@@ -830,9 +830,9 @@ function renderAnalytics(){
   for(i=0;i<sp.length;i++){ tot += sp[i].s; }
   var len = r.to - r.from;
   var pf = new Date(r.from.getTime() - len);
-  var psp = allSpends().filter(function(x){ return x.d >= pf && x.d < r.from; });
-  var ptot = 0;
-  for(i=0;i<psp.length;i++){ ptot += psp[i].s; }
+   var psp = allSpends().filter(function(x){ return x.d >= pf && x.d < r.from; });
+  var ptot = 0; var pmap = {};
+  for(i=0;i<psp.length;i++){ ptot += psp[i].s; var pk2 = psp[i].cat || 'other'; pmap[pk2] = (pmap[pk2]||0) + psp[i].s; }
   var delta = ptot > 0 ? Math.round((tot - ptot) / ptot * 100) : 0;
   var now = new Date();
   var end = r.to > now ? now : r.to;
@@ -848,10 +848,30 @@ function renderAnalytics(){
     + '<div class="dig-item"><span>В день</span><b>'+fmt(tot/days)+'</b></div>'
     + '<div class="dig-item"><span>Топ-категория</span><b>'+(agg.length ? agg[0].n : '—')+'</b></div>'
     + '<div class="dig-item"><span>К прошлому периоду</span><b class="'+(delta>0?'soon':'')+'">'+(delta>0?'+':'')+delta+'%</b></div>';
-  drawDonutWith(agg.slice(0,6), tot);
+   drawDonutWith(agg.slice(0,6), tot);
   drawBarsFor(sp, r);
+  var cols = ['#30d158','#bf5af2','#ff453a','#ff9f0a','#0a84ff','#64d2ff'];
+  var rank = '';
+  for(i=0;i<agg.length;i++){
+    var prev = pmap[agg[i].id] || 0;
+    var diff = agg[i].s - prev;
+    var dTxt, dCls;
+    if(prev === 0){ dTxt = 'новое'; dCls = 'zero'; }
+    else if(diff > 0){ dTxt = '↑ +'+fmt(diff); dCls = 'up'; }
+    else if(diff < 0){ dTxt = '↓ −'+fmt(Math.abs(diff)); dCls = 'down'; }
+    else { dTxt = '= 0'; dCls = 'zero'; }
+    rank += '<div class="rank-row" data-act="an-cat" data-c="'+agg[i].id+'"><i style="background:'+cols[i % 6]+'"></i><span class="rank-name">'+agg[i].n+'</span><b>'+fmt(agg[i].s)+'</b><span class="rank-delta '+dCls+'">'+dTxt+'</span></div>';
+  }
+  var rankBox = $('catRank');
+  if(!rankBox){
+    rankBox = document.createElement('div');
+    rankBox.id = 'catRank';
+    var barsCv = $('bars');
+    if(barsCv && barsCv.parentNode){ barsCv.parentNode.insertBefore(rankBox, barsCv.nextSibling); }
+  }
+  rankBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Рейтинг категорий · к прошлому периоду</div>'
+    + (rank || '<div class="dig-item"><span>Нет трат за период</span><b>—</b></div>');
 }
-
 function renderTx(){
   var q = ($('q').value || '').toLowerCase();
   var list = allSpends();
