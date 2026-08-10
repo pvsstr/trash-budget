@@ -787,6 +787,29 @@ function drawBarsFor(sp, r){
   }
 }
 
+function openDaySheet(dstr){
+  var d = parseD(dstr);
+  var list = allSpends().filter(function(x){ return iso(x.d) === dstr; }).sort(function(a,b){ return b.s - a.s; });
+  var incs = (D.incomes||[]).filter(function(x){ return x.d === dstr; });
+  var tot = 0;
+  for(var i2=0;i2<list.length;i2++){ tot += list[i2].s; }
+  var h = sheetHead('i-cal','c-blu', d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(), (list.length+incs.length)+' операций на '+fmt(tot));
+  for(var j2=0;j2<incs.length;j2++){
+    h += '<div class="dig-item"><span>'+incs[j2].n+'</span><b style="color:var(--grn)">+'+fmt(incs[j2].s)+'</b></div>';
+  }
+  if(list.length){
+    for(var t4=0;t4<list.length;t4++){
+      var cc2 = catById(list[t4].cat || 'other');
+      h += '<div class="dig-item"><span>'+list[t4].n+' · '+cc2.n+'</span><b>-'+fmt(list[t4].s)+'</b></div>';
+    }
+  } else if(!incs.length){
+    h += '<div class="dig-item"><span>Операций нет</span><b>—</b></div>';
+  }
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+
 function openCatSheet(catId){
   var r = periodRange();
   var len = r.to - r.from;
@@ -933,10 +956,43 @@ function renderAnalytics(){
     var sEl = $('structBox');
     if(sEl && sEl.parentNode){ sEl.parentNode.insertBefore(leakBox, sEl.nextSibling); }
   }
-  leakBox.innerHTML = leakRows
+    leakBox.innerHTML = leakRows
     ? '<div class="cap" style="margin:14px 4px 6px">Топ утечек за период</div>' + leakRows
       + '<div class="sh-tip">Утечки = '+fmt(leakSum2)+' · '+(tot>0?Math.round(leakSum2/tot*100):0)+'% всех трат за период. Нажми на строку — откроются все операции категории.</div>'
     : '';
+  var hmMonths = [];
+  if(pMode === 'm'){ hmMonths.push(new Date(r.from.getFullYear(), r.from.getMonth(), 1)); }
+  else if(pMode === 'q'){ for(var hm3=0;hm3<3;hm3++){ hmMonths.push(new Date(r.from.getFullYear(), r.from.getMonth()+hm3, 1)); } }
+  else if(pMode === 'y'){ var hmEnd = new Date(r.to.getFullYear(), r.to.getMonth()-1, 1); for(var hm12=11;hm12>=0;hm12--){ hmMonths.push(new Date(hmEnd.getFullYear(), hmEnd.getMonth()-hm12, 1)); } }
+  else { var nowM = new Date(); for(var hma=11;hma>=0;hma--){ hmMonths.push(new Date(nowM.getFullYear(), nowM.getMonth()-hma, 1)); } }
+  var dayMap = {};
+  for(i=0;i<sp.length;i++){ var dk = iso(sp[i].d); dayMap[dk] = (dayMap[dk]||0) + sp[i].s; }
+  var maxDay = 1;
+  for(var kk in dayMap){ if(dayMap[kk] > maxDay){ maxDay = dayMap[kk]; } }
+  var hm = '';
+  for(var mi=0;mi<hmMonths.length;mi++){
+    var mo = hmMonths[mi];
+    hm += '<div class="hm-month"><b>'+MONTHS_S[mo.getMonth()]+' '+mo.getFullYear()+'</b><div class="hm-grid">';
+    var blank2 = (new Date(mo.getFullYear(), mo.getMonth(), 1).getDay()+6)%7;
+    for(var b2=0;b2<blank2;b2++){ hm += '<span></span>'; }
+    var dnum = new Date(mo.getFullYear(), mo.getMonth()+1, 0).getDate();
+    for(var dd2=1;dd2<=dnum;dd2++){
+      var key2 = mo.getFullYear()+'-'+String(mo.getMonth()+1).padStart(2,'0')+'-'+String(dd2).padStart(2,'0');
+      var v2 = dayMap[key2] || 0;
+      var lvl = v2 <= 0 ? 0 : (v2 < maxDay*0.15 ? 1 : (v2 < maxDay*0.35 ? 2 : (v2 < maxDay*0.6 ? 3 : 4)));
+      var al = [0.06,0.22,0.4,0.62,0.9][lvl];
+      hm += '<span class="hm-day" data-act="an-day" data-d="'+key2+'" style="background:rgba(10,132,255,'+al+')"></span>';
+    }
+    hm += '</div></div>';
+  }
+  var heatBox = $('heatBox');
+  if(!heatBox){
+    heatBox = document.createElement('div');
+    heatBox.id = 'heatBox';
+    var lEl = $('leakTop');
+    if(lEl && lEl.parentNode){ lEl.parentNode.insertBefore(heatBox, lEl.nextSibling); }
+  }
+  heatBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Тепловая карта трат · нажми на день</div>' + hm;
 }
 function renderTx(){
   var q = ($('q').value || '').toLowerCase();
@@ -1708,6 +1764,7 @@ document.addEventListener('click', function(e){
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
       else if(act === 'p-prev'){ pOff--; renderAnalytics(); }
   else if(act === 'an-cat'){ openCatSheet(el.getAttribute('data-c')); }
+      else if(act === 'an-day'){ openDaySheet(el.getAttribute('data-d')); }
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
   else if(act === 'cal-month'){
