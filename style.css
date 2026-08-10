@@ -345,3 +345,11 @@ html{scroll-behavior:smooth}
 .g-row{margin:8px 0}
 .g-head{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;font-weight:600;margin-bottom:4px}
 .g-head b{font-size:12.5px}
+
+/* Топ утечек */
+.leak-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;border-radius:8px;transition:background .2s}
+.leak-row:hover{background:rgba(255,255,255,.04)}
+.leak-info{flex:1;display:flex;flex-direction:column;gap:2px}
+.leak-info b{font-size:12.5px;font-weight:600}
+.leak-info span{font-size:10.5px;color:var(--mut)}
+.leak-sum{font-size:12.5px}
