@@ -686,56 +686,80 @@ function catAgg(cs){
 
 function drawDonutWith(agg, tot){
   var cv = $('donut'); if(!cv){ return; }
-  var x = cv.getContext('2d');
-  x.clearRect(0,0,170,170);
-  cv._segs = [];
-  if(tot <= 0){
-    x.fillStyle = '#8b91a7'; x.font = '600 11px Manrope, sans-serif'; x.textAlign = 'center';
-    x.fillText('Нет трат за период', 85, 85);
-    $('legend').innerHTML = '';
-    return;
-  }
   var cols = ['#30d158','#bf5af2','#ff453a','#ff9f0a','#0a84ff','#64d2ff'];
-  var a = -Math.PI/2;
-  for(var i=0;i<agg.length;i++){
-    var w = agg[i].s / tot * Math.PI * 2;
-    x.beginPath();
-    x.arc(85,85,66,a+0.03,a+w-0.03);
-    x.strokeStyle = cols[i % 6];
-    x.lineWidth = 22;
-    x.lineCap = 'round';
-    x.stroke();
-    cv._segs.push({id:agg[i].id, a0:a, a1:a+w});
-    a += w;
+  cv._segs = [];
+  cv._hover = -1;
+
+  function paint(hover){
+    var x = cv.getContext('2d');
+    x.clearRect(0,0,170,170);
+    if(tot <= 0){
+      x.fillStyle = '#8b91a7'; x.font = '600 11px Manrope, sans-serif'; x.textAlign = 'center';
+      x.fillText('Нет трат за период', 85, 85);
+      return;
+    }
+    var a = -Math.PI/2;
+    for(var i=0;i<agg.length;i++){
+      var w = agg[i].s / tot * Math.PI * 2;
+      var lift = (i === hover) ? 4 : 0;
+      x.beginPath();
+      x.arc(85,85,66+lift,a+0.03,a+w-0.03);
+      x.strokeStyle = cols[i % 6];
+      x.lineWidth = 22 + lift;
+      x.lineCap = 'round';
+      if(i === hover){ x.shadowColor = cols[i % 6]; x.shadowBlur = 12; } else { x.shadowBlur = 0; }
+      x.stroke();
+      x.shadowBlur = 0;
+      cv._segs[i] = {id:agg[i].id, a0:a, a1:a+w};
+      a += w;
+    }
+    x.fillStyle = '#f2f4ff'; x.font = '800 17px Manrope, sans-serif'; x.textAlign = 'center';
+    x.fillText(Math.round(tot/1000) + 'k', 85, 82);
+    x.fillStyle = '#8b91a7'; x.font = '600 10px Manrope, sans-serif';
+    x.fillText('₽ за период', 85, 98);
   }
-  x.fillStyle = '#f2f4ff'; x.font = '800 17px Manrope, sans-serif'; x.textAlign = 'center';
-  x.fillText(Math.round(tot/1000) + 'k', 85, 82);
-  x.fillStyle = '#8b91a7'; x.font = '600 10px Manrope, sans-serif';
-  x.fillText('₽ за период', 85, 98);
+
+  cv._paint = paint;
+  paint(-1);
+
+  if(tot <= 0){ cv.style.cursor = 'default'; $('legend').innerHTML = ''; return; }
   cv.style.cursor = 'pointer';
+
+  function segAt(e){
+    var rect = cv.getBoundingClientRect();
+    var px = (e.clientX - rect.left) * (170 / rect.width) - 85;
+    var py = (e.clientY - rect.top) * (170 / rect.height) - 85;
+    var dist = Math.sqrt(px*px + py*py);
+    if(dist < 48 || dist > 82){ return -1; }
+    var ang = Math.atan2(py, px);
+    if(ang < -Math.PI/2){ ang += Math.PI*2; }
+    for(var s=0;s<cv._segs.length;s++){
+      if(ang >= cv._segs[s].a0 && ang < cv._segs[s].a1){ return s; }
+    }
+    return -1;
+  }
+
   if(!cv._bound){
     cv._bound = true;
+    cv.addEventListener('mousemove', function(e){
+      var idx = segAt(e);
+      if(idx !== cv._hover){ cv._hover = idx; cv._paint(idx); }
+    });
+    cv.addEventListener('mouseleave', function(){
+      if(cv._hover !== -1){ cv._hover = -1; cv._paint(-1); }
+    });
     cv.addEventListener('click', function(e){
-      var rect = cv.getBoundingClientRect();
-      var px = (e.clientX - rect.left) * (170 / rect.width) - 85;
-      var py = (e.clientY - rect.top) * (170 / rect.height) - 85;
-      var dist = Math.sqrt(px*px + py*py);
-      if(dist < 48 || dist > 80){ return; }
-      var ang = Math.atan2(py, px);
-      if(ang < -Math.PI/2){ ang += Math.PI*2; }
-      var segs = cv._segs || [];
-      for(var s=0;s<segs.length;s++){
-        if(ang >= segs[s].a0 && ang < segs[s].a1){ openCatSheet(segs[s].id); return; }
-      }
+      var idx = segAt(e);
+      if(idx >= 0 && cv._segs[idx]){ openCatSheet(cv._segs[idx].id); }
     });
   }
+
   var lg = '';
-  for(i=0;i<agg.length;i++){
+  for(var i=0;i<agg.length;i++){
     lg += '<div style="cursor:pointer" data-act="an-cat" data-c="'+agg[i].id+'"><i style="background:'+cols[i % 6]+'"></i>'+agg[i].n+'<b>'+Math.round(agg[i].s/tot*100)+'% ›</b></div>';
   }
   $('legend').innerHTML = lg;
 }
-
 function drawBarsFor(sp, r){
   var b = $('bars'); if(!b){ return; }
   var y = b.getContext('2d');
