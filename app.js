@@ -688,6 +688,7 @@ function drawDonutWith(agg, tot){
   var cv = $('donut'); if(!cv){ return; }
   var x = cv.getContext('2d');
   x.clearRect(0,0,170,170);
+  cv._segs = [];
   if(tot <= 0){
     x.fillStyle = '#8b91a7'; x.font = '600 11px Manrope, sans-serif'; x.textAlign = 'center';
     x.fillText('Нет трат за период', 85, 85);
@@ -704,15 +705,33 @@ function drawDonutWith(agg, tot){
     x.lineWidth = 22;
     x.lineCap = 'round';
     x.stroke();
+    cv._segs.push({id:agg[i].id, a0:a, a1:a+w});
     a += w;
   }
   x.fillStyle = '#f2f4ff'; x.font = '800 17px Manrope, sans-serif'; x.textAlign = 'center';
   x.fillText(Math.round(tot/1000) + 'k', 85, 82);
   x.fillStyle = '#8b91a7'; x.font = '600 10px Manrope, sans-serif';
   x.fillText('₽ за период', 85, 98);
+  cv.style.cursor = 'pointer';
+  if(!cv._bound){
+    cv._bound = true;
+    cv.addEventListener('click', function(e){
+      var rect = cv.getBoundingClientRect();
+      var px = (e.clientX - rect.left) * (170 / rect.width) - 85;
+      var py = (e.clientY - rect.top) * (170 / rect.height) - 85;
+      var dist = Math.sqrt(px*px + py*py);
+      if(dist < 48 || dist > 80){ return; }
+      var ang = Math.atan2(py, px);
+      if(ang < -Math.PI/2){ ang += Math.PI*2; }
+      var segs = cv._segs || [];
+      for(var s=0;s<segs.length;s++){
+        if(ang >= segs[s].a0 && ang < segs[s].a1){ openCatSheet(segs[s].id); return; }
+      }
+    });
+  }
   var lg = '';
   for(i=0;i<agg.length;i++){
-    lg += '<div><i style="background:'+cols[i % 6]+'"></i>'+agg[i].n+'<b>'+Math.round(agg[i].s/tot*100)+'%</b></div>';
+    lg += '<div style="cursor:pointer" data-act="an-cat" data-c="'+agg[i].id+'"><i style="background:'+cols[i % 6]+'"></i>'+agg[i].n+'<b>'+Math.round(agg[i].s/tot*100)+'% ›</b></div>';
   }
   $('legend').innerHTML = lg;
 }
@@ -742,6 +761,39 @@ function drawBarsFor(sp, r){
     y.fillStyle = (i === buckets.length-1) ? '#0a84ff' : 'rgba(100,210,255,.35)';
     y.fillRect(i*bw+4, 170-h, Math.max(4, bw-8), Math.max(2, h));
   }
+}
+
+function openCatSheet(catId){
+  var r = periodRange();
+  var len = r.to - r.from;
+  var pf = new Date(r.from.getTime() - len);
+  var list = allSpends().filter(function(x){ return (x.cat||'other') === catId && x.d >= r.from && x.d < r.to; }).sort(function(a,b){ return b.d - a.d; });
+  var plist = allSpends().filter(function(x){ return (x.cat||'other') === catId && x.d >= pf && x.d < r.from; });
+  var tot = 0, ptot = 0, mx = 0;
+  for(var i=0;i<list.length;i++){ tot += list[i].s; if(list[i].s > mx){ mx = list[i].s; } }
+  for(var j=0;j<plist.length;j++){ ptot += plist[j].s; }
+  var delta = ptot > 0 ? Math.round((tot - ptot) / ptot * 100) : (tot > 0 ? 100 : 0);
+  var c = catById(catId);
+  var h = sheetHead(c.i, c.k, c.n, r.label)
+    + rowHtml('Потрачено', fmt(tot))
+    + rowHtml('Транзакций', list.length)
+    + rowHtml('Средний чек', fmt(list.length ? tot / list.length : 0))
+    + rowHtml('Крупнейшая трата', fmt(mx))
+    + rowHtml('Прошлый период', fmt(ptot))
+    + '<div class="sh-row"><span>Изменение</span><b style="color:'+(delta>0?'var(--red)':'var(--grn)')+'">'+(delta>0?'+':'')+delta+'%</b></div>'
+    + '<div class="cap" style="margin:10px 4px 6px">Все операции категории</div>'
+    + '<div style="max-height:300px;overflow-y:auto">';
+  if(list.length){
+    for(var t=0;t<list.length;t++){
+      h += '<div class="dig-item"><span>'+list[t].d.getDate()+'.'+String(list[t].d.getMonth()+1).padStart(2,'0')+' · '+list[t].n+'</span><b>-'+fmt(list[t].s)+'</b></div>';
+    }
+  } else {
+    h += '<div class="dig-item"><span>Операций за период нет</span><b>—</b></div>';
+  }
+  h += '</div>';
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
 }
 
 function renderAnalytics(){
@@ -1545,7 +1597,7 @@ document.addEventListener('click', function(e){
   }
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
       else if(act === 'p-prev'){ pOff--; renderAnalytics(); }
-  else if(act === 'p-next'){ if(pOff < 0){ pOff++; renderAnalytics(); } }
+  else if(act === 'an-cat'){ openCatSheet(el.getAttribute('data-c')); }
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
   else if(act === 'cal-month'){
