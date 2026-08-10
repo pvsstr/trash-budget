@@ -1418,6 +1418,17 @@ function go(p){
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
+function placeTip(){
+  var tip = $('tipText');
+  if(!tip){ return; }
+  var card = tip.closest('.glass');
+  var hello = $('hello');
+  if(!card || !hello){ return; }
+  var hero = hello.closest('.glass');
+  if(!hero || card === hero){ return; }
+  hero.parentNode.insertBefore(card, hero.nextSibling);
+}
+
 function addMsg(cls, html){
   var log = $('chatLog');
   log.insertAdjacentHTML('beforeend', '<div class="msg '+cls+'">'+html+'</div>');
@@ -1684,9 +1695,10 @@ onAuthStateChanged(auth, function(u){
       if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
       if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
       if($('spNote')){ $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } }); }
-      render();
+            render();
       go('dash');
-    }).catch(function(){ normalize(); render(); go('dash'); });
+      placeTip();
+    }).catch(function(){ normalize(); render(); go('dash'); placeTip(); });
   });
 });
 
