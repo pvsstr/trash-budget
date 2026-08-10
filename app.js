@@ -869,8 +869,44 @@ function renderAnalytics(){
     var barsCv = $('bars');
     if(barsCv && barsCv.parentNode){ barsCv.parentNode.insertBefore(rankBox, barsCv.nextSibling); }
   }
-  rankBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Рейтинг категорий · к прошлому периоду</div>'
+   rankBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Рейтинг категорий · к прошлому периоду</div>'
     + (rank || '<div class="dig-item"><span>Нет трат за период</span><b>—</b></div>');
+  var groups = {must:0, life:0, flex:0};
+  for(i=0;i<agg.length;i++){
+    var cid = agg[i].id;
+    if(cid==='home'||cid==='subs'||cid==='transport'){ groups.must += agg[i].s; }
+    else if(cid==='grocery'){ groups.life += agg[i].s; }
+    else { groups.flex += agg[i].s; }
+  }
+  var pot = 0;
+  for(i=0;i<D.envs.length;i++){
+    var ev = D.envs[i];
+    if(ev.lim <= 0){ continue; }
+    var f2 = 0;
+    for(var a3=0;a3<sp.length;a3++){ if(envMatch(ev, sp[a3])){ f2 += sp[a3].s; } }
+    if(f2 > ev.lim){ pot += f2 - ev.lim; }
+  }
+  function gRow(name, val, color){
+    var p2 = tot > 0 ? Math.round(val / tot * 100) : 0;
+    return '<div class="g-row"><div class="g-head"><span>'+name+'</span><b>'+fmt(val)+' · '+p2+'%</b></div>'
+      + '<div class="bar-large" style="height:6px"><i style="width:'+Math.min(100,p2)+'%;background:'+color+'"></i></div></div>';
+  }
+  var struct = '<div class="cap" style="margin:14px 4px 6px">Структура трат</div>'
+    + gRow('Обязательное · жильё, подписки, транспорт', groups.must, 'var(--blu)')
+    + gRow('Бытовое · продукты', groups.life, 'var(--grn)')
+    + gRow('Гибкое · кафе, самокаты, развлечения', groups.flex, 'var(--pur)')
+    + (pot > 0
+      ? '<div class="sh-tip">Потенциал экономии: <b>'+fmt(pot)+'</b> за период — настолько траты вышли за лимиты. Урежь гибкую часть, и эти деньги освободятся под цели.</div>'
+      : '<div class="sh-tip">Отлично: перерасхода за период нет — гибкая часть в рамках лимитов.</div>')
+    + '<div class="sh-tip">Гибкие траты = '+((D.income||0) > 0 ? Math.round(groups.flex / D.income * 100) : 0)+'% дохода. Здоровая норма — до 20%.</div>';
+  var structBox = $('structBox');
+  if(!structBox){
+    structBox = document.createElement('div');
+    structBox.id = 'structBox';
+    var rankEl = $('catRank');
+    if(rankEl && rankEl.parentNode){ rankEl.parentNode.insertBefore(structBox, rankEl.nextSibling); }
+  }
+  structBox.innerHTML = struct;
 }
 function renderTx(){
   var q = ($('q').value || '').toLowerCase();
