@@ -787,6 +787,49 @@ function drawBarsFor(sp, r){
   }
 }
 
+function openCompareSheet(){
+  var r = periodRange();
+  var len = r.to - r.from;
+  var pf = new Date(r.from.getTime() - len);
+  var cur = allSpends().filter(function(x){ return x.d >= r.from && x.d < r.to; });
+  var prev = allSpends().filter(function(x){ return x.d >= pf && x.d < r.from; });
+  var cm = {}, pm = {}, totC = 0, totP = 0, i;
+  for(i=0;i<cur.length;i++){ var k1 = cur[i].cat||'other'; cm[k1]=(cm[k1]||0)+cur[i].s; totC+=cur[i].s; }
+  for(i=0;i<prev.length;i++){ var k2 = prev[i].cat||'other'; pm[k2]=(pm[k2]||0)+prev[i].s; totP+=prev[i].s; }
+  var keys = {};
+  for(var a in cm){ keys[a]=1; }
+  for(var b in pm){ keys[b]=1; }
+  var rows = [];
+  for(var k in keys){ rows.push({id:k, c:cm[k]||0, p:pm[k]||0}); }
+  rows.sort(function(x,y){ return Math.abs(y.c-y.p) - Math.abs(x.c-x.p); });
+  function per(d){ return MONTHS_S[d.getMonth()]+' '+d.getFullYear(); }
+  var diff = totC - totP;
+  var pct = totP>0 ? Math.round(diff/totP*100) : (totC>0?100:0);
+  var h = sheetHead('i-chev','c-blu','Сравнение периодов', per(pf)+' → '+per(r.from))
+    + rowHtml(per(pf), fmt(totP))
+    + rowHtml(per(r.from), fmt(totC))
+    + '<div class="sh-row"><span>Итог</span><b style="color:'+(diff>0?'var(--red)':'var(--grn)')+'">'+(diff>0?'+':'−')+fmt(Math.abs(diff))+' ('+(diff>0?'+':'')+pct+'%)</b></div>'
+    + '<div class="cap" style="margin:10px 4px 6px">По категориям · самые большие изменения</div>';
+  for(i=0;i<rows.length && i<12;i++){
+    var d2 = rows[i].c - rows[i].p;
+    if(rows[i].c === 0 && rows[i].p === 0){ continue; }
+    h += '<div class="dig-item"><span>'+catById(rows[i].id).n+'</span><b>'+fmt(rows[i].p)+' → '+fmt(rows[i].c)+' <span style="color:'+(d2>0?'var(--red)':(d2<0?'var(--grn)':'var(--mut)')+'">'+(d2>0?'+':(d2<0?'−':''))+fmt(Math.abs(d2))+'</span></b></div>';
+  }
+  var grow = null, shrink = null;
+  for(i=0;i<rows.length;i++){
+    var dd = rows[i].c - rows[i].p;
+    if(dd > 0 && (!grow || dd > grow.d)){ grow = {n:catById(rows[i].id).n, d:dd}; }
+    if(dd < 0 && (!shrink || dd < shrink.d)){ shrink = {n:catById(rows[i].id).n, d:dd}; }
+  }
+  var tip = '';
+  if(grow){ tip += 'Больше всего выросло: <b>'+grow.n+'</b> (+'+fmt(grow.d)+'). '; }
+  if(shrink){ tip += 'Больше всего снизилось: <b>'+shrink.n+'</b> (−'+fmt(Math.abs(shrink.d))+').'; }
+  if(tip){ h += '<div class="sh-tip">'+tip+'</div>'; }
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+
 function openDaySheet(dstr){
   var d = parseD(dstr);
   var list = allSpends().filter(function(x){ return iso(x.d) === dstr; }).sort(function(a,b){ return b.s - a.s; });
@@ -992,7 +1035,15 @@ function renderAnalytics(){
     var lEl = $('leakTop');
     if(lEl && lEl.parentNode){ lEl.parentNode.insertBefore(heatBox, lEl.nextSibling); }
   }
-  heatBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Тепловая карта трат · нажми на день</div>' + hm;
+   heatBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Тепловая карта трат · нажми на день</div>' + hm;
+  var cmpBox = $('cmpBtnBox');
+  if(!cmpBox){
+    cmpBox = document.createElement('div');
+    cmpBox.id = 'cmpBtnBox';
+    var hEl = $('heatBox');
+    if(hEl && hEl.parentNode){ hEl.parentNode.insertBefore(cmpBox, hEl.nextSibling); }
+  }
+  cmpBox.innerHTML = '<button class="sh-btn ghost" style="margin-top:12px" data-act="an-compare">⇄ Сравнить с прошлым периодом</button>';
 }
 function renderTx(){
   var q = ($('q').value || '').toLowerCase();
@@ -1765,6 +1816,7 @@ document.addEventListener('click', function(e){
       else if(act === 'p-prev'){ pOff--; renderAnalytics(); }
   else if(act === 'an-cat'){ openCatSheet(el.getAttribute('data-c')); }
       else if(act === 'an-day'){ openDaySheet(el.getAttribute('data-d')); }
+          else if(act === 'an-compare'){ openCompareSheet(); }
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
   else if(act === 'cal-month'){
