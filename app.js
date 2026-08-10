@@ -150,7 +150,6 @@ function normalize(){
   }
   D.learned=D.learned||[];
   D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{};
-  // Миграция: старые цели были объектом, новые — массив
   if(D.goals && !Array.isArray(D.goals)){
     D.goals = [
       {id:1, n:'Подушка безопасности', cur:D.goals.cushion||0, target:D.goals.cushionT||100000, done:false},
@@ -260,7 +259,6 @@ function sheetHead(ic, k, t, s){
 }
 function closeSheet(){ $('sheet').classList.remove('on'); $('shb').classList.remove('on'); }
 
-// ===== КАСТОМНЫЕ ДИАЛОГИ =====
 var dlgResolve = null;
 function dlgBuild(){
   if($('dlgBox')){ return; }
@@ -309,7 +307,6 @@ function dAlert(text, title){ return dlgShow({text:text, title:title||'Вним�
 function dConfirm(text, title, danger){ return dlgShow({text:text, title:title||'Подтверждение', confirm:true, btn:'Да', danger:danger}); }
 function dPrompt(text, title, placeholder){ return dlgShow({text:text, title:title||'Ввод', input:true, placeholder:placeholder}); }
 
-// ===== ДВИЖОК УТЕЧЕК =====
 function leakCat(l){
   var s = (l.n||'').toLowerCase();
   if(s.indexOf('самокат') !== -1 || s.indexOf('каршер') !== -1){ return 'scooters'; }
@@ -368,7 +365,6 @@ function envMatch(e, x){
   return e.n.indexOf(key) === 0;
 }
 
-// ===== ОКНОШКИ (openSheet) =====
 function openSheet(t, i){
   var h = '';
   if(t === 'balance'){
@@ -394,15 +390,14 @@ function openSheet(t, i){
       + rowHtml('Ближайшие 3 дня', fmt(nextPay(3)))
       + rowHtml('За весь текущий месяц', fmt(nextPay(30)))
       + tipHtml('Контролируйте списания, чтобы не выходить за лимиты.');
-   } else if(t === 'goals'){
+  } else if(t === 'goals'){
     var total = 0, actN = 0, doneN = 0;
     for(var ig3=0;ig3<(D.goals||[]).length;ig3++){
       total += D.goals[ig3].cur || 0;
       if(D.goals[ig3].done){ doneN++; } else { actN++; }
     }
-       h = sheetHead('i-target','c-pur','Цели и копилки', actN+' активн. · '+doneN+' выполн. · '+fmt(total)+' накоплено')
+    h = sheetHead('i-target','c-pur','Цели и копилки', actN+' активн. · '+doneN+' выполн. · '+fmt(total)+' накоплено')
       + goalsHtml();
-
   } else if(t === 'income'){
     h = sheetHead('i-wallet','c-grn','Доход', fmt(D.income)+' в месяц')
       + rowHtml('Зарплата', D.salaryDay+'-го числа, авто')
@@ -514,7 +509,6 @@ function openSheet(t, i){
     }
     h += '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="add" data-t="pay">+ Платёж</button><button class="sh-btn ghost" style="margin:0" data-act="add" data-t="sub">+ Подписка</button></div>';
   }
-
   $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
@@ -689,7 +683,6 @@ function drawDonutWith(agg, tot){
   var cols = ['#30d158','#bf5af2','#ff453a','#ff9f0a','#0a84ff','#64d2ff'];
   cv._segs = [];
   cv._hover = -1;
-
   function paint(hover){
     var x = cv.getContext('2d');
     x.clearRect(0,0,170,170);
@@ -718,13 +711,10 @@ function drawDonutWith(agg, tot){
     x.fillStyle = '#8b91a7'; x.font = '600 10px Manrope, sans-serif';
     x.fillText('₽ за период', 85, 98);
   }
-
   cv._paint = paint;
   paint(-1);
-
   if(tot <= 0){ cv.style.cursor = 'default'; $('legend').innerHTML = ''; return; }
   cv.style.cursor = 'pointer';
-
   function segAt(e){
     var rect = cv.getBoundingClientRect();
     var px = (e.clientX - rect.left) * (170 / rect.width) - 85;
@@ -738,7 +728,6 @@ function drawDonutWith(agg, tot){
     }
     return -1;
   }
-
   if(!cv._bound){
     cv._bound = true;
     cv.addEventListener('mousemove', function(e){
@@ -753,13 +742,13 @@ function drawDonutWith(agg, tot){
       if(idx >= 0 && cv._segs[idx]){ openCatSheet(cv._segs[idx].id); }
     });
   }
-
   var lg = '';
   for(var i=0;i<agg.length;i++){
     lg += '<div style="cursor:pointer" data-act="an-cat" data-c="'+agg[i].id+'"><i style="background:'+cols[i % 6]+'"></i>'+agg[i].n+'<b>'+Math.round(agg[i].s/tot*100)+'% ›</b></div>';
   }
   $('legend').innerHTML = lg;
 }
+
 function drawBarsFor(sp, r){
   var b = $('bars'); if(!b){ return; }
   var y = b.getContext('2d');
@@ -896,7 +885,7 @@ function renderAnalytics(){
   for(i=0;i<sp.length;i++){ tot += sp[i].s; }
   var len = r.to - r.from;
   var pf = new Date(r.from.getTime() - len);
-   var psp = allSpends().filter(function(x){ return x.d >= pf && x.d < r.from; });
+  var psp = allSpends().filter(function(x){ return x.d >= pf && x.d < r.from; });
   var ptot = 0; var pmap = {};
   for(i=0;i<psp.length;i++){ ptot += psp[i].s; var pk2 = psp[i].cat || 'other'; pmap[pk2] = (pmap[pk2]||0) + psp[i].s; }
   var delta = ptot > 0 ? Math.round((tot - ptot) / ptot * 100) : 0;
@@ -914,7 +903,7 @@ function renderAnalytics(){
     + '<div class="dig-item"><span>В день</span><b>'+fmt(tot/days)+'</b></div>'
     + '<div class="dig-item"><span>Топ-категория</span><b>'+(agg.length ? agg[0].n : '—')+'</b></div>'
     + '<div class="dig-item"><span>К прошлому периоду</span><b class="'+(delta>0?'soon':'')+'">'+(delta>0?'+':'')+delta+'%</b></div>';
-   drawDonutWith(agg.slice(0,6), tot);
+  drawDonutWith(agg.slice(0,6), tot);
   drawBarsFor(sp, r);
   var cols = ['#30d158','#bf5af2','#ff453a','#ff9f0a','#0a84ff','#64d2ff'];
   var rank = '';
@@ -935,7 +924,7 @@ function renderAnalytics(){
     var barsCv = $('bars');
     if(barsCv && barsCv.parentNode){ barsCv.parentNode.insertBefore(rankBox, barsCv.nextSibling); }
   }
-   rankBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Рейтинг категорий · к прошлому периоду</div>'
+  rankBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Рейтинг категорий · к прошлому периоду</div>'
     + (rank || '<div class="dig-item"><span>Нет трат за период</span><b>—</b></div>');
   var groups = {must:0, life:0, flex:0};
   for(i=0;i<agg.length;i++){
@@ -972,7 +961,7 @@ function renderAnalytics(){
     var rankEl = $('catRank');
     if(rankEl && rankEl.parentNode){ rankEl.parentNode.insertBefore(structBox, rankEl.nextSibling); }
   }
-    structBox.innerHTML = struct;
+  structBox.innerHTML = struct;
   var LEAKCATS = [
     ['scooters','Самокаты / каршеринг','i-scoot','c-org'],
     ['cafe','Кафе и доставка','i-coffee','c-red'],
@@ -999,7 +988,7 @@ function renderAnalytics(){
     var sEl = $('structBox');
     if(sEl && sEl.parentNode){ sEl.parentNode.insertBefore(leakBox, sEl.nextSibling); }
   }
-    leakBox.innerHTML = leakRows
+  leakBox.innerHTML = leakRows
     ? '<div class="cap" style="margin:14px 4px 6px">Топ утечек за период</div>' + leakRows
       + '<div class="sh-tip">Утечки = '+fmt(leakSum2)+' · '+(tot>0?Math.round(leakSum2/tot*100):0)+'% всех трат за период. Нажми на строку — откроются все операции категории.</div>'
     : '';
@@ -1035,7 +1024,7 @@ function renderAnalytics(){
     var lEl = $('leakTop');
     if(lEl && lEl.parentNode){ lEl.parentNode.insertBefore(heatBox, lEl.nextSibling); }
   }
-   heatBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Тепловая карта трат · нажми на день</div>' + hm;
+  heatBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Тепловая карта трат · нажми на день</div>' + hm;
   var cmpBox = $('cmpBtnBox');
   if(!cmpBox){
     cmpBox = document.createElement('div');
@@ -1044,7 +1033,69 @@ function renderAnalytics(){
     if(hEl && hEl.parentNode){ hEl.parentNode.insertBefore(cmpBox, hEl.nextSibling); }
   }
   cmpBox.innerHTML = '<button class="sh-btn ghost" style="margin-top:12px" data-act="an-compare">⇄ Сравнить с прошлым периодом</button>';
+
+  // ===== ИДЕЯ 7: ПРИВЫЧКИ В ЦИФРАХ =====
+  var avgCheck = sp.length ? tot / sp.length : 0;
+  var maxOp = null;
+  for(i=0;i<sp.length;i++){
+    if(!maxOp || sp[i].s > maxOp.s){ maxOp = sp[i]; }
+  }
+  var wdTot = [0,0,0,0,0,0,0];
+  var wdCnt = [0,0,0,0,0,0,0];
+  var dayTot = {};
+  for(i=0;i<sp.length;i++){
+    var wdIdx = sp[i].d.getDay();
+    wdTot[wdIdx] += sp[i].s;
+    wdCnt[wdIdx]++;
+    var dKey = iso(sp[i].d);
+    dayTot[dKey] = (dayTot[dKey]||0) + sp[i].s;
+  }
+  var maxWd = 0, maxWdVal = 0;
+  for(i=0;i<7;i++){
+    if(wdTot[i] > maxWdVal){ maxWdVal = wdTot[i]; maxWd = i; }
+  }
+  var maxDayKey = null, maxDayVal = 0;
+  for(var dk3 in dayTot){
+    if(dayTot[dk3] > maxDayVal){ maxDayVal = dayTot[dk3]; maxDayKey = dk3; }
+  }
+  var scootCnt = 0, cafeCnt = 0;
+  for(i=0;i<sp.length;i++){
+    if(sp[i].cat === 'scooters'){ scootCnt++; }
+    if(sp[i].cat === 'cafe'){ cafeCnt++; }
+  }
+  var WD_SHORT = ['вс','пн','вт','ср','чт','пт','сб'];
+  var WD_LONG = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+  var hRow = '';
+  if(sp.length){
+    hRow += '<div class="habit-row"><div class="habit-ic c-blu"><svg class="ic"><use href="#i-card"/></svg></div><div class="habit-info"><b>Средний чек</b><span>'+sp.length+' транзакций за период</span></div><b>'+fmt(avgCheck)+'</b></div>';
+    if(maxOp){
+      hRow += '<div class="habit-row" data-act="an-day" data-d="'+iso(maxOp.d)+'"><div class="habit-ic c-red"><svg class="ic"><use href="#i-alert"/></svg></div><div class="habit-info"><b>Крупнейшая трата</b><span>'+maxOp.n+' · '+maxOp.d.getDate()+'.'+String(maxOp.d.getMonth()+1).padStart(2,'0')+'</span></div><b>'+fmt(maxOp.s)+'</b></div>';
+    }
+    hRow += '<div class="habit-row"><div class="habit-ic c-org"><svg class="ic"><use href="#i-cal"/></svg></div><div class="habit-info"><b>Самый дорогой день недели</b><span>всего '+fmt(wdTot[maxWd])+' за период</span></div><b>'+WD_LONG[maxWd]+'</b></div>';
+    if(maxDayKey){
+      var md3 = parseD(maxDayKey);
+      hRow += '<div class="habit-row" data-act="an-day" data-d="'+maxDayKey+'"><div class="habit-ic c-pur"><svg class="ic"><use href="#i-cal"/></svg></div><div class="habit-info"><b>Самый дорогой день</b><span>'+md3.getDate()+' '+MONTHS[md3.getMonth()]+' · '+WD_SHORT[md3.getDay()]+'</span></div><b>'+fmt(maxDayVal)+'</b></div>';
+    }
+    if(scootCnt > 0){
+      hRow += '<div class="habit-row" data-act="an-cat" data-c="scooters"><div class="habit-ic c-org"><svg class="ic"><use href="#i-scoot"/></svg></div><div class="habit-info"><b>Поездок на самокатах</b><span>средний чек '+fmt(map.scooters ? map.scooters/scootCnt : 0)+'</span></div><b>'+scootCnt+' ›</b></div>';
+    }
+    if(cafeCnt > 0){
+      hRow += '<div class="habit-row" data-act="an-cat" data-c="cafe"><div class="habit-ic c-red"><svg class="ic"><use href="#i-coffee"/></svg></div><div class="habit-info"><b>Чеков в кафе</b><span>средний чек '+fmt(map.cafe ? map.cafe/cafeCnt : 0)+'</span></div><b>'+cafeCnt+' ›</b></div>';
+    }
+  }
+  var habBox = $('habitBox');
+  if(!habBox){
+    habBox = document.createElement('div');
+    habBox.id = 'habitBox';
+    var cEl = $('cmpBtnBox');
+    if(cEl && cEl.parentNode){ cEl.parentNode.insertBefore(habBox, cEl.nextSibling); }
+  }
+  habBox.innerHTML = hRow
+    ? '<div class="cap" style="margin:14px 4px 6px">Привычки в цифрах · твоё зеркало за период</div>' + hRow
+      + '<div class="sh-tip">Нажми на «крупнейшую трату» или «самый дорогой день» — откроются все операции. Нажми на самокаты или кафе — увидишь полный список.</div>'
+    : '';
 }
+
 function renderTx(){
   var q = ($('q').value || '').toLowerCase();
   var list = allSpends();
@@ -1055,7 +1106,7 @@ function renderTx(){
   }
   var all = list.concat(incs);
   all.sort(function(a,b){ return b.d - a.d; });
-   var h = '';
+  var h = '';
   for(var i=0;i<all.length;i++){
     var t = all[i];
     if(t.n.toLowerCase().indexOf(q) === -1){ continue; }
@@ -1122,10 +1173,12 @@ function goalsHtml(){
   }
   return h + '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="goal-add">+ Добавить цель</button></div>';
 }
+
 function renderGoals(){
   var el = $('goalCard');
   if(el){ el.innerHTML = ''; }
 }
+
 function renderLearn(){
   var done = D.learned.length;
   var tot = LESSONS.length;
@@ -1236,7 +1289,7 @@ function renderDashboardNew() {
   if ($('cycleDates')) $('cycleDates').textContent = cycLabel(cs);
   var fixedPay = calcMonthlyFixedPay();
   if ($('sFixedPay')) $('sFixedPay').textContent = fmt(fixedPay);
-   var goalsTotal = 0, goalsActive = 0;
+  var goalsTotal = 0, goalsActive = 0;
   for(var ig2=0;ig2<(D.goals||[]).length;ig2++){
     goalsTotal += D.goals[ig2].cur || 0;
     if(!D.goals[ig2].done){ goalsActive++; }
@@ -1246,7 +1299,6 @@ function renderDashboardNew() {
   if(pill){ pill.textContent = goalsActive+' активн. · нажми'; }
 }
 
-// ===== КАЛЕНДАРИ =====
 var RU_HOLIDAYS = ['01-01','01-02','01-03','01-04','01-05','01-06','01-07','01-08','02-23','03-08','05-01','05-09','06-12','11-04','12-31'];
 function isRuWeekend(d){
   var wd = d.getDay();
@@ -1511,7 +1563,6 @@ function herFill(dstr){
   toast('График 3/3 заполнен на 60 дней');
 }
 
-// ===== ЦЕЛИ: добавление, редактирование, пополнение, выполнение =====
 function findGoal(id){
   for(var i=0;i<(D.goals||[]).length;i++){ if(D.goals[i].id === id){ return D.goals[i]; } }
   return null;
@@ -1603,7 +1654,7 @@ function goalUncomplete(id){
     save(); render(); toast('Цель возвращена');
   });
 }
-  
+
 function openPlanSheet(){
   planColor = freeColor();
   var dates = calSel.slice().sort();
@@ -1658,7 +1709,7 @@ function render(){
   for(var j=0;j<act.length;j++){ leakSum += act[j].over; }
   if ($('sLeakV')) $('sLeakV').textContent = fmt(leakSum);
   if ($('sLeakP')) $('sLeakP').textContent = act.length+' зоны перерасхода';
-    var badge = $('leakBadge');
+  var badge = $('leakBadge');
   if(badge){
     if(act.length > 0){ badge.classList.remove('hidden'); badge.innerHTML = '<svg class="ic"><use href="#i-alert"/></svg> '+act.length; }
     else { badge.classList.add('hidden'); badge.innerHTML = ''; }
@@ -1813,10 +1864,11 @@ document.addEventListener('click', function(e){
     save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
   }
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
-      else if(act === 'p-prev'){ pOff--; renderAnalytics(); }
+  else if(act === 'p-prev'){ pOff--; renderAnalytics(); }
+  else if(act === 'p-next'){ if(pOff < 0){ pOff++; renderAnalytics(); } }
   else if(act === 'an-cat'){ openCatSheet(el.getAttribute('data-c')); }
-      else if(act === 'an-day'){ openDaySheet(el.getAttribute('data-d')); }
-          else if(act === 'an-compare'){ openCompareSheet(); }
+  else if(act === 'an-day'){ openDaySheet(el.getAttribute('data-d')); }
+  else if(act === 'an-compare'){ openCompareSheet(); }
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
   else if(act === 'cal-month'){
@@ -1892,7 +1944,7 @@ document.addEventListener('click', function(e){
   else if(act === 'cal-event-del'){ calEventDel(el.getAttribute('data-i')); }
   else if(act === 'fix-del'){ fixDel(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'postpone'){ fixPostpone(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i'),10)); }
-      else if(act === 'goal-add'){ openGoalAdd(); }
+  else if(act === 'goal-add'){ openGoalAdd(); }
   else if(act === 'goal-add-save'){ goalAddSave(); }
   else if(act === 'goal-edit'){ openGoalEdit(parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'goal-edit-save'){ goalEditSave(parseInt(el.getAttribute('data-i'),10)); }
@@ -1957,7 +2009,7 @@ onAuthStateChanged(auth, function(u){
     if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
     if ($('mMail')) $('mMail').textContent = name;
     getDoc(doc(db,'users',uid)).then(function(s){
-            if(s.exists() && s.data() && s.data().data){ D = s.data().data; }
+      if(s.exists() && s.data() && s.data().data){ D = s.data().data; }
       normalize();
       if(window.SEED && (D.seedVersion||0) !== window.SEED.version){ applySeed(window.SEED); }
       ensureSalary();
@@ -1976,7 +2028,7 @@ onAuthStateChanged(auth, function(u){
       if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
       if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
       if($('spNote')){ $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } }); }
-            render();
+      render();
       go('dash');
       placeTip();
     }).catch(function(){ normalize(); render(); go('dash'); placeTip(); });
