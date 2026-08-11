@@ -797,11 +797,29 @@ function drawBarsFor(sp, r){
     y.fillText('1', bw/2, H-2);
     y.fillText(String(Math.round(days/2)), (Math.round(days/2)-0.5)*bw, H-2);
     y.fillText(String(days), (days-0.5)*bw, H-2);
-  } else {
+    } else {
     for(i=0;i<Math.min(6,buckets.length);i++){
       var li = Math.round(i*(buckets.length-1)/Math.min(5,buckets.length-1));
       y.fillText(labels[li], (li+0.5)*bw, H-2);
     }
+  }
+  var bm = $('barsMode');
+  if(bm){ bm.textContent = days <= 32 ? 'траты по дням · нажми на столбик — откроется день' : 'траты по месяцам'; }
+  b._click = {days: days, from: r.from, n: buckets.length};
+  if(!b._bound){
+    b._bound = true;
+    b.addEventListener('click', function(e){
+      var info = b._click; if(!info){ return; }
+      var rect = b.getBoundingClientRect();
+      var idx = Math.floor((e.clientX - rect.left) / (rect.width / info.n));
+      if(idx < 0 || idx >= info.n){ return; }
+      if(info.days <= 32){
+        var d = new Date(info.from.getFullYear(), info.from.getMonth(), info.from.getDate() + idx);
+        openDaySheet(iso(d));
+      } else {
+        toast('Выбери период «Месяц», чтобы открывать дни');
+      }
+    });
   }
 }
 
