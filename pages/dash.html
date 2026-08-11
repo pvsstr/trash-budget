@@ -106,8 +106,18 @@
   <div class="cap">Рекомендации · утечки</div>
   <div id="recList" class="rec-grid"></div>
 
-  <div class="cap">История операций</div>
+   <div class="cap">История операций</div>
   <div class="tx-card glass">
+    <div class="msw" style="margin:0 0 10px"><button data-act="h-prev">‹</button><b id="hLabel">--</b><button data-act="h-next">›</button></div>
+    <div class="chips" style="padding:0 0 10px">
+      <button class="chip" data-act="h-quick" data-v="m">Этот месяц</button>
+      <button class="chip" data-act="h-quick" data-v="pm">Прошлый</button>
+      <button class="chip" data-act="h-quick" data-v="q">3 месяца</button>
+      <button class="chip" data-act="h-quick" data-v="y">Год</button>
+      <button class="chip" data-act="h-period">📅 свой период</button>
+    </div>
+    <div id="hCats" class="chips" style="padding:0 0 10px;overflow-x:auto;flex-wrap:nowrap"></div>
+    <div id="hSum" class="hist-sum"></div>
     <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="q" placeholder="Поиск операции..."></div>
     <div id="txList"></div>
   </div>
