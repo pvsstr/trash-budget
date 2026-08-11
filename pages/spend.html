@@ -2,6 +2,10 @@
    <div class="cap">История операций</div>
   <div class="tx-card glass">
     <button class="qa-btn spend-add-btn" data-act="qa-spend"><svg class="ic"><use href="#i-out"/></svg>Добавить трату</button>
+         <div class="chips" style="padding:0 0 10px">
+      <button class="chip" id="hmCal" data-act="h-mode" data-v="cal">Календарь</button>
+      <button class="chip" id="hmCyc" data-act="h-mode" data-v="cyc">Цикл зарплаты</button>
+    </div>
     <div class="h-controls">
       <div class="msw"><button data-act="h-prev">‹</button><b id="hLabel2">--</b><button data-act="h-next">›</button></div>
       <div class="dd">
@@ -20,7 +24,8 @@
         <div class="dd-list" id="ddCatList2"></div>
       </div>
       <button class="dd-btn" data-act="h-export"><svg class="ic"><use href="#i-import"/></svg><span>CSV</span></button>
-    </div>
+    </div>    <div id="hRecur2"></div>
+    <div id="hCatSum2"></div>
     <div id="hSum2" class="hist-sum"></div>
     <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="q2" placeholder="Поиск операции..."></div>
     <div id="txList2"></div>
