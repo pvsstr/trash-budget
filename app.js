@@ -1205,15 +1205,6 @@ function renderAnalytics(){
 }
 
 var hFrom = null, hTo = null, hCat = 'all';
-var hMode2 = 'cal', cycOff2 = 0;
-function histRange2(){
-  if(hMode2 === 'cyc'){
-    var now = new Date();
-    var cs = cycleStart(addM(now, cycOff2));
-    return {from: cs, to: cycleEnd(cs)};
-  }
-  return histRange();
-}
 
 var hMode2 = 'cal', cycOff2 = 0;
 function histRange2(){
