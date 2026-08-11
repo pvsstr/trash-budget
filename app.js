@@ -979,12 +979,12 @@ function renderAnalytics(){
     else { dTxt = '= 0'; dCls = 'zero'; }
     rank += '<div class="rank-row" data-act="an-cat" data-c="'+agg[i].id+'"><i style="background:'+cols[i % 6]+'"></i><span class="rank-name">'+agg[i].n+'</span><b>'+fmt(agg[i].s)+'</b><span class="rank-delta '+dCls+'">'+dTxt+'</span></div>';
   }
-  var rankBox = $('catRank');
+   var rankBox = $('catRank');
   if(!rankBox){
     rankBox = document.createElement('div');
     rankBox.id = 'catRank';
-    var barsCv = $('bars');
-    if(barsCv && barsCv.parentNode){ barsCv.parentNode.insertBefore(rankBox, barsCv.nextSibling); }
+    var anR = $('anRight');
+    if(anR){ anR.appendChild(rankBox); }
   }
   rankBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Рейтинг категорий · к прошлому периоду</div>'
     + (rank || '<div class="dig-item"><span>Нет трат за период</span><b>—</b></div>');
