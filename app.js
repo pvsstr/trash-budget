@@ -1224,9 +1224,11 @@ function openPeriodSheet(){
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
 }
-function renderTx(){
+function renderTx(suffix){
+  var sfx = suffix || '';
+  function E(id){ return $(id + sfx); }
   var r = histRange();
-  var lbl = $('hLabel');
+  var lbl = E('hLabel');
   if(lbl){
     if(r.from.getDate() === 1 && r.to.getDate() === 1 && (r.to - r.from) < 32*864e5){
       lbl.textContent = MONTHS[r.from.getMonth()]+' '+r.from.getFullYear();
@@ -1234,7 +1236,7 @@ function renderTx(){
       lbl.textContent = r.from.getDate()+'.'+String(r.from.getMonth()+1).padStart(2,'0')+'.'+r.from.getFullYear()+' – '+r.to.getDate()+'.'+String(r.to.getMonth()+1).padStart(2,'0')+'.'+r.to.getFullYear();
     }
   }
-  var q = $('q') ? ($('q').value || '').toLowerCase() : '';
+  var q = E('q') ? (E('q').value || '').toLowerCase() : '';
   var spends = allSpends().filter(function(x){ return x.d >= r.from && x.d < r.to; });
   var incs = (D.incomes||[]).map(function(x){ return {d:parseD(x.d), s:x.s, n:x.n, inc:1}; }).filter(function(x){ return x.d >= r.from && x.d < r.to; });
   var fSp = spends.filter(function(x){ return (hCat==='all' || (x.cat||'other')===hCat) && x.n.toLowerCase().indexOf(q)!==-1; });
@@ -1242,13 +1244,13 @@ function renderTx(){
   var totSp = 0, totIn = 0, i;
   for(i=0;i<fSp.length;i++){ totSp += fSp[i].s; }
   for(i=0;i<fIn.length;i++){ totIn += fIn[i].s; }
-  var hs = $('hSum');
+  var hs = E('hSum');
   if(hs){
     hs.innerHTML = '<span class="hs-sp">Расходы: <b>'+fmt(totSp)+'</b></span>'
       + '<span class="hs-in">Поступления: <b>+'+fmt(totIn)+'</b></span>'
       + (hCat!=='all' ? '<span class="hs-cat">'+catById(hCat).n+'</span>' : '');
   }
-    var cl = $('ddCatList');
+  var cl = E('ddCatList');
   if(cl){
     var opts = '<button class="'+(hCat==='all'?'on':'')+'" data-act="h-cat" data-c="all">Все категории</button>';
     for(i=0;i<CATS.length;i++){
@@ -1256,7 +1258,7 @@ function renderTx(){
     }
     cl.innerHTML = opts;
   }
-  var clbl = $('ddCatLbl');
+  var clbl = E('ddCatLbl');
   if(clbl){ clbl.textContent = hCat==='all' ? 'Все категории' : catById(hCat).n; }
   var all = fSp.concat(fIn).sort(function(a,b){ return b.d - a.d; });
   var h = ''; var lastKey = '';
@@ -1274,8 +1276,10 @@ function renderTx(){
       h += '<div class="tx"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+cc.n+'</span></div><div class="tx-right"><b>-'+fmt(t.s)+'</b></div></div>';
     }
   }
-  $('txList').innerHTML = h || '<p style="color:var(--mut);font-size:13px;padding:12px">За выбранный период операций нет</p>';
+  var tl = E('txList');
+  if(tl){ tl.innerHTML = h || '<p style="color:var(--mut);font-size:13px;padding:12px">За выбранный период операций нет</p>'; }
 }
+function renderAllTx(){ renderTx(); renderTx('2'); }
 
 function renderRec(){
   var act = activeLeaks();
@@ -1355,6 +1359,7 @@ function renderLearn(){
 }
 
 function renderSpend(){
+  if(!$('spList')){ return; }
   var cur = cycleStart(new Date());
   var cs = addM(cur, viewOff);
   $('spLabel').textContent = cycLabel(cs);
@@ -1954,7 +1959,7 @@ function render(){
   try { renderAnalytics(); } catch(e) { console.error('Ошибка в renderAnalytics:', e); }
   try { renderDigest(); } catch(e) { console.error('Ошибка в renderDigest:', e); }
   try { renderRec(); } catch(e) { console.error('Ошибка в renderRec:', e); }
-  try { renderTx(); } catch(e) { console.error('Ошибка в renderTx:', e); }
+  try { renderAllTx(); } catch(e) { console.error('Ошибка в renderTx:', e); }
   try { renderEnv(); } catch(e) { console.error('Ошибка в renderEnv:', e); }
   try { renderPays(); } catch(e) { console.error('Ошибка в renderPays:', e); }
   try { renderSubs(); } catch(e) { console.error('Ошибка в renderSubs:', e); }
@@ -2111,9 +2116,9 @@ document.addEventListener('click', function(e){
     for(var d3=0;d3<dd4.length;d3++){ dd4[d3].classList.remove('on'); }
     if(!wasOn){ dd3.classList.add('on'); }
   }
-  else if(act === 'h-prev'){ var r0 = histRange(); hFrom = addM(r0.from,-1); hTo = addM(r0.to,-1); renderTx(); }
-  else if(act === 'h-next'){ var r1 = histRange(); hFrom = addM(r1.from,1); hTo = addM(r1.to,1); renderTx(); }
-  else if(act === 'h-cat'){ hCat = el.getAttribute('data-c'); var dd5 = document.querySelectorAll('.dd.on'); for(var d5=0;d5<dd5.length;d5++){ dd5[d5].classList.remove('on'); } renderTx(); }
+   else if(act === 'h-prev'){ var r0 = histRange(); hFrom = addM(r0.from,-1); hTo = addM(r0.to,-1); renderAllTx(); }
+  else if(act === 'h-next'){ var r1 = histRange(); hFrom = addM(r1.from,1); hTo = addM(r1.to,1); renderAllTx(); }
+  else if(act === 'h-cat'){ hCat = el.getAttribute('data-c'); var dd5 = document.querySelectorAll('.dd.on'); for(var d5=0;d5<dd5.length;d5++){ dd5[d5].classList.remove('on'); } renderAllTx(); }
   else if(act === 'h-period'){ var dd6 = document.querySelectorAll('.dd.on'); for(var d6=0;d6<dd6.length;d6++){ dd6[d6].classList.remove('on'); } openPeriodSheet(); }
   else if(act === 'h-quick'){
     var n2 = new Date();
@@ -2124,7 +2129,7 @@ document.addEventListener('click', function(e){
     else if(v2==='y'){ hFrom = new Date(n2.getFullYear(), 0, 1); hTo = new Date(n2.getFullYear()+1, 0, 1); }
     else if(v2==='all'){ hFrom = new Date(2020, 0, 1); hTo = new Date(n2.getFullYear()+1, 0, 1); }
     var dd7 = document.querySelectorAll('.dd.on'); for(var d7=0;d7<dd7.length;d7++){ dd7[d7].classList.remove('on'); }
-    closeSheet(); renderTx();
+    closeSheet(); renderAllTx();
   }
   else if(act === 'h-period-save'){
     var f2 = $('hpFrom').value, t2 = $('hpTo').value;
@@ -2132,7 +2137,7 @@ document.addEventListener('click', function(e){
       var dF = parseD(f2), dT = parseD(t2);
       if(dT >= dF){ hFrom = dF; hTo = new Date(dT.getFullYear(), dT.getMonth(), dT.getDate()+1); }
     }
-    closeSheet(); renderTx();
+    closeSheet(); renderAllTx();
   }
 
   else if(act === 'qa-spend'){ openQuickSpend(); }
@@ -2334,7 +2339,8 @@ onAuthStateChanged(auth, function(u){
       }
       var spDate = $('spDate');
       if (spDate) spDate.value = iso(new Date());
-      if($('q')){ $('q').addEventListener('input', renderTx); }
+      if($('q')){ $('q').addEventListener('input', function(){ renderTx(); }); }
+      if($('q2')){ $('q2').addEventListener('input', function(){ renderTx('2'); }); }
       if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
       if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
       if($('spNote')){ $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } }); }
