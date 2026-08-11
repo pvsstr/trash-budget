@@ -163,11 +163,11 @@ function allSpends(){
   var arr = []; var i;
   for(i=0;i<(D.spends||[]).length;i++){
     var sp = D.spends[i];
-    arr.push({d:parseD(sp.d), s:sp.s, n:sp.n, cat:sp.cat, id:sp.id, manual:1});
+    arr.push({d:parseD(sp.d), s:sp.s, n:sp.n, cat:sp.cat, id:sp.id, manual:1, src:'sp', sid:sp.id});
   }
   for(i=0;i<(D.tx||[]).length;i++){
     var t = D.tx[i];
-    if(t.s < 0 || t.refund){ arr.push({d:parseD(t.d), s:-t.s, n:t.n, cat:TX2CAT[t.c]||t.c||'other'}); }
+    if(t.s < 0 || t.refund){ arr.push({d:parseD(t.d), s:-t.s, n:t.n, cat:TX2CAT[t.c]||t.c||'other', src:'tx', sid:i}); }
   }
   return arr;
 }
@@ -1205,13 +1205,22 @@ function renderAnalytics(){
 }
 
 var hFrom = null, hTo = null, hCat = 'all';
+var hMode2 = 'cal', cycOff2 = 0;
+function histRange2(){
+  if(hMode2 === 'cyc'){
+    var now = new Date();
+    var cs = cycleStart(addM(now, cycOff2));
+    return {from: cs, to: cycleEnd(cs)};
+  }
+  return histRange();
+}
 function histRange(){
   if(hFrom && hTo && hTo > hFrom){ return {from:hFrom, to:hTo}; }
   var n = new Date();
   return {from:new Date(n.getFullYear(), n.getMonth(), 1), to:new Date(n.getFullYear(), n.getMonth()+1, 1)};
 }
 function openPeriodSheet(){
-  var r = histRange();
+  var r = (sfx==='2') ? histRange2() : histRange();
   $('sheetBody').innerHTML = sheetHead('i-cal','c-blu','Период истории','любые даты — хоть за прошлые годы')
     + '<div class="form"><div class="row2"><input class="inp" type="date" id="hpFrom" value="'+iso(r.from)+'"><input class="inp" type="date" id="hpTo" value="'+iso(new Date(r.to.getTime()-864e5))+'"></div></div>'
        + '<div class="dd-list static">'
@@ -1260,6 +1269,47 @@ function renderTx(suffix){
   }
   var clbl = E('ddCatLbl');
   if(clbl){ clbl.textContent = hCat==='all' ? 'Все категории' : catById(hCat).n; }
+    if(sfx==='2'){
+    var mc1 = $('hmCal'), mc2 = $('hmCyc');
+    if(mc1){ mc1.classList.toggle('on', hMode2==='cal'); }
+    if(mc2){ mc2.classList.toggle('on', hMode2==='cyc'); }
+    var aggS = {};
+    for(i=0;i<spends.length;i++){ var ck3 = spends[i].cat||'other'; aggS[ck3]=(aggS[ck3]||0)+spends[i].s; }
+    var arrS = []; for(var k3 in aggS){ arrS.push({id:k3, s:aggS[k3]}); }
+    arrS.sort(function(a,b){ return b.s-a.s; });
+    var colsS = ['#30d158','#bf5af2','#ff453a','#ff9f0a','#0a84ff','#64d2ff'];
+    var hs2 = '';
+    for(i=0;i<arrS.length && i<6;i++){
+      var pS = totSp>0 ? Math.round(arrS[i].s/totSp*100) : 0;
+      hs2 += '<div class="catsum-row" data-act="h-cat" data-c="'+arrS[i].id+'"><span class="catsum-name">'+catById(arrS[i].id).n+'</span><div class="bar-large" style="height:6px;flex:1"><i style="width:'+pS+'%;background:'+colsS[i%6]+'"></i></div><b>'+fmt(arrS[i].s)+'</b></div>';
+    }
+    var csEl = $('hCatSum2');
+    if(csEl){ csEl.innerHTML = hs2; }
+    var allS = allSpends();
+    var grp = {};
+    for(i=0;i<allS.length;i++){
+      var key4 = (allS[i].n||'').toLowerCase()+'|'+Math.round(allS[i].s);
+      if(!grp[key4]){ grp[key4] = {cnt:0, n:allS[i].n, s:allS[i].s}; }
+      grp[key4].cnt++;
+    }
+    var cand = [];
+    for(var k4 in grp){
+      var g4 = grp[k4];
+      if(g4.cnt >= 3){
+        var inPay = false;
+        for(i=0;i<D.pays.length;i++){ if((D.pays[i].n||'').toLowerCase() === g4.n.toLowerCase()){ inPay = true; break; } }
+        if(!inPay){ cand.push(g4); }
+      }
+    }
+    cand.sort(function(a,b){ return b.cnt - a.cnt; });
+    window._recurList = cand.slice(0,2);
+    var rh = '';
+    for(i=0;i<window._recurList.length;i++){
+      rh += '<div class="sh-tip">Похоже на регулярный платёж: <b>'+window._recurList[i].n+'</b> '+fmt(window._recurList[i].s)+' ('+window._recurList[i].cnt+' раза) <button class="chip" style="margin-left:6px" data-act="recur-add" data-i="'+i+'">В обязательные</button></div>';
+    }
+    var rcEl = $('hRecur2');
+    if(rcEl){ rcEl.innerHTML = rh; }
+  }
   var all = fSp.concat(fIn).sort(function(a,b){ return b.d - a.d; });
   var h = ''; var lastKey = '';
   for(i=0;i<all.length;i++){
@@ -1273,7 +1323,8 @@ function renderTx(suffix){
       h += '<div class="tx"><div class="tx-ic c-grn"><svg class="ic"><use href="#i-in"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>поступление</span></div><div class="tx-right"><b class="pos">+'+fmt(t.s)+'</b></div></div>';
     } else {
       var cc = catById(t.cat || 'other');
-      h += '<div class="tx"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+cc.n+'</span></div><div class="tx-right"><b>-'+fmt(t.s)+'</b></div></div>';
+      var fix = (t.cat||'other')==='other' ? '<span class="tx-fix"></span>' : '';
+      h += '<div class="tx" data-act="tx-edit" data-src="'+(t.src||'sp')+'" data-i="'+(t.sid!=null?t.sid:'')+'" style="cursor:pointer"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+cc.n+'</span></div><div class="tx-right">'+fix+'<b>-'+fmt(t.s)+'</b></div></div>';
     }
   }
   var tl = E('txList');
@@ -1899,6 +1950,29 @@ function smartTips(){
   if(!tips.length){ tips.push('Перерасхода нет, лимиты в порядке. Отличная неделя - так держать!'); }
   return tips;
 }
+
+function openTxEdit(src, i){
+  var cur = null;
+  if(src === 'sp'){
+    for(var k=0;k<D.spends.length;k++){ if(String(D.spends[k].id) === String(i)){ cur = {d:D.spends[k].d, n:D.spends[k].n, s:D.spends[k].s, cat:D.spends[k].cat||'other'}; break; } }
+  } else {
+    var t = D.tx[+i];
+    if(t){ cur = {d:t.d, n:t.n, s:-t.s, cat:TX2CAT[t.c]||t.c||'other'}; }
+  }
+  if(!cur){ return; }
+  window._txef = {src:src, i:i};
+  var opts = '';
+  for(var j=0;j<CATS.length;j++){ opts += '<option value="'+CATS[j].id+'"'+(CATS[j].id===cur.cat?' selected':'')+'>'+CATS[j].n+'</option>'; }
+  $('sheetBody').innerHTML = sheetHead('i-pen','c-blu','Операция','сумма, категория, дата и комментарий')
+    + '<div class="form"><input class="inp" id="teAmt" type="number" value="'+cur.s+'">'
+    + '<select class="inp" id="teCat">'+opts+'</select>'
+    + '<input class="inp" id="teDate" type="date" value="'+cur.d+'">'
+    + '<input class="inp" id="teNote" value="'+String(cur.n||'').replace(/"/g,'&quot;')+'"></div>'
+    + '<button class="sh-btn" data-act="tx-edit-save">Сохранить</button>'
+    + '<button class="sh-btn danger" data-act="tx-del">Удалить операцию</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+
 function openQuickSpend(){
   var opts = '';
   for(var i=0;i<CATS.length;i++){ opts += '<option value="'+CATS[i].id+'">'+CATS[i].n+'</option>'; }
@@ -2116,8 +2190,16 @@ document.addEventListener('click', function(e){
     for(var d3=0;d3<dd4.length;d3++){ dd4[d3].classList.remove('on'); }
     if(!wasOn){ dd3.classList.add('on'); }
   }
-   else if(act === 'h-prev'){ var r0 = histRange(); hFrom = addM(r0.from,-1); hTo = addM(r0.to,-1); renderAllTx(); }
-  else if(act === 'h-next'){ var r1 = histRange(); hFrom = addM(r1.from,1); hTo = addM(r1.to,1); renderAllTx(); }
+  else if(act === 'h-prev'){
+    if(el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2--; }
+    else { var r0 = histRange(); hFrom = addM(r0.from,-1); hTo = addM(r0.to,-1); }
+    renderAllTx();
+  }
+  else if(act === 'h-next'){
+    if(el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2++; }
+    else { var r1 = histRange(); hFrom = addM(r1.from,1); hTo = addM(r1.to,1); }
+    renderAllTx();
+  }
   else if(act === 'h-cat'){ hCat = el.getAttribute('data-c'); var dd5 = document.querySelectorAll('.dd.on'); for(var d5=0;d5<dd5.length;d5++){ dd5[d5].classList.remove('on'); } renderAllTx(); }
   else if(act === 'h-period'){ var dd6 = document.querySelectorAll('.dd.on'); for(var d6=0;d6<dd6.length;d6++){ dd6[d6].classList.remove('on'); } openPeriodSheet(); }
   else if(act === 'h-quick'){
@@ -2128,7 +2210,8 @@ document.addEventListener('click', function(e){
     else if(v2==='q'){ hFrom = new Date(n2.getFullYear(), n2.getMonth()-2, 1); hTo = new Date(n2.getFullYear(), n2.getMonth()+1, 1); }
     else if(v2==='y'){ hFrom = new Date(n2.getFullYear(), 0, 1); hTo = new Date(n2.getFullYear()+1, 0, 1); }
     else if(v2==='all'){ hFrom = new Date(2020, 0, 1); hTo = new Date(n2.getFullYear()+1, 0, 1); }
-    var dd7 = document.querySelectorAll('.dd.on'); for(var d7=0;d7<dd7.length;d7++){ dd7[d7].classList.remove('on'); }
+        var dd7 = document.querySelectorAll('.dd.on'); for(var d7=0;d7<dd7.length;d7++){ dd7[d7].classList.remove('on'); }
+    hMode2 = 'cal';
     closeSheet(); renderAllTx();
   }
   else if(act === 'h-period-save'){
@@ -2174,7 +2257,35 @@ document.addEventListener('click', function(e){
     a4.href = URL.createObjectURL(blob);
     a4.download = 'istoriya_'+iso(r2.from)+'_'+iso(new Date(r2.to.getTime()-864e5))+'.csv';
     document.body.appendChild(a4); a4.click(); a4.remove();
-    toast('CSV выгружен');
+      toast('CSV выгружен');
+  }
+  else if(act === 'h-mode'){ hMode2 = el.getAttribute('data-v'); cycOff2 = 0; renderTx('2'); }
+  else if(act === 'tx-edit'){ openTxEdit(el.getAttribute('data-src'), el.getAttribute('data-i')); }
+  else if(act === 'tx-edit-save'){
+    var f = window._txef; if(!f){ return; }
+    var amt = parseFloat($('teAmt').value);
+    if(isNaN(amt) || amt <= 0){ dAlert('Введите сумму.', 'Операция'); return; }
+    var cat = $('teCat').value, dtv = $('teDate').value, note = $('teNote').value.trim();
+    if(f.src === 'sp'){
+      for(var i6=0;i6<D.spends.length;i6++){ if(String(D.spends[i6].id) === String(f.i)){ D.spends[i6].s = amt; D.spends[i6].cat = cat; if(dtv){ D.spends[i6].d = dtv; } if(note){ D.spends[i6].n = note; } break; } }
+    } else {
+      var t6 = D.tx[+f.i];
+      if(t6){ t6.s = -amt; t6.c = cat; if(dtv){ t6.d = dtv; } if(note){ t6.n = note; } }
+    }
+    save(); closeSheet(); render(); toast('Операция обновлена');
+  }
+  else if(act === 'tx-del'){
+    var f2 = window._txef; if(!f2){ return; }
+    dConfirm('Удалить эту операцию?', 'Удаление', true).then(function(ok){
+      if(!ok){ return; }
+      if(f2.src === 'sp'){ D.spends = D.spends.filter(function(x){ return String(x.id) !== String(f2.i); }); }
+      else { D.tx.splice(+f2.i, 1); }
+      save(); closeSheet(); render(); toast('Операция удалена');
+    });
+  }
+  else if(act === 'recur-add'){
+    var c5 = (window._recurList||[])[parseInt(el.getAttribute('data-i'),10)];
+    if(c5){ D.pays.push({id:Date.now(), d:new Date().getDate(), n:c5.n, s:c5.s}); save(); render(); toast('Платёж "'+c5.n+'" добавлен в обязательные'); }
   }
     
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
