@@ -1214,6 +1214,17 @@ function histRange2(){
   }
   return histRange();
 }
+
+var hMode2 = 'cal', cycOff2 = 0;
+function histRange2(){
+  if(hMode2 === 'cyc'){
+    var now = new Date();
+    var cs = cycleStart(addM(now, cycOff2));
+    return {from: cs, to: cycleEnd(cs)};
+  }
+  return histRange();
+}
+
 function histRange(){
   if(hFrom && hTo && hTo > hFrom){ return {from:hFrom, to:hTo}; }
   var n = new Date();
@@ -1236,7 +1247,7 @@ function openPeriodSheet(){
 function renderTx(suffix){
   var sfx = suffix || '';
   function E(id){ return $(id + sfx); }
-  var r = histRange();
+   var r = (sfx==='2') ? histRange2() : histRange();
   var lbl = E('hLabel');
   if(lbl){
     if(r.from.getDate() === 1 && r.to.getDate() === 1 && (r.to - r.from) < 32*864e5){
@@ -2245,6 +2256,9 @@ document.addEventListener('click', function(e){
   var el = e.target.closest ? e.target.closest('[data-act]') : null;
   if(!el){ return; }
   var act = el.getAttribute('data-act');
+    if(act === 'h-mode'){ hMode2 = el.getAttribute('data-v'); cycOff2 = 0; renderTx('2'); return; }
+  if(act === 'h-prev' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2--; renderTx('2'); return; }
+  if(act === 'h-next' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2++; renderTx('2'); return; }
   if(act === 'nav'){ go(el.getAttribute('data-p')); }
   else if(act === 'sheet'){ window._sheetM = parseInt(el.getAttribute('data-m')||'0',10); openSheet(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
   else if(act === 'env'){ openEnv(parseInt(el.getAttribute('data-i'), 10)); }
