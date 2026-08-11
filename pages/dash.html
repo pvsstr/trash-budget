@@ -108,15 +108,24 @@
 
    <div class="cap">История операций</div>
   <div class="tx-card glass">
-    <div class="msw" style="margin:0 0 10px"><button data-act="h-prev">‹</button><b id="hLabel">--</b><button data-act="h-next">›</button></div>
-    <div class="chips" style="padding:0 0 10px">
-      <button class="chip" data-act="h-quick" data-v="m">Этот месяц</button>
-      <button class="chip" data-act="h-quick" data-v="pm">Прошлый</button>
-      <button class="chip" data-act="h-quick" data-v="q">3 месяца</button>
-      <button class="chip" data-act="h-quick" data-v="y">Год</button>
-      <button class="chip" data-act="h-period">📅 свой период</button>
+        <div class="h-controls">
+      <div class="msw"><button data-act="h-prev">‹</button><b id="hLabel">--</b><button data-act="h-next">›</button></div>
+      <div class="dd">
+        <button class="dd-btn" data-act="dd-toggle"><svg class="ic"><use href="#i-cal"/></svg><span>Период</span><svg class="ic chev"><use href="#i-chev"/></svg></button>
+        <div class="dd-list">
+          <button data-act="h-quick" data-v="m">Этот месяц</button>
+          <button data-act="h-quick" data-v="pm">Прошлый месяц</button>
+          <button data-act="h-quick" data-v="q">3 месяца</button>
+          <button data-act="h-quick" data-v="y">Год</button>
+          <button data-act="h-quick" data-v="all">Всё время</button>
+          <button data-act="h-period"><svg class="ic"><use href="#i-cal"/></svg>Свой период…</button>
+        </div>
+      </div>
+      <div class="dd">
+        <button class="dd-btn" data-act="dd-toggle"><svg class="ic"><use href="#i-grid"/></svg><span id="ddCatLbl">Все категории</span><svg class="ic chev"><use href="#i-chev"/></svg></button>
+        <div class="dd-list" id="ddCatList"></div>
+      </div>
     </div>
-    <div id="hCats" class="chips" style="padding:0 0 10px;overflow-x:auto;flex-wrap:nowrap"></div>
     <div id="hSum" class="hist-sum"></div>
     <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="q" placeholder="Поиск операции..."></div>
     <div id="txList"></div>
