@@ -92,7 +92,12 @@
         </div>
         <div id="anSum"></div>
         <div class="charts" style="margin-top:12px"><canvas id="donut" width="170" height="170"></canvas><div class="legend" id="legend"></div></div>
-        <div style="margin-top:16px"><div class="cap" style="margin:0 0 8px">Динамика</div><canvas id="bars" height="90" style="width:100%"></canvas></div>
+        <div style="margin-top:16px">
+          <div class="cap" style="margin:0 0 2px">Динамика трат</div>
+          <div class="note" style="margin:0 0 8px" id="barsMode">траты по дням · нажми на столбик — откроется день</div>
+          <canvas id="bars" height="90" style="width:100%;cursor:pointer"></canvas>
+          <div class="cal-legend" style="margin-top:6px"><span><i style="background:rgba(100,210,255,.45)"></i>день</span><span><i style="background:#30d158"></i>сегодня</span><span><i style="background:rgba(191,90,242,.8)"></i>среднее в день</span></div>
+        </div>
       </div>
             <div class="an-right" id="anRight"></div>
     </div>
