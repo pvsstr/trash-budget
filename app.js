@@ -1202,27 +1202,75 @@ function renderAnalytics(){
     habBox.innerHTML = hRow ? '<div class="cap" style="margin:14px 4px 6px">Привычки в цифрах · твоё зеркало за период</div>' + hRow + '<div class="sh-tip">Нажми на "крупнейшую трату" или "самый дорогой день" — откроются все операции. Нажми на самокаты или кафе — увидишь полный список.</div>' : '';
 }
 
+var hFrom = null, hTo = null, hCat = 'all';
+function histRange(){
+  if(hFrom && hTo && hTo > hFrom){ return {from:hFrom, to:hTo}; }
+  var n = new Date();
+  return {from:new Date(n.getFullYear(), n.getMonth(), 1), to:new Date(n.getFullYear(), n.getMonth()+1, 1)};
+}
+function openPeriodSheet(){
+  var r = histRange();
+  $('sheetBody').innerHTML = sheetHead('i-cal','c-blu','Период истории','любые даты — хоть за прошлые годы')
+    + '<div class="form"><div class="row2"><input class="inp" type="date" id="hpFrom" value="'+iso(r.from)+'"><input class="inp" type="date" id="hpTo" value="'+iso(new Date(r.to.getTime()-864e5))+'"></div></div>'
+    + '<div class="chips" style="padding:0 0 12px">'
+    + '<button class="chip" data-act="h-quick" data-v="m">Этот месяц</button>'
+    + '<button class="chip" data-act="h-quick" data-v="pm">Прошлый месяц</button>'
+    + '<button class="chip" data-act="h-quick" data-v="q">3 месяца</button>'
+    + '<button class="chip" data-act="h-quick" data-v="y">Год</button>'
+    + '</div>'
+    + '<button class="sh-btn" data-act="h-period-save">Показать</button>';
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
 function renderTx(){
-  var q = ($('q').value || '').toLowerCase();
-  var list = allSpends();
-  var incs = [];
-  for(var k=0;k<(D.incomes||[]).length;k++){
-    var inc = D.incomes[k];
-    incs.push({d:parseD(inc.d), s:-inc.s, n:inc.n, cat:'income'});
+  var r = histRange();
+  var lbl = $('hLabel');
+  if(lbl){
+    if(r.from.getDate() === 1 && r.to.getDate() === 1 && (r.to - r.from) < 32*864e5){
+      lbl.textContent = MONTHS[r.from.getMonth()]+' '+r.from.getFullYear();
+    } else {
+      lbl.textContent = r.from.getDate()+'.'+String(r.from.getMonth()+1).padStart(2,'0')+'.'+r.from.getFullYear()+' – '+r.to.getDate()+'.'+String(r.to.getMonth()+1).padStart(2,'0')+'.'+r.to.getFullYear();
+    }
   }
-  var all = list.concat(incs);
-  all.sort(function(a,b){ return b.d - a.d; });
-  var h = '';
-  for(var i=0;i<all.length;i++){
+  var q = $('q') ? ($('q').value || '').toLowerCase() : '';
+  var spends = allSpends().filter(function(x){ return x.d >= r.from && x.d < r.to; });
+  var incs = (D.incomes||[]).map(function(x){ return {d:parseD(x.d), s:x.s, n:x.n, inc:1}; }).filter(function(x){ return x.d >= r.from && x.d < r.to; });
+  var fSp = spends.filter(function(x){ return (hCat==='all' || (x.cat||'other')===hCat) && x.n.toLowerCase().indexOf(q)!==-1; });
+  var fIn = incs.filter(function(x){ return hCat==='all' && x.n.toLowerCase().indexOf(q)!==-1; });
+  var totSp = 0, totIn = 0, i;
+  for(i=0;i<fSp.length;i++){ totSp += fSp[i].s; }
+  for(i=0;i<fIn.length;i++){ totIn += fIn[i].s; }
+  var hs = $('hSum');
+  if(hs){
+    hs.innerHTML = '<span class="hs-sp">Расходы: <b>'+fmt(totSp)+'</b></span>'
+      + '<span class="hs-in">Поступления: <b>+'+fmt(totIn)+'</b></span>'
+      + (hCat!=='all' ? '<span class="hs-cat">'+catById(hCat).n+'</span>' : '');
+  }
+  var hc = $('hCats');
+  if(hc){
+    var ch = '<button class="chip '+(hCat==='all'?'on':'')+'" data-act="h-cat" data-c="all">Все</button>';
+    for(i=0;i<CATS.length;i++){
+      ch += '<button class="chip '+(hCat===CATS[i].id?'on':'')+'" data-act="h-cat" data-c="'+CATS[i].id+'">'+CATS[i].n+'</button>';
+    }
+    hc.innerHTML = ch;
+  }
+  var all = fSp.concat(fIn).sort(function(a,b){ return b.d - a.d; });
+  var h = ''; var lastKey = '';
+  for(i=0;i<all.length;i++){
     var t = all[i];
-    if(t.n.toLowerCase().indexOf(q) === -1){ continue; }
-    var isInc = t.s < 0 && t.cat === 'income';
-    var cc = isInc ? catById('grocery') : catById(t.cat || 'other');
-    h += '<div class="tx"><div class="tx-ic '+(isInc?'c-grn':cc.k)+'"><svg class="ic"><use href="#'+(isInc?'i-in':cc.i)+'"/></svg></div>'
-      + '<div class="tx-body"><b>'+t.n+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+'.'+t.d.getFullYear()+'</span></div>'
-      + '<div class="tx-right"><b class="'+(isInc?'pos':'')+'">'+(isInc?'+':'-')+fmt(Math.abs(t.s))+'</b><span>'+(isInc?'ДОХОД':cc.n)+'</span></div></div>';
+    var k = iso(t.d);
+    if(k !== lastKey){
+      lastKey = k;
+      h += '<div class="hist-day">'+t.d.getDate()+' '+MONTHS[t.d.getMonth()]+' · '+WEEKDAYS[t.d.getDay()]+'</div>';
+    }
+    if(t.inc){
+      h += '<div class="tx"><div class="tx-ic c-grn"><svg class="ic"><use href="#i-in"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>поступление</span></div><div class="tx-right"><b class="pos">+'+fmt(t.s)+'</b></div></div>';
+    } else {
+      var cc = catById(t.cat || 'other');
+      h += '<div class="tx"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+cc.n+'</span></div><div class="tx-right"><b>-'+fmt(t.s)+'</b></div></div>';
+    }
   }
-  $('txList').innerHTML = h || '<p style="color:var(--mut);font-size:13px;padding:12px">Пока пусто — добавьте траты или импортируйте выписку</p>';
+  $('txList').innerHTML = h || '<p style="color:var(--mut);font-size:13px;padding:12px">За выбранный период операций нет</p>';
 }
 
 function renderRec(){
@@ -1977,6 +2025,27 @@ document.addEventListener('click', function(e){
   else if(act === 'an-day'){ openDaySheet(el.getAttribute('data-d')); }
   else if(act === 'an-compare'){ openCompareSheet(); }
       else if(act === 'an-habit'){ openHabitSheet(el.getAttribute('data-h')); }
+          else if(act === 'h-prev'){ var r0 = histRange(); hFrom = addM(r0.from,-1); hTo = addM(r0.to,-1); renderTx(); }
+  else if(act === 'h-next'){ var r1 = histRange(); hFrom = addM(r1.from,1); hTo = addM(r1.to,1); renderTx(); }
+  else if(act === 'h-cat'){ hCat = el.getAttribute('data-c'); renderTx(); }
+  else if(act === 'h-period'){ openPeriodSheet(); }
+  else if(act === 'h-quick'){
+    var n2 = new Date();
+    var v2 = el.getAttribute('data-v');
+    if(v2==='m'){ hFrom = new Date(n2.getFullYear(), n2.getMonth(), 1); hTo = new Date(n2.getFullYear(), n2.getMonth()+1, 1); }
+    else if(v2==='pm'){ hFrom = new Date(n2.getFullYear(), n2.getMonth()-1, 1); hTo = new Date(n2.getFullYear(), n2.getMonth(), 1); }
+    else if(v2==='q'){ hFrom = new Date(n2.getFullYear(), n2.getMonth()-2, 1); hTo = new Date(n2.getFullYear(), n2.getMonth()+1, 1); }
+    else if(v2==='y'){ hFrom = new Date(n2.getFullYear(), 0, 1); hTo = new Date(n2.getFullYear()+1, 0, 1); }
+    closeSheet(); renderTx();
+  }
+  else if(act === 'h-period-save'){
+    var f2 = $('hpFrom').value, t2 = $('hpTo').value;
+    if(f2 && t2){
+      var dF = parseD(f2), dT = parseD(t2);
+      if(dT >= dF){ hFrom = dF; hTo = new Date(dT.getFullYear(), dT.getMonth(), dT.getDate()+1); }
+    }
+    closeSheet(); renderTx();
+  }
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
   else if(act === 'cal-month'){
