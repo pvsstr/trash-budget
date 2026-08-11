@@ -419,3 +419,5 @@ html{scroll-behavior:smooth}
 .subs-audit-txt b{font-size:12.5px;font-weight:700}
 .subs-audit-txt span{font-size:10.5px;color:var(--mut)}
 .subs-audit .chev{width:14px;height:14px;color:var(--mut)}
+
+.spend-add-btn{width:100%;margin:0 0 12px}
