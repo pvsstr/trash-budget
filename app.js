@@ -1311,9 +1311,45 @@ function renderTx(suffix){
         + '<button class="chip" data-act="recur-add" data-i="'+i+'">В обязательные</button>'
         + '<button class="mini-btn" data-act="recur-hide" data-i="'+i+'" title="Это не обязательный платёж"><svg class="ic"><use href="#i-x"/></svg></button></div>';
     }
-    var rcEl = $('hRecur2');
+       var rcEl = $('hRecur2');
     if(rcEl){ rcEl.innerHTML = rh; }
+    var fcEl = $('hForecast2');
+    if(fcEl){
+      var daysN = Math.round((r.to - r.from)/864e5);
+      var nowD = new Date();
+      if(daysN <= 32 && nowD >= r.from && nowD < r.to){
+        var elapsed = Math.max(1, Math.round((nowD - r.from)/864e5));
+        var perDay = totSp / elapsed;
+        fcEl.innerHTML = '<div class="sh-tip">Прогноз до конца месяца: <b>'+fmt(Math.round(perDay*daysN))+'</b> ('+fmt(Math.round(perDay))+'/день). Осталось дней: '+(daysN-elapsed)+'.</div>';
+      } else { fcEl.innerHTML = ''; }
+    }
+    var mg = {};
+    for(i=0;i<spends.length;i++){
+      var mn = merchName(spends[i].n);
+      if(!mg[mn]){ mg[mn] = {n:mn, s:0, c:0}; }
+      mg[mn].s += spends[i].s; mg[mn].c++;
+    }
+    var mArr = []; for(var k6 in mg){ mArr.push(mg[k6]); }
+    mArr.sort(function(a,b){ return b.s - a.s; });
+    window._merchList = mArr.slice(0,5);
+    var mh = '';
+    for(i=0;i<window._merchList.length;i++){
+      mh += '<div class="merch-row" data-act="merch-open" data-i="'+i+'"><span class="m-name">'+window._merchList[i].n+'</span><span class="m-cnt">'+window._merchList[i].c+' чеков</span><b>'+fmt(window._merchList[i].s)+'</b></div>';
+    }
+    var mEl2 = $('hMerch2');
+    if(mEl2){ mEl2.innerHTML = mh ? '<div class="cap" style="margin:10px 4px 6px">Топ продавцов</div>'+mh : ''; }
+    var otherN = 0;
+    for(i=0;i<spends.length;i++){ if((spends[i].cat||'other')==='other'){ otherN++; } }
+    var aEl2 = $('hActions2');
+    if(aEl2){
+      aEl2.innerHTML = (otherN>0 ? '<button class="chip" data-act="other-bulk">Разобрать Прочее ('+otherN+')</button>' : '')
+        + '<button class="chip" data-act="stmt-import">Вставить выписку</button>';
+    }
   }
+    var catAvg = {};
+  var ct2 = {}, cn2 = {};
+  for(i=0;i<spends.length;i++){ var c2 = spends[i].cat||'other'; ct2[c2]=(ct2[c2]||0)+spends[i].s; cn2[c2]=(cn2[c2]||0)+1; }
+  for(var k2 in ct2){ catAvg[k2] = ct2[k2]/cn2[k2]; }
   var all = fSp.concat(fIn).sort(function(a,b){ return b.d - a.d; });
   var h = ''; var lastKey = '';
   for(i=0;i<all.length;i++){
@@ -1327,8 +1363,10 @@ function renderTx(suffix){
       h += '<div class="tx"><div class="tx-ic c-grn"><svg class="ic"><use href="#i-in"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>поступление</span></div><div class="tx-right"><b class="pos">+'+fmt(t.s)+'</b></div></div>';
     } else {
       var cc = catById(t.cat || 'other');
-      var fix = (t.cat||'other')==='other' ? '<span class="tx-fix"></span>' : '';
-      h += '<div class="tx" data-act="tx-edit" data-src="'+(t.src||'sp')+'" data-i="'+(t.sid!=null?t.sid:'')+'" style="cursor:pointer"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+cc.n+'</span></div><div class="tx-right">'+fix+'<b>-'+fmt(t.s)+'</b></div></div>';
+           var fix = (t.cat||'other')==='other' ? '<span class="tx-fix"></span>' : '';
+      var ca = catAvg[t.cat||'other'] || 0;
+      var anom = (ca > 0 && t.s > 3*ca) ? '<span class="tx-anom"></span>' : '';
+      h += '<div class="tx" data-act="tx-edit" data-src="'+(t.src||'sp')+'" data-i="'+(t.sid!=null?t.sid:'')+'" style="cursor:pointer"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+cc.n+'</span></div><div class="tx-right">'+anom+fix+'<b>-'+fmt(t.s)+'</b></div></div>';
     }
   }
   var tl = E('txList');
@@ -1955,6 +1993,36 @@ function smartTips(){
   return tips;
 }
 
+function merchName(n){
+  var s = (n||'').toLowerCase();
+  if(s.indexOf('пятероч')!==-1 || s.indexOf('pyateroch')!==-1){ return 'Пятерочка'; }
+  if(s.indexOf('перекрест')!==-1 || s.indexOf('perekrest')!==-1){ return 'Перекресток'; }
+  if(s.indexOf('малинк')!==-1 || s.indexOf('malinka')!==-1){ return 'Малинка'; }
+  if(s.indexOf('scooters')!==-1){ return 'Яндекс Самокаты'; }
+  if(s.indexOf('tutu')!==-1 || s.indexOf('туту')!==-1){ return 'TUTU'; }
+  if(s.indexOf('пышку')!==-1 || s.indexOf('pyshku')!==-1){ return 'Хочу пышку'; }
+  if(s.indexOf('вкусно')!==-1){ return 'Вкусно и точка'; }
+  if(s.indexOf('тройк')!==-1 || s.indexOf('troika')!==-1){ return 'Тройка'; }
+  if(s.indexOf('whoosh')!==-1){ return 'WHOOSH'; }
+  if(s.indexOf('4121 go')!==-1){ return 'Яндекс Такси'; }
+  if(s.indexOf('yota')!==-1){ return 'Yota'; }
+  if(s.indexOf('telegram')!==-1){ return 'Telegram'; }
+  if(s.indexOf('mayachok')!==-1){ return 'Маячок'; }
+  return n;
+}
+function saveTxEdit(){
+  var f = window._txef; if(!f){ return; }
+  var amt = parseFloat($('teAmt').value);
+  if(isNaN(amt) || amt <= 0){ dAlert('Введите сумму.', 'Операция'); return; }
+  var cat = $('teCat').value, dtv = $('teDate').value, note = $('teNote').value.trim();
+  if(f.src === 'sp'){
+    for(var i6=0;i6<D.spends.length;i6++){ if(String(D.spends[i6].id) === String(f.i)){ D.spends[i6].s = amt; D.spends[i6].cat = cat; if(dtv){ D.spends[i6].d = dtv; } if(note){ D.spends[i6].n = note; } break; } }
+  } else {
+    var t6 = D.tx[+f.i];
+    if(t6){ t6.s = -amt; t6.c = cat; if(dtv){ t6.d = dtv; } if(note){ t6.n = note; } }
+  }
+  save(); closeSheet(); render(); toast('Операция обновлена');
+}
 function openTxEdit(src, i){
   var cur = null;
   if(src === 'sp'){
@@ -1965,6 +2033,19 @@ function openTxEdit(src, i){
   }
   if(!cur){ return; }
   window._txef = {src:src, i:i};
+  var sugg = '';
+  if(cur.cat === 'other'){
+    var mg2 = merchName(cur.n);
+    var votes = {};
+    var all2 = allSpends();
+    for(var v=0;v<all2.length;v++){
+      if((all2[v].cat||'other') !== 'other' && merchName(all2[v].n) === mg2){ votes[all2[v].cat] = (votes[all2[v].cat]||0)+1; }
+    }
+    var best = '', bv = 0;
+    for(var b3 in votes){ if(votes[b3] > bv){ bv = votes[b3]; best = b3; } }
+    if(!best){ best = autoCat(cur.n); }
+    if(best && best !== 'other'){ sugg = best; }
+  }
   var opts = '';
   for(var j=0;j<CATS.length;j++){ opts += '<option value="'+CATS[j].id+'"'+(CATS[j].id===cur.cat?' selected':'')+'>'+CATS[j].n+'</option>'; }
   $('sheetBody').innerHTML = sheetHead('i-pen','c-blu','Операция','сумма, категория, дата и комментарий')
@@ -1972,11 +2053,64 @@ function openTxEdit(src, i){
     + '<select class="inp" id="teCat">'+opts+'</select>'
     + '<input class="inp" id="teDate" type="date" value="'+cur.d+'">'
     + '<input class="inp" id="teNote" value="'+String(cur.n||'').replace(/"/g,'&quot;')+'"></div>'
+    + (sugg ? '<button class="sh-btn ghost" data-act="tx-apply-suggest" data-c="'+sugg+'">Похожие операции обычно в категории "'+catById(sugg).n+'" - применить</button>' : '')
     + '<button class="sh-btn" data-act="tx-edit-save">Сохранить</button>'
     + '<button class="sh-btn danger" data-act="tx-del">Удалить операцию</button>';
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
-
+function openMerchSheet(idx){
+  var m = (window._merchList||[])[idx];
+  if(!m){ return; }
+  var r = histRange2();
+  var list = allSpends().filter(function(x){ return x.d >= r.from && x.d < r.to && merchName(x.n) === m.n; }).sort(function(a,b){ return b.d - a.d; });
+  var h = sheetHead('i-cart','c-blu', m.n, list.length+' чеков на '+fmt(m.s));
+  for(var i=0;i<list.length;i++){
+    h += '<div class="dig-item"><span>'+list[i].d.getDate()+'.'+String(list[i].d.getMonth()+1).padStart(2,'0')+' - '+list[i].n+'</span><b>-'+fmt(list[i].s)+'</b></div>';
+  }
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openOtherBulk(){
+  var r = histRange2();
+  var list = allSpends().filter(function(x){ return x.d >= r.from && x.d < r.to && (x.cat||'other')==='other'; }).sort(function(a,b){ return b.d - a.d; });
+  window._otherList = list;
+  var h = sheetHead('i-grid','c-org','Разбор Прочего', list.length+' операций - тапни категорию');
+  if(!list.length){ h += '<div class="dig-item"><span>Всё разобрано!</span><b>-</b></div>'; }
+  var cats = ['grocery','cafe','transport','personal','fun','subs'];
+  for(var i=0;i<list.length;i++){
+    h += '<div class="bulk-row"><div class="b-info"><b>'+list[i].d.getDate()+'.'+String(list[i].d.getMonth()+1).padStart(2,'0')+'</b> - '+list[i].n+' - '+fmt(list[i].s)+'</div>';
+    for(var j=0;j<cats.length;j++){
+      h += '<button class="chip" data-act="bulk-set" data-i="'+i+'" data-c="'+cats[j]+'">'+catById(cats[j]).n+'</button>';
+    }
+    h += '<button class="mini-btn" data-act="tx-edit" data-src="'+(list[i].src||'sp')+'" data-i="'+(list[i].sid!=null?list[i].sid:'')+'"><svg class="ic"><use href="#i-pen"/></svg></button></div>';
+  }
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openStmtSheet(){
+  $('sheetBody').innerHTML = sheetHead('i-import','c-blu','Вставить выписку','текст из Альфы или Т-Банка')
+    + '<div class="form"><textarea class="inp" id="stmtTxt" style="min-height:160px" placeholder="Вставь текст выписки сюда..."></textarea></div>'
+    + '<button class="sh-btn" data-act="stmt-parse">Распознать</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function parseStatement(txt){
+  var out = [];
+  var t = txt.replace(/\r/g,'').replace(/\n/g,' ');
+  var m;
+  var re1 = /CRD_[A-Z0-9]+ Операция по карте: \d+\++\d+, на сумму: ([\d.]+) RUR, дата совершения операции: (\d{2})\.(\d{2})\.(\d{2}), место совершения операции: (.+?) MCC\d+/g;
+  while((m = re1.exec(t)) !== null){
+    var nm = m[5].split('\\').pop().trim();
+    out.push({d:'20'+m[4]+'-'+m[3]+'-'+m[2], n:nm, s:Math.round(parseFloat(m[1])), c:autoCat(nm)});
+  }
+  var re2 = /(\d{2})\.(\d{2})\.(\d{4}) \d{2}:\d{2} \d{2}\.\d{2}\.\d{4} \d{2}:\d{2} -([\d\s]+,\d{2}) ₽ -[\d\s]+,\d{2} ₽ (.+?)(?: \d{4}| —|$)/g;
+  while((m = re2.exec(t)) !== null){
+    var n2 = m[5].trim();
+    if(n2.indexOf('Внутренний')===-1 && n2.indexOf('Перевод')===-1 && n2.indexOf('Внешний')===-1 && n2.indexOf('Плата')===-1 && n2.indexOf('Комиссия')===-1){
+      out.push({d:m[3]+'-'+m[2]+'-'+m[1], n:n2, s:Math.round(parseFloat(m[4].replace(/\s/g,'').replace(',','.'))), c:autoCat(n2)});
+    }
+  }
+  return out;
+}
 function openQuickSpend(){
   var opts = '';
   for(var i=0;i<CATS.length;i++){ opts += '<option value="'+CATS[i].id+'">'+CATS[i].n+'</option>'; }
@@ -2265,18 +2399,41 @@ document.addEventListener('click', function(e){
   }
   else if(act === 'h-mode'){ hMode2 = el.getAttribute('data-v'); cycOff2 = 0; renderTx('2'); }
   else if(act === 'tx-edit'){ openTxEdit(el.getAttribute('data-src'), el.getAttribute('data-i')); }
-  else if(act === 'tx-edit-save'){
-    var f = window._txef; if(!f){ return; }
-    var amt = parseFloat($('teAmt').value);
-    if(isNaN(amt) || amt <= 0){ dAlert('Введите сумму.', 'Операция'); return; }
-    var cat = $('teCat').value, dtv = $('teDate').value, note = $('teNote').value.trim();
-    if(f.src === 'sp'){
-      for(var i6=0;i6<D.spends.length;i6++){ if(String(D.spends[i6].id) === String(f.i)){ D.spends[i6].s = amt; D.spends[i6].cat = cat; if(dtv){ D.spends[i6].d = dtv; } if(note){ D.spends[i6].n = note; } break; } }
-    } else {
-      var t6 = D.tx[+f.i];
-      if(t6){ t6.s = -amt; t6.c = cat; if(dtv){ t6.d = dtv; } if(note){ t6.n = note; } }
+   else if(act === 'tx-edit-save'){ saveTxEdit(); }
+  else if(act === 'tx-apply-suggest'){ if($('teCat')){ $('teCat').value = el.getAttribute('data-c'); } saveTxEdit(); }
+  else if(act === 'merch-open'){ openMerchSheet(parseInt(el.getAttribute('data-i'),10)); }
+  else if(act === 'other-bulk'){ openOtherBulk(); }
+  else if(act === 'bulk-set'){
+    var bi = parseInt(el.getAttribute('data-i'),10);
+    var bc = el.getAttribute('data-c');
+    var bit = (window._otherList||[])[bi];
+    if(bit){
+      if(bit.src === 'tx'){ var bt = D.tx[bit.sid]; if(bt){ bt.c = bc; } }
+      else { for(var b4=0;b4<D.spends.length;b4++){ if(String(D.spends[b4].id) === String(bit.sid)){ D.spends[b4].cat = bc; break; } } }
+      save(); render(); openOtherBulk(); toast('Категория присвоена');
     }
-    save(); closeSheet(); render(); toast('Операция обновлена');
+  }
+  else if(act === 'stmt-import'){ openStmtSheet(); }
+  else if(act === 'stmt-parse'){
+    var plist = parseStatement($('stmtTxt').value || '');
+    var seen = {};
+    var exist = {};
+    for(var e4=0;e4<D.tx.length;e4++){ exist[iso(parseD(D.tx[e4].d))+'|'+Math.round(-D.tx[e4].s)+'|'+(D.tx[e4].n||'').toLowerCase()] = 1; }
+    var fresh = [];
+    for(var p2=0;p2<plist.length;p2++){
+      var kk = plist[p2].d+'|'+plist[p2].s+'|'+(plist[p2].n||'').toLowerCase();
+      if(!exist[kk] && !seen[kk]){ seen[kk] = 1; fresh.push(plist[p2]); }
+    }
+    window._stmtList = fresh;
+    var tot2 = 0; for(var q3=0;q3<fresh.length;q3++){ tot2 += fresh[q3].s; }
+    $('sheetBody').innerHTML = sheetHead('i-import','c-grn','Распознано', fresh.length+' новых операций на '+fmt(tot2))
+      + (fresh.length ? '<div class="sh-tip">Дубли и переводы исключены. Нажми "Добавить" - операции появятся в истории.</div><button class="sh-btn" data-act="stmt-add">Добавить</button>' : '<div class="sh-tip">Новых операций не найдено - все уже в истории.</div>');
+  }
+  else if(act === 'stmt-add'){
+    var add2 = window._stmtList || [];
+    for(var a6=0;a6<add2.length;a6++){ D.tx.push({d:add2[a6].d, n:add2[a6].n, s:-add2[a6].s, c:add2[a6].c}); }
+    window._stmtList = [];
+    save(); closeSheet(); render(); toast('Добавлено операций: '+add2.length);
   }
   else if(act === 'tx-del'){
     var f2 = window._txef; if(!f2){ return; }
