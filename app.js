@@ -1207,6 +1207,7 @@ function renderAnalytics(){
 var hFrom = null, hTo = null, hCat = 'all';
 
 var hMode2 = 'cal', cycOff2 = 0;
+var hGroup = 'day';
 function histRange2(){
   if(hMode2 === 'cyc'){
     var now = new Date();
@@ -1235,10 +1236,20 @@ function openPeriodSheet(){
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
 }
+function txRowHtml(t){
+  if(t.inc){
+    return '<div class="tx"><div class="tx-ic c-grn"><svg class="ic"><use href="#i-in"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · поступление</span></div><div class="tx-right"><b class="pos">+'+fmt(t.s)+'</b></div></div>';
+  }
+  var cc = catById(t.cat || 'other');
+  var fix = (t.cat||'other')==='other' ? '<span class="tx-fix"></span>' : '';
+  var ca = (window._catAvg && window._catAvg[t.cat||'other']) || 0;
+  var anom = (ca > 0 && t.s > 3*ca) ? '<span class="tx-anom"></span>' : '';
+  return '<div class="tx" data-act="tx-edit" data-src="'+(t.src||'sp')+'" data-i="'+(t.sid!=null?t.sid:'')+'" style="cursor:pointer"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · '+cc.n+'</span></div><div class="tx-right">'+anom+fix+'<b>-'+fmt(t.s)+'</b></div></div>';
+}
 function renderTx(suffix){
   var sfx = suffix || '';
   function E(id){ return $(id + sfx); }
-   var r = (sfx==='2') ? histRange2() : histRange();
+  var r = (sfx==='2') ? histRange2() : histRange();
   var lbl = E('hLabel');
   if(lbl){
     if(r.from.getDate() === 1 && r.to.getDate() === 1 && (r.to - r.from) < 32*864e5){
@@ -1271,30 +1282,85 @@ function renderTx(suffix){
   }
   var clbl = E('ddCatLbl');
   if(clbl){ clbl.textContent = hCat==='all' ? 'Все категории' : catById(hCat).n; }
-    if(sfx==='2'){
+  var catAvg = {};
+  var ct2 = {}, cn2 = {};
+  for(i=0;i<spends.length;i++){ var c2 = spends[i].cat||'other'; ct2[c2]=(ct2[c2]||0)+spends[i].s; cn2[c2]=(cn2[c2]||0)+1; }
+  for(var k2 in ct2){ catAvg[k2] = ct2[k2]/cn2[k2]; }
+  window._catAvg = catAvg;
+  var all = fSp.concat(fIn).sort(function(a,b){ return b.d - a.d; });
+  var h = '';
+  if(sfx==='2' && hGroup !== 'day'){
+    var groups = {}; var gOrder = [];
+    for(i=0;i<all.length;i++){
+      var t = all[i];
+      var gk = t.inc ? 'Поступления' : (hGroup==='cat' ? catById(t.cat||'other').n : merchName(t.n));
+      if(!groups[gk]){ groups[gk] = {n:gk, s:0, c:0, inc:!!t.inc}; gOrder.push(gk); }
+      groups[gk].s += t.s; groups[gk].c++;
+    }
+    gOrder.sort(function(a,b){ return (groups[b].inc?1:0)-(groups[a].inc?1:0) || groups[b].s - groups[a].s; });
+    for(i=0;i<gOrder.length;i++){
+      var g = groups[gOrder[i]];
+      h += '<div class="hist-day" style="display:flex;justify-content:space-between;align-items:center"><span>'+g.n+'</span><b>'+g.c+' шт. · '+(g.inc?'+':'-')+fmt(g.s)+'</b></div>';
+      for(var gi=0;gi<all.length;gi++){
+        var t2 = all[gi];
+        var gk2 = t2.inc ? 'Поступления' : (hGroup==='cat' ? catById(t2.cat||'other').n : merchName(t2.n));
+        if(gk2 === g.n){ h += txRowHtml(t2); }
+      }
+    }
+  } else {
+    var lastKey = '';
+    for(i=0;i<all.length;i++){
+      var t3 = all[i];
+      var k = iso(t3.d);
+      if(k !== lastKey){
+        lastKey = k;
+        h += '<div class="hist-day">'+t3.d.getDate()+' '+MONTHS[t3.d.getMonth()]+' · '+WEEKDAYS[t3.d.getDay()]+'</div>';
+      }
+      h += txRowHtml(t3);
+    }
+  }
+  var tl = E('txList');
+  if(tl){ tl.innerHTML = h || '<p style="color:var(--mut);font-size:13px;padding:12px">За выбранный период операций нет</p>'; }
+  if(sfx==='2'){
     var mc1 = $('hmCal'), mc2 = $('hmCyc');
     if(mc1){ mc1.classList.toggle('on', hMode2==='cal'); }
     if(mc2){ mc2.classList.toggle('on', hMode2==='cyc'); }
+    var hg1 = $('hgDay'), hg2b = $('hgCat'), hg3 = $('hgMerch');
+    if(hg1){ hg1.classList.toggle('on', hGroup==='day'); }
+    if(hg2b){ hg2b.classList.toggle('on', hGroup==='cat'); }
+    if(hg3){ hg3.classList.toggle('on', hGroup==='merch'); }
     var aggS = {};
     for(i=0;i<spends.length;i++){ var ck3 = spends[i].cat||'other'; aggS[ck3]=(aggS[ck3]||0)+spends[i].s; }
     var arrS = []; for(var k3 in aggS){ arrS.push({id:k3, s:aggS[k3]}); }
-    arrS.sort(function(a,b){ return b.s-a.s; });
+    arrS.sort(function(a,b){ return b.s - a.s; });
     var colsS = ['#30d158','#bf5af2','#ff453a','#ff9f0a','#0a84ff','#64d2ff'];
     var hs2 = '';
     for(i=0;i<arrS.length && i<6;i++){
+      var envKey = CAT2ENV[arrS[i].id] || '';
+      var env9 = null;
+      for(var e9=0;e9<D.envs.length;e9++){ if(envKey && D.envs[e9].n.indexOf(envKey)===0){ env9 = D.envs[e9]; break; } }
+      var barCol = colsS[i%6];
+      var limTxt = '';
+      var penBtn = '';
+      if(env9){
+        var pct2 = arrS[i].s/Math.max(1,env9.lim)*100;
+        barCol = pct2>100 ? 'var(--red)' : (pct2>85 ? 'var(--org)' : colsS[i%6]);
+        limTxt = ' / '+fmt(env9.lim);
+        penBtn = '<button class="mini-btn" data-act="edit" data-t="env" data-i="'+env9.id+'" style="margin-left:4px"><svg class="ic"><use href="#i-pen"/></svg></button>';
+      }
       var pS = totSp>0 ? Math.round(arrS[i].s/totSp*100) : 0;
-      hs2 += '<div class="catsum-row" data-act="h-cat" data-c="'+arrS[i].id+'"><span class="catsum-name">'+catById(arrS[i].id).n+'</span><div class="bar-large" style="height:6px;flex:1"><i style="width:'+pS+'%;background:'+colsS[i%6]+'"></i></div><b>'+fmt(arrS[i].s)+'</b></div>';
+      hs2 += '<div class="catsum-row" data-act="h-cat" data-c="'+arrS[i].id+'"><span class="catsum-name">'+catById(arrS[i].id).n+'</span><div class="bar-large" style="height:6px;flex:1"><i style="width:'+Math.min(100,pS)+'%;background:'+barCol+'"></i></div><b>'+fmt(arrS[i].s)+limTxt+'</b>'+penBtn+'</div>';
     }
     var csEl = $('hCatSum2');
     if(csEl){ csEl.innerHTML = hs2; }
-    var allS = allSpends();
+    var allT = allSpends();
     var grp = {};
-    for(i=0;i<allS.length;i++){
-      var key4 = (allS[i].n||'').toLowerCase()+'|'+Math.round(allS[i].s);
-      if(!grp[key4]){ grp[key4] = {cnt:0, n:allS[i].n, s:allS[i].s}; }
+    for(i=0;i<allT.length;i++){
+      var key4 = (allT[i].n||'').toLowerCase()+'|'+Math.round(allT[i].s);
+      if(!grp[key4]){ grp[key4] = {cnt:0, n:allT[i].n, s:allT[i].s}; }
       grp[key4].cnt++;
     }
-        var cand = [];
+    var cand = [];
     var hideList = window._recurHide || [];
     for(var k4 in grp){
       var g4 = grp[k4];
@@ -1307,13 +1373,13 @@ function renderTx(suffix){
     }
     cand.sort(function(a,b){ return b.cnt - a.cnt; });
     window._recurList = cand.slice(0,2);
-        var rh = '';
+    var rh = '';
     for(i=0;i<window._recurList.length;i++){
       rh += '<div class="sh-tip" style="display:flex;align-items:center;gap:8px"><span style="flex:1">Похоже на регулярный платёж: <b>'+window._recurList[i].n+'</b> '+fmt(window._recurList[i].s)+' ('+window._recurList[i].cnt+' раза)</span>'
         + '<button class="chip" data-act="recur-add" data-i="'+i+'">В обязательные</button>'
         + '<button class="mini-btn" data-act="recur-hide" data-i="'+i+'" title="Это не обязательный платёж"><svg class="ic"><use href="#i-x"/></svg></button></div>';
     }
-       var rcEl = $('hRecur2');
+    var rcEl = $('hRecur2');
     if(rcEl){ rcEl.innerHTML = rh; }
     var fcEl = $('hForecast2');
     if(fcEl){
@@ -1340,39 +1406,65 @@ function renderTx(suffix){
     }
     var mEl2 = $('hMerch2');
     if(mEl2){ mEl2.innerHTML = mh ? '<div class="cap" style="margin:10px 4px 6px">Топ продавцов</div>'+mh : ''; }
+    var tplMap = {};
+    var cutoff = new Date(Date.now() - 60*864e5);
+    for(i=0;i<allT.length;i++){
+      if(allT[i].d < cutoff){ continue; }
+      var tk2 = (allT[i].n||'').toLowerCase()+'|'+Math.round(allT[i].s);
+      if(!tplMap[tk2]){ tplMap[tk2] = {n:allT[i].n, s:Math.round(allT[i].s), c:0}; }
+      tplMap[tk2].c++;
+    }
+    var tplArr = []; for(var k7 in tplMap){ if(tplMap[k7].c >= 3){ tplArr.push(tplMap[k7]); } }
+    tplArr.sort(function(a,b){ return b.c - a.c; });
+    window._tplList = tplArr.slice(0,4);
+    var th = '';
+    for(i=0;i<window._tplList.length;i++){
+      th += '<button class="chip" data-act="tpl-add" data-i="'+i+'">'+window._tplList[i].n+' · '+fmt(window._tplList[i].s)+'</button>';
+    }
+    var tpEl = $('hTpl2');
+    if(tpEl){ tpEl.innerHTML = th; }
+    var roundSum = 0;
+    for(i=0;i<spends.length;i++){ roundSum += Math.ceil(spends[i].s/10)*10 - spends[i].s; }
+    window._roundAmt = Math.round(roundSum);
+    var rdEl = $('hRound2');
+    if(rdEl){ rdEl.innerHTML = window._roundAmt > 0 ? '<div class="sh-tip">Сдача за период (округление до 10 ₽): <b>'+fmt(window._roundAmt)+'</b> <button class="chip" style="margin-left:6px" data-act="round-add">В копилку</button></div>' : ''; }
+    var nowW = new Date();
+    var wd2 = (nowW.getDay()+6)%7;
+    var ws2 = new Date(nowW.getFullYear(), nowW.getMonth(), nowW.getDate()-wd2);
+    var we2 = new Date(ws2.getTime()+7*864e5);
+    var lwS = new Date(ws2.getTime()-7*864e5);
+    var sumThis = 0, sumLast = 0;
+    for(i=0;i<allT.length;i++){
+      if(allT[i].d >= ws2 && allT[i].d < we2){ sumThis += allT[i].s; }
+      else if(allT[i].d >= lwS && allT[i].d < ws2){ sumLast += allT[i].s; }
+    }
+    var wkEl = $('hWeek2');
+    if(wkEl){
+      var dPct = sumLast > 0 ? Math.round((sumThis-sumLast)/sumLast*100) : 0;
+      wkEl.innerHTML = '<div class="sh-tip">Неделя: эта <b>'+fmt(sumThis)+'</b> · прошлая '+fmt(sumLast)+' ('+(dPct>0?'+':'')+dPct+'%)</div>';
+    }
+    var dayTot3 = {}, scootDays = {};
+    for(i=0;i<allT.length;i++){
+      var dk3 = iso(allT[i].d);
+      dayTot3[dk3] = (dayTot3[dk3]||0)+allT[i].s;
+      if(allT[i].cat==='scooters'){ scootDays[dk3]=1; }
+    }
+    var lim3 = calcDailyLimit().perDay;
+    var stLim = 0, stScoot = 0, dd3;
+    for(dd3=0; dd3<365; dd3++){ var dx = new Date(); dx.setDate(dx.getDate()-dd3); if((dayTot3[iso(dx)]||0) <= lim3){ stLim++; } else { break; } }
+    for(dd3=0; dd3<365; dd3++){ var dy = new Date(); dy.setDate(dy.getDate()-dd3); if(!scootDays[iso(dy)]){ stScoot++; } else { break; } }
+    var stEl = $('hStreak2');
+    if(stEl){ stEl.innerHTML = '<div class="sh-tip">Серия: <b>'+stLim+' дн.</b> в рамках дневного лимита · <b>'+stScoot+' дн.</b> без самокатов.</div>'; }
     var otherN = 0;
     for(i=0;i<spends.length;i++){ if((spends[i].cat||'other')==='other'){ otherN++; } }
     var aEl2 = $('hActions2');
     if(aEl2){
       aEl2.innerHTML = (otherN>0 ? '<button class="chip" data-act="other-bulk">Разобрать Прочее ('+otherN+')</button>' : '')
-        + '<button class="chip" data-act="stmt-import">Вставить выписку</button>';
+        + '<button class="chip" data-act="stmt-import">Вставить выписку</button>'
+        + '<button class="chip" data-act="dup-find">Найти дубликаты</button>'
+        + (hMode2==='cyc' ? '<button class="chip" data-act="cyc-compare">Сравнить с прошлым циклом</button>' : '');
     }
   }
-    var catAvg = {};
-  var ct2 = {}, cn2 = {};
-  for(i=0;i<spends.length;i++){ var c2 = spends[i].cat||'other'; ct2[c2]=(ct2[c2]||0)+spends[i].s; cn2[c2]=(cn2[c2]||0)+1; }
-  for(var k2 in ct2){ catAvg[k2] = ct2[k2]/cn2[k2]; }
-  var all = fSp.concat(fIn).sort(function(a,b){ return b.d - a.d; });
-  var h = ''; var lastKey = '';
-  for(i=0;i<all.length;i++){
-    var t = all[i];
-    var k = iso(t.d);
-    if(k !== lastKey){
-      lastKey = k;
-      h += '<div class="hist-day">'+t.d.getDate()+' '+MONTHS[t.d.getMonth()]+' · '+WEEKDAYS[t.d.getDay()]+'</div>';
-    }
-    if(t.inc){
-      h += '<div class="tx"><div class="tx-ic c-grn"><svg class="ic"><use href="#i-in"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>поступление</span></div><div class="tx-right"><b class="pos">+'+fmt(t.s)+'</b></div></div>';
-    } else {
-      var cc = catById(t.cat || 'other');
-           var fix = (t.cat||'other')==='other' ? '<span class="tx-fix"></span>' : '';
-      var ca = catAvg[t.cat||'other'] || 0;
-      var anom = (ca > 0 && t.s > 3*ca) ? '<span class="tx-anom"></span>' : '';
-      h += '<div class="tx" data-act="tx-edit" data-src="'+(t.src||'sp')+'" data-i="'+(t.sid!=null?t.sid:'')+'" style="cursor:pointer"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+cc.n+'</span></div><div class="tx-right">'+anom+fix+'<b>-'+fmt(t.s)+'</b></div></div>';
-    }
-  }
-  var tl = E('txList');
-  if(tl){ tl.innerHTML = h || '<p style="color:var(--mut);font-size:13px;padding:12px">За выбранный период операций нет</p>'; }
 }
 function renderAllTx(){ renderTx(); renderTx('2'); }
 
@@ -2025,14 +2117,17 @@ function saveTxEdit(){
   }
   save(); closeSheet(); render(); toast('Операция обновлена');
 }
-function openTxEdit(src, i){
-  var cur = null;
+function getTxItem(src, i){
   if(src === 'sp'){
-    for(var k=0;k<D.spends.length;k++){ if(String(D.spends[k].id) === String(i)){ cur = {d:D.spends[k].d, n:D.spends[k].n, s:D.spends[k].s, cat:D.spends[k].cat||'other'}; break; } }
+    for(var k=0;k<D.spends.length;k++){ if(String(D.spends[k].id) === String(i)){ return {d:D.spends[k].d, n:D.spends[k].n, s:D.spends[k].s, cat:D.spends[k].cat||'other'}; } }
   } else {
     var t = D.tx[+i];
-    if(t){ cur = {d:t.d, n:t.n, s:-t.s, cat:TX2CAT[t.c]||t.c||'other'}; }
+    if(t){ return {d:t.d, n:t.n, s:-t.s, cat:TX2CAT[t.c]||t.c||'other'}; }
   }
+  return null;
+}
+function openTxEdit(src, i){
+  var cur = getTxItem(src, i);
   if(!cur){ return; }
   window._txef = {src:src, i:i};
   var sugg = '';
@@ -2057,6 +2152,7 @@ function openTxEdit(src, i){
     + '<input class="inp" id="teNote" value="'+String(cur.n||'').replace(/"/g,'&quot;')+'"></div>'
     + (sugg ? '<button class="sh-btn ghost" data-act="tx-apply-suggest" data-c="'+sugg+'">Похожие операции обычно в категории "'+catById(sugg).n+'" - применить</button>' : '')
     + '<button class="sh-btn" data-act="tx-edit-save">Сохранить</button>'
+    + '<button class="sh-btn ghost" data-act="tx-split">Разделить на 2 категории</button>'
     + '<button class="sh-btn danger" data-act="tx-del">Удалить операцию</button>';
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
@@ -2113,6 +2209,92 @@ function parseStatement(txt){
   }
   return out;
 }
+
+function openDupSheet(){
+  var map = {};
+  var all = allSpends();
+  for(var i=0;i<all.length;i++){
+    var t = all[i];
+    if(t.inc){ continue; }
+    var k = iso(t.d)+'|'+Math.round(t.s)+'|'+(t.n||'').toLowerCase();
+    if(!map[k]){ map[k] = []; }
+    map[k].push(t);
+  }
+  var dups = [];
+  for(var k2 in map){ if(map[k2].length > 1){ dups.push(map[k2]); } }
+  window._dupGroups = dups;
+  var h = sheetHead('i-alert','c-org','Дубликаты', dups.length+' подозрительных групп');
+  if(!dups.length){ h += '<div class="dig-item"><span>Дубликатов не найдено</span><b>-</b></div>'; }
+  for(var g=0;g<dups.length;g++){
+    for(var m=0;m<dups[g].length;m++){
+      var it = dups[g][m];
+      h += '<div class="dig-item"><span>'+it.d.getDate()+'.'+String(it.d.getMonth()+1).padStart(2,'0')+' · '+it.n+' · '+fmt(it.s)+(m>0?' <b style="color:var(--red)">дубль?</b>':'')+'</span><span class="row-actions"><button class="mini-btn danger" data-act="dup-del" data-g="'+g+'" data-i="'+m+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
+    }
+  }
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openCycCompareSheet(){
+  var now = new Date();
+  var cs1 = cycleStart(addM(now, cycOff2));
+  var ce1 = cycleEnd(cs1);
+  var cs0 = cycleStart(addM(now, cycOff2-1));
+  var ce0 = cycleEnd(cs0);
+  function aggR(from, to){
+    var m = {}; var t = 0;
+    var l = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
+    for(var i=0;i<l.length;i++){ var k = l[i].cat||'other'; m[k]=(m[k]||0)+l[i].s; t+=l[i].s; }
+    return {m:m, t:t};
+  }
+  var a1 = aggR(cs1, ce1), a0 = aggR(cs0, ce0);
+  var keys = {};
+  for(var k in a1.m){ keys[k]=1; } for(k in a0.m){ keys[k]=1; }
+  var rows = [];
+  for(k in keys){ rows.push({id:k, c:a1.m[k]||0, p:a0.m[k]||0}); }
+  rows.sort(function(x,y){ return Math.abs(y.c-y.p) - Math.abs(x.c-x.p); });
+  var diff = a1.t - a0.t;
+  var h = sheetHead('i-chev','c-blu','Сравнение циклов', cycLabel(cs0)+' → '+cycLabel(cs1))
+    + rowHtml(cycLabel(cs0), fmt(a0.t))
+    + rowHtml(cycLabel(cs1), fmt(a1.t))
+    + '<div class="sh-row"><span>Итог</span><b style="color:'+(diff>0?'var(--red)':'var(--grn)')+'">'+(diff>0?'+':'-')+fmt(Math.abs(diff))+'</b></div>'
+    + '<div class="cap" style="margin:10px 4px 6px">По категориям</div>';
+  for(var i2=0;i2<rows.length;i2++){
+    var d2 = rows[i2].c - rows[i2].p;
+    h += '<div class="dig-item"><span>'+catById(rows[i2].id).n+'</span><b>'+fmt(rows[i2].p)+' → '+fmt(rows[i2].c)+' <span style="color:'+(d2>0?'var(--red)':(d2<0?'var(--grn)':'var(--mut)'))+'">'+(d2>0?'+':(d2<0?'-':''))+fmt(Math.abs(d2))+'</span></b></div>';
+  }
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openRoundSheet(){
+  var act = (D.goals||[]).filter(function(g){ return !g.done; });
+  if(!act.length){ dAlert('Нет активных целей.', 'Копилка'); return; }
+  var opts = '';
+  for(var i=0;i<act.length;i++){ opts += '<option value="'+act[i].id+'">'+act[i].n+'</option>'; }
+  $('sheetBody').innerHTML = sheetHead('i-target','c-grn','Сдача в копилку','округление каждой траты до 10 ₽')
+    + rowHtml('Накоплено за период', fmt(window._roundAmt||0))
+    + '<div class="form"><select class="inp" id="rdGoal">'+opts+'</select></div>'
+    + '<button class="sh-btn" data-act="round-save">Закинуть</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openSplitSheet(src, i){
+  var cur = getTxItem(src, i);
+  if(!cur){ return; }
+  window._txef = {src:src, i:i};
+  var opts1 = '', opts2 = '';
+  for(var j=0;j<CATS.length;j++){
+    opts1 += '<option value="'+CATS[j].id+'"'+(CATS[j].id===cur.cat?' selected':'')+'>'+CATS[j].n+'</option>';
+    opts2 += '<option value="'+CATS[j].id+'"'+(CATS[j].id===cur.cat?' selected':'')+'>'+CATS[j].n+'</option>';
+  }
+  var half = Math.round(cur.s/2);
+  $('sheetBody').innerHTML = sheetHead('i-pen','c-blu','Разделить операцию', cur.n+' · всего '+fmt(cur.s))
+    + '<div class="form">'
+    + '<div class="row2"><input class="inp" id="spAmt1" type="number" value="'+half+'"><input class="inp" id="spAmt2" type="number" value="'+(cur.s-half)+'"></div>'
+    + '<div class="row2"><select class="inp" id="spCat1">'+opts1+'</select><select class="inp" id="spCat2">'+opts2+'</select></div>'
+    + '</div>'
+    + '<button class="sh-btn" data-act="tx-split-save">Разделить</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+
 function openQuickSpend(){
   var opts = '';
   for(var i=0;i<CATS.length;i++){ opts += '<option value="'+CATS[i].id+'">'+CATS[i].n+'</option>'; }
@@ -2440,6 +2622,62 @@ document.addEventListener('click', function(e){
     window._stmtList = [];
     save(); closeSheet(); render(); toast('Добавлено операций: '+add2.length);
   }
+
+  else if(act === 'h-group'){ hGroup = el.getAttribute('data-v'); renderTx('2'); }
+  else if(act === 'tpl-add'){
+    var tp = (window._tplList||[])[parseInt(el.getAttribute('data-i'),10)];
+    if(tp){
+      D.spends.push({id:Date.now(), d:iso(new Date()), n:tp.n, cat:autoCat(tp.n), s:tp.s});
+      save(); render(); toast('Трата записана: -'+fmt(tp.s));
+    }
+  }
+  else if(act === 'dup-find'){ openDupSheet(); }
+  else if(act === 'dup-del'){
+    var dg = (window._dupGroups||[])[parseInt(el.getAttribute('data-g'),10)];
+    var di = dg ? dg[parseInt(el.getAttribute('data-i'),10)] : null;
+    if(di){
+      dConfirm('Удалить дубликат?', 'Удаление', true).then(function(ok){
+        if(!ok){ return; }
+        if(di.src === 'tx'){ D.tx.splice(di.sid,1); }
+        else { D.spends = D.spends.filter(function(x){ return String(x.id) !== String(di.sid); }); }
+        save(); render(); openDupSheet(); toast('Дубликат удалён');
+      });
+    }
+  }
+  else if(act === 'cyc-compare'){ openCycCompareSheet(); }
+  else if(act === 'round-add'){ openRoundSheet(); }
+  else if(act === 'round-save'){
+    var rg = findGoal(parseInt($('rdGoal').value,10));
+    if(rg && (window._roundAmt||0) > 0){
+      rg.cur = (rg.cur||0) + window._roundAmt;
+      if(rg.cur >= rg.target && rg.target > 0){ rg.done = true; toast('Цель "'+rg.n+'" выполнена!'); }
+      else { toast('+'+fmt(window._roundAmt)+' к цели "'+rg.n+'"'); }
+      save(); closeSheet(); render();
+    }
+  }
+  else if(act === 'tx-split'){ if(window._txef){ openSplitSheet(window._txef.src, window._txef.i); } }
+  else if(act === 'tx-split-save'){
+    var f3 = window._txef; if(!f3){ return; }
+    var a1 = parseFloat($('spAmt1').value), a2 = parseFloat($('spAmt2').value);
+    if(isNaN(a1) || a1 <= 0 || isNaN(a2) || a2 <= 0){ dAlert('Введите обе суммы.', 'Разделение'); return; }
+    var c1 = $('spCat1').value, c2 = $('spCat2').value;
+    if(f3.src === 'sp'){
+      var it3 = null;
+      for(var s3=0;s3<D.spends.length;s3++){ if(String(D.spends[s3].id) === String(f3.i)){ it3 = D.spends[s3]; break; } }
+      if(it3){
+        D.spends.push({id:Date.now(), d:it3.d, n:it3.n, cat:c2, s:a2});
+        it3.s = a1; it3.cat = c1;
+      }
+    } else {
+      var t3 = D.tx[+f3.i];
+      if(t3){
+        D.tx.push({d:t3.d, n:t3.n, s:-a2, c:c2});
+        t3.s = -a1; t3.c = c1;
+      }
+    }
+    save(); closeSheet(); render(); toast('Разделено на 2 операции');
+  }
+    
   else if(act === 'tx-del'){
     var f2 = window._txef; if(!f2){ return; }
     dConfirm('Удалить эту операцию?', 'Удаление', true).then(function(ok){
