@@ -1292,20 +1292,24 @@ function renderTx(suffix){
       if(!grp[key4]){ grp[key4] = {cnt:0, n:allS[i].n, s:allS[i].s}; }
       grp[key4].cnt++;
     }
-    var cand = [];
+        var cand = [];
+    var hideList = window._recurHide || [];
     for(var k4 in grp){
       var g4 = grp[k4];
       if(g4.cnt >= 3){
         var inPay = false;
         for(i=0;i<D.pays.length;i++){ if((D.pays[i].n||'').toLowerCase() === g4.n.toLowerCase()){ inPay = true; break; } }
-        if(!inPay){ cand.push(g4); }
+        var isHide = hideList.indexOf(g4.n.toLowerCase()+'|'+Math.round(g4.s)) !== -1;
+        if(!inPay && !isHide){ cand.push(g4); }
       }
     }
     cand.sort(function(a,b){ return b.cnt - a.cnt; });
     window._recurList = cand.slice(0,2);
-    var rh = '';
+        var rh = '';
     for(i=0;i<window._recurList.length;i++){
-      rh += '<div class="sh-tip">Похоже на регулярный платёж: <b>'+window._recurList[i].n+'</b> '+fmt(window._recurList[i].s)+' ('+window._recurList[i].cnt+' раза) <button class="chip" style="margin-left:6px" data-act="recur-add" data-i="'+i+'">В обязательные</button></div>';
+      rh += '<div class="sh-tip" style="display:flex;align-items:center;gap:8px"><span style="flex:1">Похоже на регулярный платёж: <b>'+window._recurList[i].n+'</b> '+fmt(window._recurList[i].s)+' ('+window._recurList[i].cnt+' раза)</span>'
+        + '<button class="chip" data-act="recur-add" data-i="'+i+'">В обязательные</button>'
+        + '<button class="mini-btn" data-act="recur-hide" data-i="'+i+'" title="Это не обязательный платёж"><svg class="ic"><use href="#i-x"/></svg></button></div>';
     }
     var rcEl = $('hRecur2');
     if(rcEl){ rcEl.innerHTML = rh; }
@@ -2283,9 +2287,14 @@ document.addEventListener('click', function(e){
       save(); closeSheet(); render(); toast('Операция удалена');
     });
   }
-  else if(act === 'recur-add'){
-    var c5 = (window._recurList||[])[parseInt(el.getAttribute('data-i'),10)];
-    if(c5){ D.pays.push({id:Date.now(), d:new Date().getDate(), n:c5.n, s:c5.s}); save(); render(); toast('Платёж "'+c5.n+'" добавлен в обязательные'); }
+    else if(act === 'recur-hide'){
+    var c6 = (window._recurList||[])[parseInt(el.getAttribute('data-i'),10)];
+    if(c6){
+      window._recurHide = window._recurHide || [];
+      window._recurHide.push(c6.n.toLowerCase()+'|'+Math.round(c6.s));
+      renderTx('2');
+      toast('Скрыто: это не обязательный платёж');
+    }
   }
     
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
