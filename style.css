@@ -421,3 +421,9 @@ html{scroll-behavior:smooth}
 .subs-audit .chev{width:14px;height:14px;color:var(--mut)}
 
 .spend-add-btn{width:100%;margin:0 0 12px}
+
+/* Сводка по категориям и метки */
+.catsum-row{display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer}
+.catsum-name{width:110px;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catsum-row b{font-size:11.5px;min-width:70px;text-align:right}
+.tx-fix{width:8px;height:8px;border-radius:50%;background:var(--org);display:inline-block;margin-right:6px}
