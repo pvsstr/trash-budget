@@ -82,7 +82,7 @@
     <div class="cap">Аналитика трат · любой период</div>
   <div class="chart-card glass">
     <div class="an-grid">
-      <div class="an-left">
+      <div class="an-left" id="anLeft">
         <div class="msw"><button data-act="p-prev">‹</button><b id="pLabel">--</b><button data-act="p-next">›</button></div>
         <div class="chips" style="padding:0 0 12px">
           <button class="chip" data-act="p-set" data-v="m">Месяц</button>
@@ -94,12 +94,12 @@
         <div class="charts" style="margin-top:12px"><canvas id="donut" width="170" height="170"></canvas><div class="legend" id="legend"></div></div>
         <div style="margin-top:16px"><div class="cap" style="margin:0 0 8px">Динамика</div><canvas id="bars" height="90" style="width:100%"></canvas></div>
       </div>
-      <div class="an-right" id="anRight">
-        <div class="cap" style="margin:0 0 8px">Рекомендации · утечки</div>
-        <div id="recList"></div>
-      </div>
+            <div class="an-right" id="anRight"></div>
     </div>
   </div>
+
+  <div class="cap">Рекомендации · утечки</div>
+  <div id="recList" class="rec-grid"></div>
 
   <div class="cap">История операций</div>
   <div class="tx-card glass">
