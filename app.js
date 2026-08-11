@@ -438,10 +438,12 @@ function openSheet(t, i){
       if(!txs.length){ h += '<div class="dig-item"><span>Транзакций за месяц нет</span><b>—</b></div>'; }
       if(mOff === 0){ h += '<button class="sh-btn" style="margin-top:12px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="leak-fix" data-i="'+env2.id+'" data-m="0">Устранено</button>'; }
     }
-  } else if(t === 'tip'){
-    h = sheetHead('i-cap','c-pur','Финграмотность','совет дня')
-      + '<p style="font-size:14px">'+TIPS[new Date().getDate() % TIPS.length]+'</p>'
-      + '<button class="sh-btn" data-act="nexttip">Следующий совет</button>';
+    } else if(t === 'tip'){
+    var tl2 = smartTips();
+    h = sheetHead('i-cap','c-pur','Умный совет','на основе твоих данных')
+      + '<p style="font-size:14px">'+tl2[(window._tipIdx != null ? window._tipIdx : new Date().getDate()) % tl2.length]+'</p>'
+      + '<button class="sh-btn" data-act="nexttip">Еще совет</button>';
+  
   } else if(t === 'health'){
     var safeH = calcSafeBalance();
     var cush = (D.goals && D.goals.cushion) || 0;
@@ -1397,24 +1399,32 @@ function renderIncome(){
 
 function renderDigest(){
   var now = new Date();
-  var items = []; var sum = 0; var i;
-  for(i=0;i<D.pays.length;i++){
-    var diff = (D.pays[i].d - now.getDate() + 31) % 31;
-    if(diff <= 3){ items.push({n:D.pays[i].n, s:D.pays[i].s, diff:diff}); sum += D.pays[i].s; }
+  function itemsFor(days){
+    var items = []; var sum = 0; var i;
+    for(i=0;i<D.pays.length;i++){
+      var diff = (D.pays[i].d - now.getDate() + 31) % 31;
+      if(diff <= days){ items.push({n:D.pays[i].n, s:D.pays[i].s, diff:diff}); sum += D.pays[i].s; }
+    }
+    for(i=0;i<D.insts.length;i++){
+      var dd = parseD(D.insts[i].d);
+      var d2 = Math.round((dd - now) / 864e5);
+      if(d2 >= 0 && d2 <= days){ items.push({n:D.insts[i].n, s:D.insts[i].s, diff:d2}); sum += D.insts[i].s; }
+    }
+    return {items:items, sum:sum};
   }
-  for(i=0;i<D.insts.length;i++){
-    var dd = parseD(D.insts[i].d);
-    var d2 = Math.round((dd - now) / 864e5);
-    if(d2 >= 0 && d2 <= 3){ items.push({n:D.insts[i].n, s:D.insts[i].s, diff:d2}); sum += D.insts[i].s; }
-  }
+  var r3 = itemsFor(3);
+  var use7 = r3.items.length === 0;
+  var r = use7 ? itemsFor(7) : r3;
   var h = '';
-  if(items.length === 0){ h = '<div class="dig-item"><span>Ближайших платежей нет</span><b>—</b></div>'; }
-  for(var j=0;j<items.length;j++){
-    var when = items[j].diff === 0 ? 'сегодня' : (items[j].diff === 1 ? 'завтра' : 'через '+items[j].diff+' дн.');
-    h += '<div class="dig-item"><span>'+items[j].n+' · '+when+'</span><b class="'+(items[j].diff<=1?'soon':'')+'">'+fmt(items[j].s)+'</b></div>';
+  if(r.items.length === 0){ h = '<div class="dig-item"><span>Ближайших платежей нет</span><b>—</b></div>'; }
+  for(var j=0;j<r.items.length;j++){
+    var when = r.items[j].diff === 0 ? 'сегодня' : (r.items[j].diff === 1 ? 'завтра' : 'через '+r.items[j].diff+' дн.');
+    h += '<div class="dig-item"><span>'+r.items[j].n+' · '+when+'</span><b class="'+(r.items[j].diff<=1?'soon':'')+'">'+fmt(r.items[j].s)+'</b></div>';
   }
   $('digList').innerHTML = h;
-  $('digSum').textContent = fmt(sum);
+  $('digSum').textContent = fmt(r.sum);
+  var dl = document.querySelector('[data-t="upcoming-detail"] .cap-title span');
+  if(dl){ dl.textContent = use7 ? 'Платежи на 7 дней' : 'Платежи на 3 дня'; }
 }
 
 function renderBanner(){
@@ -1429,12 +1439,15 @@ function renderDashboardNew() {
   var health = calcHealthScore();
   if ($('healthScore')) $('healthScore').textContent = health + ' / 100';
   if ($('safeBalanceHint')) $('safeBalanceHint').textContent = 'Безопасно: ' + fmt(safeBal);
-  if ($('dailyLimitVal')) $('dailyLimitVal').textContent = fmt(daily.perDay) + ' / день';
+    var spentToday = 0; var tkNow = iso(now); var allNow = allSpends();
+  for(var st2=0; st2<allNow.length; st2++){ if(iso(allNow[st2].d) === tkNow){ spentToday += allNow[st2].s; } }
+  if ($('dailyLimitVal')) $('dailyLimitVal').textContent = fmt(spentToday) + ' из ' + fmt(daily.perDay) + ' ₽';
   if ($('dailyLimitProgress')) {
-    var maxDailyBudget = Math.max(1, daily.perDay * 1.5);
-    var limitPct = Math.min(100, Math.round((daily.perDay / maxDailyBudget) * 100));
-    $('dailyLimitProgress').style.width = limitPct + '%';
+    var pT = Math.min(100, Math.round(spentToday / Math.max(1, daily.perDay) * 100));
+    $('dailyLimitProgress').style.width = pT + '%';
+    $('dailyLimitProgress').style.background = (spentToday > daily.perDay) ? 'var(--red)' : 'var(--grn)';
   }
+  if ($('todayLine')) $('todayLine').textContent = 'Можно ' + fmt(daily.perDay) + '/день · зарплата через ' + daily.daysLeft + ' дн';
   var cs = cycleStart(now);
   var ce = cycleEnd(cs);
   var totalDaysInCycle = Math.round((ce - cs) / 864e5);
@@ -1450,9 +1463,13 @@ function renderDashboardNew() {
     goalsTotal += D.goals[ig2].cur || 0;
     if(!D.goals[ig2].done){ goalsActive++; }
   }
-  if ($('sGoalsVal')) $('sGoalsVal').textContent = fmt(goalsTotal);
-  var pill = document.querySelector('.stat .c-pur + .pill, .stat:has(#sGoalsVal) .pill');
-  if(pill){ pill.textContent = goalsActive+' активн. · нажми'; }
+    if ($('sGoalsVal')) $('sGoalsVal').textContent = fmt(goalsTotal);
+  var cushG = null;
+  for(var ig4=0;ig4<(D.goals||[]).length;ig4++){ if(/подушк/i.test(D.goals[ig4].n)){ cushG = D.goals[ig4]; break; } }
+  var gp2 = $('goalProgress');
+  if(gp2 && cushG){ gp2.style.width = Math.min(100, Math.round((cushG.cur||0)/Math.max(1,cushG.target)*100)) + '%'; }
+  var pill2 = $('sGoalsPill');
+  if(pill2){ pill2.textContent = cushG ? 'подушка '+Math.min(100, Math.round((cushG.cur||0)/Math.max(1,cushG.target)*100))+'% · '+goalsActive+' активн.' : goalsActive+' активн. · нажми'; }
 }
 
 var RU_HOLIDAYS = ['01-01','01-02','01-03','01-04','01-05','01-06','01-07','01-08','02-23','03-08','05-01','05-09','06-12','11-04','12-31'];
@@ -1853,6 +1870,60 @@ function applySeed(S){
   save();
 }
 
+function smartTips(){
+  var now = new Date();
+  var tips = [];
+  var act = activeLeaks();
+  if(act.length){ tips.push('Главная утечка месяца - "'+act[0].n+'": перерасход '+fmt(act[0].over)+'. Открой рекомендации и проверь лимиты.'); }
+  var cush = null;
+  for(var i=0;i<(D.goals||[]).length;i++){ if(/подушк/i.test(D.goals[i].n)){ cush = D.goals[i]; break; } }
+  if(cush && !cush.done){
+    var p = Math.min(100, Math.round((cush.cur||0)/Math.max(1,cush.target)*100));
+    if(p < 10){ tips.push('Подушка безопасности всего '+p+'%. Стартуй с 10% дохода - это '+fmt((D.income||0)*0.1)+' в месяц.'); }
+    else { tips.push('Подушка на '+p+'%. До цели не хватает '+fmt(Math.max(0,(cush.target||0)-(cush.cur||0)))+' - держи темп.'); }
+  }
+  var np = nextPay(3);
+  if(np > 0){ tips.push('В ближайшие 3 дня списания на '+fmt(np)+'. Держи эту сумму в резерве.'); }
+  var daily = calcDailyLimit();
+  var spent = 0; var tk = iso(now); var all = allSpends();
+  for(var j=0;j<all.length;j++){ if(iso(all[j].d) === tk){ spent += all[j].s; } }
+  if(spent > daily.perDay){ tips.push('Сегодня потрачено '+fmt(spent)+' при лимите '+fmt(daily.perDay)+' - день в перерасходе. Вечер без трат.'); }
+  var sn = 0, ss = 0;
+  for(var s=0;s<D.subs.length;s++){ if(!D.subs[s].off){ ss += D.subs[s].s; sn++; } }
+  if(sn){ tips.push(sn+' активных подписок = '+fmt(ss)+' в месяц. Месячная ревизия освобождает до трети суммы.'); }
+  if(!tips.length){ tips.push('Перерасхода нет, лимиты в порядке. Отличная неделя - так держать!'); }
+  return tips;
+}
+function openQuickSpend(){
+  var opts = '';
+  for(var i=0;i<CATS.length;i++){ opts += '<option value="'+CATS[i].id+'">'+CATS[i].n+'</option>'; }
+  $('sheetBody').innerHTML = sheetHead('i-out','c-red','Быстрая тррата'.replace('трата','трата'),'сумма уменьшит реальный остаток')
+    + '<div class="form"><input class="inp" id="qsAmt" type="number" placeholder="Сумма, ₽">'
+    + '<select class="inp" id="qsCat">'+opts+'</select>'
+    + '<input class="inp" id="qsNote" placeholder="Комментарий (необязательно)">'
+    + '<input class="inp" id="qsDate" type="date" value="'+iso(new Date())+'"></div>'
+    + '<button class="sh-btn" data-act="qa-spend-save">Сохранить</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openIncomeSheet(){
+  $('sheetBody').innerHTML = sheetHead('i-in','c-grn','Добавить поступление','сумма попадёт в реальный остаток')
+    + '<div class="form"><div class="row2"><input class="inp" id="incAmt" type="number" placeholder="Сумма, ₽"><input class="inp" id="incDate" type="date" value="'+iso(new Date())+'"></div>'
+    + '<input class="inp" id="incNote" placeholder="Что это (подработка, кэшбэк...)"></div>'
+    + '<button class="sh-btn" data-act="income-save">Сохранить</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openQuickGoal(){
+  var act = (D.goals||[]).filter(function(g){ return !g.done; });
+  if(!act.length){ dAlert('Нет активных целей. Создай цель в окошке "Цели и копилки".', 'Копилка'); return; }
+  var opts = '';
+  for(var i=0;i<act.length;i++){ opts += '<option value="'+act[i].id+'">'+act[i].n+'</option>'; }
+  $('sheetBody').innerHTML = sheetHead('i-target','c-pur','В копилку','отложить деньги в цель')
+    + '<div class="form"><select class="inp" id="qgGoal">'+opts+'</select>'
+    + '<input class="inp" id="qgAmt" type="number" placeholder="Сумма, ₽"></div>'
+    + '<button class="sh-btn" data-act="qa-goal-save">Отложить</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+
 function render(){
   var now = new Date();
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
@@ -1870,7 +1941,13 @@ function render(){
     if(act.length > 0){ badge.classList.remove('hidden'); badge.innerHTML = '<svg class="ic"><use href="#i-alert"/></svg> '+act.length; }
     else { badge.classList.add('hidden'); badge.innerHTML = ''; }
   }
-  if ($('tipText')) $('tipText').textContent = TIPS[now.getDate() % TIPS.length];
+  if ($('tipText')) $('tipText').textContent = smartTips()[(window._tipIdx != null ? window._tipIdx : now.getDate()) % smartTips().length];
+  var saV = $('subsAuditVal');
+  if(saV){
+    var ssN = 0, ssS = 0;
+    for(var s3=0;s3<D.subs.length;s3++){ if(!D.subs[s3].off){ ssS += D.subs[s3].s; ssN++; } }
+    saV.textContent = ssN+' активных подписок = '+fmt(ssS)+' в месяц';
+  }
   try { renderDashboardNew(); } catch(e) { console.error('Ошибка в renderDashboardNew:', e); }
   try { renderGoals(); } catch(e) { console.error('Ошибка в renderGoals:', e); }
   try { renderBanner(); } catch(e) { console.error('Ошибка в renderBanner:', e); }
@@ -1972,7 +2049,7 @@ document.addEventListener('click', function(e){
   else if(act === 'leak-prev'){ leakOff--; openSheet('leaks'); }
   else if(act === 'leak-next'){ if(leakOff < 0){ leakOff++; openSheet('leaks'); } }
   else if(act === 'close'){ closeSheet(); }
-  else if(act === 'nexttip'){ TIPS.push(TIPS.shift()); $('tipText').textContent = TIPS[0]; closeSheet(); }
+  else if(act === 'nexttip'){ var tl = smartTips(); window._tipIdx = ((window._tipIdx != null ? window._tipIdx : new Date().getDate()) + 1) % tl.length; $('tipText').textContent = tl[window._tipIdx]; closeSheet(); }
   else if(act === 'balance-edit'){
     dPrompt('Текущая сумма на всех картах, ₽:', 'Базовый баланс', 'Например: 150000').then(function(v){
       if(v === null){ return; }
@@ -2057,6 +2134,44 @@ document.addEventListener('click', function(e){
     }
     closeSheet(); renderTx();
   }
+
+  else if(act === 'qa-spend'){ openQuickSpend(); }
+  else if(act === 'qa-spend-save'){
+    var qa = parseFloat($('qsAmt').value);
+    if(isNaN(qa) || qa <= 0){ dAlert('Введите сумму траты.', 'Трата'); return; }
+    var qc = $('qsCat').value || 'other';
+    var qn = $('qsNote').value.trim();
+    var qd = $('qsDate').value || iso(new Date());
+    D.spends.push({id:Date.now(), d:qd, n: qn || catById(qc).n, cat:qc, s:qa});
+    save(); closeSheet(); render(); toast('Трата добавлена: -'+fmt(qa));
+  }
+  else if(act === 'qa-income'){ openIncomeSheet(); }
+  else if(act === 'qa-goal'){ openQuickGoal(); }
+  else if(act === 'qa-goal-save'){
+    var qg = findGoal(parseInt($('qgGoal').value,10));
+    var qga = parseFloat($('qgAmt').value);
+    if(!qg || isNaN(qga) || qga <= 0){ dAlert('Укажи сумму пополнения.', 'Копилка'); return; }
+    qg.cur = (qg.cur||0) + qga;
+    if(qg.cur >= qg.target && qg.target > 0){ qg.done = true; toast('Цель "'+qg.n+'" выполнена!'); }
+    else { toast('+'+fmt(qga)+' к цели "'+qg.n+'"'); }
+    save(); closeSheet(); render();
+  }
+  else if(act === 'h-export'){
+    var r2 = histRange();
+    var rows2 = [['Дата','Описание','Категория','Сумма','Тип']];
+    var sp2 = allSpends().filter(function(x){ return x.d >= r2.from && x.d < r2.to; }).sort(function(a,b){ return a.d - b.d; });
+    for(var e2=0;e2<sp2.length;e2++){ rows2.push([iso(sp2[e2].d), sp2[e2].n, catById(sp2[e2].cat||'other').n, String(-sp2[e2].s), 'расход']); }
+    var in2 = (D.incomes||[]).filter(function(x){ var d = parseD(x.d); return d >= r2.from && d < r2.to; });
+    for(var e3=0;e3<in2.length;e3++){ rows2.push([in2[e3].d, in2[e3].n, 'Доход', String(in2[e3].s), 'поступление']); }
+    var csv = rows2.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(';'); }).join('\n');
+    var blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+    var a4 = document.createElement('a');
+    a4.href = URL.createObjectURL(blob);
+    a4.download = 'istoriya_'+iso(r2.from)+'_'+iso(new Date(r2.to.getTime()-864e5))+'.csv';
+    document.body.appendChild(a4); a4.click(); a4.remove();
+    toast('CSV выгружен');
+  }
+    
   else if(act === 'cal-prev'){ if(el.getAttribute('data-w')==='her'){ herOff--; renderHerCal(); } else { calOff--; renderMyCal(); } }
   else if(act === 'cal-next'){ if(el.getAttribute('data-w')==='her'){ herOff++; renderHerCal(); } else { calOff++; renderMyCal(); } }
   else if(act === 'cal-month'){
