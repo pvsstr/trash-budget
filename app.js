@@ -1352,7 +1352,7 @@ function renderTx(suffix){
       hs2 += '<div class="catsum-row" data-act="h-cat" data-c="'+arrS[i].id+'"><span class="catsum-name">'+catById(arrS[i].id).n+'</span><div class="bar-large" style="height:6px;flex:1"><i style="width:'+Math.min(100,pS)+'%;background:'+barCol+'"></i></div><b>'+fmt(arrS[i].s)+limTxt+'</b>'+penBtn+'</div>';
     }
     var csEl = $('hCatSum2');
-    if(csEl){ csEl.innerHTML = hs2; }
+    if(csEl){ csEl.innerHTML = hs2 ? '<div class="cap" style="margin:10px 4px 6px">Траты по категориям · тап фильтрует историю, карандаш меняет лимит</div>'+hs2 : ''; }
     var allT = allSpends();
     var grp = {};
     for(i=0;i<allT.length;i++){
@@ -1388,7 +1388,7 @@ function renderTx(suffix){
       if(daysN <= 32 && nowD >= r.from && nowD < r.to){
         var elapsed = Math.max(1, Math.round((nowD - r.from)/864e5));
         var perDay = totSp / elapsed;
-        fcEl.innerHTML = '<div class="sh-tip">Прогноз до конца месяца: <b>'+fmt(Math.round(perDay*daysN))+'</b> ('+fmt(Math.round(perDay))+'/день). Осталось дней: '+(daysN-elapsed)+'.</div>';
+        fcEl.innerHTML = '<div class="cap" style="margin:10px 4px 6px">Прогноз до конца месяца</div><div class="sh-tip">С текущим темпом ('+fmt(Math.round(perDay))+'/день) будет <b>'+fmt(Math.round(perDay*daysN))+'</b>. Осталось дней: '+(daysN-elapsed)+'.</div>';
       } else { fcEl.innerHTML = ''; }
     }
     var mg = {};
@@ -1405,7 +1405,7 @@ function renderTx(suffix){
       mh += '<div class="merch-row" data-act="merch-open" data-i="'+i+'"><span class="m-name">'+window._merchList[i].n+'</span><span class="m-cnt">'+window._merchList[i].c+' чеков</span><b>'+fmt(window._merchList[i].s)+'</b></div>';
     }
     var mEl2 = $('hMerch2');
-    if(mEl2){ mEl2.innerHTML = mh ? '<div class="cap" style="margin:10px 4px 6px">Топ продавцов</div>'+mh : ''; }
+    if(mEl2){ mEl2.innerHTML = mh ? '<div class="cap" style="margin:10px 4px 6px">Топ продавцов · тап откроет все чеки</div>'+mh : ''; }
     var tplMap = {};
     var cutoff = new Date(Date.now() - 60*864e5);
     for(i=0;i<allT.length;i++){
@@ -1422,12 +1422,12 @@ function renderTx(suffix){
       th += '<button class="chip" data-act="tpl-add" data-i="'+i+'">'+window._tplList[i].n+' · '+fmt(window._tplList[i].s)+'</button>';
     }
     var tpEl = $('hTpl2');
-    if(tpEl){ tpEl.innerHTML = th; }
+    if(tpEl){ tpEl.innerHTML = th ? '<div class="cap" style="margin:10px 4px 6px">Частые траты · тап запишет сегодня</div>'+th : ''; }
     var roundSum = 0;
     for(i=0;i<spends.length;i++){ roundSum += Math.ceil(spends[i].s/10)*10 - spends[i].s; }
     window._roundAmt = Math.round(roundSum);
     var rdEl = $('hRound2');
-    if(rdEl){ rdEl.innerHTML = window._roundAmt > 0 ? '<div class="sh-tip">Сдача за период (округление до 10 ₽): <b>'+fmt(window._roundAmt)+'</b> <button class="chip" style="margin-left:6px" data-act="round-add">В копилку</button></div>' : ''; }
+    if(rdEl){ rdEl.innerHTML = window._roundAmt > 0 ? '<div class="cap" style="margin:10px 4px 6px">Сдача в копилку · округление каждой траты до 10 ₽</div><div class="sh-tip">Накопилось за период: <b>'+fmt(window._roundAmt)+'</b> <button class="chip" style="margin-left:6px" data-act="round-add">Закинуть в цель</button></div>' : ''; }
     var nowW = new Date();
     var wd2 = (nowW.getDay()+6)%7;
     var ws2 = new Date(nowW.getFullYear(), nowW.getMonth(), nowW.getDate()-wd2);
@@ -1441,7 +1441,7 @@ function renderTx(suffix){
     var wkEl = $('hWeek2');
     if(wkEl){
       var dPct = sumLast > 0 ? Math.round((sumThis-sumLast)/sumLast*100) : 0;
-      wkEl.innerHTML = '<div class="sh-tip">Неделя: эта <b>'+fmt(sumThis)+'</b> · прошлая '+fmt(sumLast)+' ('+(dPct>0?'+':'')+dPct+'%)</div>';
+      wkEl.innerHTML = '<div class="cap" style="margin:10px 4px 6px">Неделя · эта vs прошлая</div><div class="sh-tip">Потрачено: эта <b>'+fmt(sumThis)+'</b> · прошлая '+fmt(sumLast)+' ('+(dPct>0?'+':'')+dPct+'%)</div>';
     }
     var dayTot3 = {}, scootDays = {};
     for(i=0;i<allT.length;i++){
@@ -1454,15 +1454,16 @@ function renderTx(suffix){
     for(dd3=0; dd3<365; dd3++){ var dx = new Date(); dx.setDate(dx.getDate()-dd3); if((dayTot3[iso(dx)]||0) <= lim3){ stLim++; } else { break; } }
     for(dd3=0; dd3<365; dd3++){ var dy = new Date(); dy.setDate(dy.getDate()-dd3); if(!scootDays[iso(dy)]){ stScoot++; } else { break; } }
     var stEl = $('hStreak2');
-    if(stEl){ stEl.innerHTML = '<div class="sh-tip">Серия: <b>'+stLim+' дн.</b> в рамках дневного лимита · <b>'+stScoot+' дн.</b> без самокатов.</div>'; }
+    if(stEl){ stEl.innerHTML = '<div class="cap" style="margin:10px 4px 6px">Серии без перерасхода</div><div class="sh-tip"><b>'+stLim+' дн.</b> в рамках дневного лимита · <b>'+stScoot+' дн.</b> без самокатов.</div>'; }
     var otherN = 0;
     for(i=0;i<spends.length;i++){ if((spends[i].cat||'other')==='other'){ otherN++; } }
     var aEl2 = $('hActions2');
     if(aEl2){
-      aEl2.innerHTML = (otherN>0 ? '<button class="chip" data-act="other-bulk">Разобрать Прочее ('+otherN+')</button>' : '')
+      var btns2 = (otherN>0 ? '<button class="chip" data-act="other-bulk">Разобрать Прочее ('+otherN+')</button>' : '')
         + '<button class="chip" data-act="stmt-import">Вставить выписку</button>'
         + '<button class="chip" data-act="dup-find">Найти дубликаты</button>'
         + (hMode2==='cyc' ? '<button class="chip" data-act="cyc-compare">Сравнить с прошлым циклом</button>' : '');
+      aEl2.innerHTML = '<div class="cap" style="margin:10px 4px 6px">Инструменты</div><div class="h-actions" style="margin:0 0 10px">'+btns2+'</div>';
     }
   }
 }
