@@ -1079,20 +1079,20 @@ function renderAnalytics(){
     }
     hm += '</div></div>';
   }
-  var heatBox = $('heatBox');
+   var heatBox = $('heatBox');
   if(!heatBox){
     heatBox = document.createElement('div');
     heatBox.id = 'heatBox';
-    var lEl = $('leakTop');
-    if(lEl && lEl.parentNode){ lEl.parentNode.insertBefore(heatBox, lEl.nextSibling); }
+    var lEl = $('anLeft');
+    if(lEl){ lEl.appendChild(heatBox); }
   }
   heatBox.innerHTML = '<div class="cap" style="margin:14px 4px 6px">Тепловая карта трат · нажми на день</div>' + hm;
-  var cmpBox = $('cmpBtnBox');
+   var cmpBox = $('cmpBtnBox');
   if(!cmpBox){
     cmpBox = document.createElement('div');
     cmpBox.id = 'cmpBtnBox';
-    var hEl = $('heatBox');
-    if(hEl && hEl.parentNode){ hEl.parentNode.insertBefore(cmpBox, hEl.nextSibling); }
+    var hEl = $('anLeft');
+    if(hEl){ hEl.appendChild(cmpBox); }
   }
   cmpBox.innerHTML = '<button class="sh-btn ghost" style="margin-top:12px" data-act="an-compare">⇄ Сравнить с прошлым периодом</button>';
 
@@ -1145,12 +1145,12 @@ function renderAnalytics(){
       hRow += '<div class="habit-row" data-act="an-cat" data-c="cafe"><div class="habit-ic c-red"><svg class="ic"><use href="#i-coffee"/></svg></div><div class="habit-info"><b>Чеков в кафе</b><span>средний чек '+fmt(map.cafe ? map.cafe/cafeCnt : 0)+'</span></div><b>'+cafeCnt+' ›</b></div>';
     }
   }
-  var habBox = $('habitBox');
+   var habBox = $('habitBox');
   if(!habBox){
     habBox = document.createElement('div');
     habBox.id = 'habitBox';
-    var cEl = $('cmpBtnBox');
-    if(cEl && cEl.parentNode){ cEl.parentNode.insertBefore(habBox, cEl.nextSibling); }
+    var cEl = $('anRight');
+    if(cEl){ cEl.appendChild(habBox); }
   }
     habBox.innerHTML = hRow ? '<div class="cap" style="margin:14px 4px 6px">Привычки в цифрах · твоё зеркало за период</div>' + hRow + '<div class="sh-tip">Нажми на "крупнейшую трату" или "самый дорогой день" — откроются все операции. Нажми на самокаты или кафе — увидишь полный список.</div>' : '';
 }
