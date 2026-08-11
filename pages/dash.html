@@ -13,6 +13,7 @@
     <div class="hero-right">
       <div class="hero-card hov-click" data-act="sheet" data-t="balance"><span>Реальный остаток</span><b id="hBal">0 ₽</b><small id="safeBalanceHint">Безопасно: 0 ₽</small></div>
       <div class="hero-card hov-click" data-act="sheet" data-t="daily"><span>Сегодня</span><b id="dailyLimitVal">0 ₽</b><div class="limit-status-bar"><i id="dailyLimitProgress"></i></div></div>
+      <div class="hero-card hov-click" data-act="sheet" data-t="payday"><span>До зарплаты</span><b id="paydayVal">--</b><small id="paydayHint">--</small></div>
     </div>
   </div>
   
@@ -20,6 +21,8 @@
     <button class="qa-btn" data-act="qa-spend"><svg class="ic"><use href="#i-out"/></svg>Трата</button>
     <button class="qa-btn" data-act="qa-income"><svg class="ic"><use href="#i-in"/></svg>Поступление</button>
     <button class="qa-btn" data-act="qa-goal"><svg class="ic"><use href="#i-target"/></svg>В копилку</button>
+    <button class="qa-btn" data-act="canbuy"><svg class="ic"><use href="#i-card"/></svg>Могу купить?</button>
+    <button class="qa-btn" data-act="month-report"><svg class="ic"><use href="#i-grid"/></svg>Месячный отчёт</button>
   </div>
     <div class="dash-row cols-3">
     <div class="stack-col">
@@ -76,6 +79,17 @@
       <div class="limit-status-bar" style="margin:6px 0"><i id="goalProgress" style="width:0%"></i></div>
       <span class="pill c-pur" id="sGoalsPill">все цели · нажми для управления</span>
     </div>
+    <div class="stat glass hov" data-act="sheet" data-t="fixed">
+      <header><h4>Долги</h4><div class="sic c-red"><svg class="ic"><use href="#i-card"/></svg></div></header>
+      <div class="val" id="sDebtsVal">0 ₽</div>
+      <div class="limit-status-bar" style="margin:6px 0"><i id="debtsProgress" style="width:0%;background:var(--grn)"></i></div>
+      <span class="pill c-red" id="sDebtsPill">кредитки + рассрочка</span>
+    </div>
+    <div class="stat glass hov" data-act="sheet" data-t="saverate">
+      <header><h4>Норма сбережений</h4><div class="sic c-grn"><svg class="ic"><use href="#i-in"/></svg></div></header>
+      <div class="val" id="sSaveRate">--%</div>
+      <span class="pill c-grn" id="sSaveHint">норма — от 10%</span>
+    </div>
   </div>
 
   <div class="subs-audit glass hov" data-act="sheet" data-t="fixed">
@@ -84,6 +98,7 @@
     <svg class="ic chev"><use href="#i-chev"/></svg>
   </div>
 
+  <div id="weekBudgetBox"></div>
   <div id="goalCard"></div>
   <div id="bannerBox"></div>
 
@@ -93,7 +108,10 @@
     <svg class="ic chev"><use href="#i-chev"/></svg>
   </div>
 
-    <div class="cap">Аналитика трат · любой период</div>
+  <div id="attCenter" class="glass card-padding" style="margin:0 0 14px"></div>
+  <div id="envAlerts"></div>
+
+  <div class="cap">Аналитика трат · любой период</div>
   <div class="chart-card glass">
     <div class="an-grid">
       <div class="an-left" id="anLeft">
