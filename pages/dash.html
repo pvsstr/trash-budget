@@ -4,6 +4,7 @@
       <span class="demo-tag hidden" id="demoTag">ДЕМО-РЕЖИМ</span>
       <h2 id="hello">Привет!</h2>
       <div class="date" id="curDate"></div>
+      <div class="today-line" id="todayLine"></div>
       <div class="health-score-badge hov-click" data-act="sheet" data-t="health" id="healthBadge">
         <span class="score-val" id="healthScore">--</span>
         <span class="score-lbl">Индекс прочности</span>
@@ -11,10 +12,15 @@
     </div>
     <div class="hero-right">
       <div class="hero-card hov-click" data-act="sheet" data-t="balance"><span>Реальный остаток</span><b id="hBal">0 ₽</b><small id="safeBalanceHint">Безопасно: 0 ₽</small></div>
-      <div class="hero-card hov-click" data-act="sheet" data-t="daily"><span>Дневной лимит</span><b id="dailyLimitVal">0 ₽/день</b><div class="limit-status-bar"><i id="dailyLimitProgress"></i></div></div>
+      <div class="hero-card hov-click" data-act="sheet" data-t="daily"><span>Сегодня</span><b id="dailyLimitVal">0 ₽</b><div class="limit-status-bar"><i id="dailyLimitProgress"></i></div></div>
     </div>
   </div>
-
+  
+  <div class="quick-actions">
+    <button class="qa-btn" data-act="qa-spend"><svg class="ic"><use href="#i-out"/></svg>Трата</button>
+    <button class="qa-btn" data-act="qa-income"><svg class="ic"><use href="#i-in"/></svg>Поступление</button>
+    <button class="qa-btn" data-act="qa-goal"><svg class="ic"><use href="#i-target"/></svg>В копилку</button>
+  </div>
     <div class="dash-row cols-3">
     <div class="stack-col">
       <div class="glass card-padding hov" data-act="sheet" data-t="cycle-detail">
@@ -64,10 +70,18 @@
       <div class="val"><span id="sLeakV">0 ₽</span><small>/мес</small></div>
       <div class="stat-bottom"><span class="pill c-red" id="sLeakP">--</span><span class="leak-badge hidden" id="leakBadge"></span></div>
     </div>
-    <div class="stat glass hov" data-act="sheet" data-t="goals">
+       <div class="stat glass hov" data-act="sheet" data-t="goals">
       <header><h4>Цели и копилки</h4><div class="sic c-pur"><svg class="ic"><use href="#i-target"/></svg></div></header>
-      <div class="val" id="sGoalsVal">0 ₽</div><span class="pill c-pur">все цели · нажми для управления</span>
+      <div class="val" id="sGoalsVal">0 ₽</div>
+      <div class="limit-status-bar" style="margin:6px 0"><i id="goalProgress" style="width:0%"></i></div>
+      <span class="pill c-pur" id="sGoalsPill">все цели · нажми для управления</span>
     </div>
+  </div>
+
+  <div class="subs-audit glass hov" data-act="sheet" data-t="fixed">
+    <div class="sic c-blu"><svg class="ic"><use href="#i-sub"/></svg></div>
+    <div class="subs-audit-txt"><b id="subsAuditVal">--</b><span>нажми, чтобы проверить подписки</span></div>
+    <svg class="ic chev"><use href="#i-chev"/></svg>
   </div>
 
   <div id="goalCard"></div>
@@ -123,8 +137,9 @@
       </div>
       <div class="dd">
         <button class="dd-btn" data-act="dd-toggle"><svg class="ic"><use href="#i-grid"/></svg><span id="ddCatLbl">Все категории</span><svg class="ic chev"><use href="#i-chev"/></svg></button>
-        <div class="dd-list" id="ddCatList"></div>
+                <div class="dd-list" id="ddCatList"></div>
       </div>
+      <button class="dd-btn" data-act="h-export"><svg class="ic"><use href="#i-import"/></svg><span>CSV</span></button>
     </div>
     <div id="hSum" class="hist-sum"></div>
     <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="q" placeholder="Поиск операции..."></div>
