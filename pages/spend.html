@@ -1,16 +1,7 @@
 <div class="page">
-  <div class="cap">Добавить трату</div>
-  <div class="glass card-padding">
-    <div class="form">
-      <div class="row2"><input class="inp" id="spAmt" type="number" placeholder="Сумма, ₽"><input class="inp" id="spDate" type="date"></div>
-      <select class="inp" id="spCat"></select>
-      <input class="inp" id="spNote" placeholder="Комментарий (необязательно)">
-      <button class="sh-btn" data-act="spend-add">Добавить трату</button>
-    </div>
-  </div>
-
-  <div class="cap">История операций</div>
+   <div class="cap">История операций</div>
   <div class="tx-card glass">
+    <button class="qa-btn spend-add-btn" data-act="qa-spend"><svg class="ic"><use href="#i-out"/></svg>Добавить трату</button>
     <div class="h-controls">
       <div class="msw"><button data-act="h-prev">‹</button><b id="hLabel2">--</b><button data-act="h-next">›</button></div>
       <div class="dd">
