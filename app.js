@@ -1212,11 +1212,11 @@ function openPeriodSheet(){
   var r = histRange();
   $('sheetBody').innerHTML = sheetHead('i-cal','c-blu','Период истории','любые даты — хоть за прошлые годы')
     + '<div class="form"><div class="row2"><input class="inp" type="date" id="hpFrom" value="'+iso(r.from)+'"><input class="inp" type="date" id="hpTo" value="'+iso(new Date(r.to.getTime()-864e5))+'"></div></div>'
-    + '<div class="chips" style="padding:0 0 12px">'
-    + '<button class="chip" data-act="h-quick" data-v="m">Этот месяц</button>'
-    + '<button class="chip" data-act="h-quick" data-v="pm">Прошлый месяц</button>'
-    + '<button class="chip" data-act="h-quick" data-v="q">3 месяца</button>'
-    + '<button class="chip" data-act="h-quick" data-v="y">Год</button>'
+       + '<div class="dd-list static">'
+    + '<button data-act="h-quick" data-v="m">Этот месяц</button>'
+    + '<button data-act="h-quick" data-v="pm">Прошлый месяц</button>'
+    + '<button data-act="h-quick" data-v="q">3 месяца</button>'
+    + '<button data-act="h-quick" data-v="y">Год</button>'
     + '</div>'
     + '<button class="sh-btn" data-act="h-period-save">Показать</button>';
   $('sheet').classList.add('on');
@@ -1246,14 +1246,16 @@ function renderTx(){
       + '<span class="hs-in">Поступления: <b>+'+fmt(totIn)+'</b></span>'
       + (hCat!=='all' ? '<span class="hs-cat">'+catById(hCat).n+'</span>' : '');
   }
-  var hc = $('hCats');
-  if(hc){
-    var ch = '<button class="chip '+(hCat==='all'?'on':'')+'" data-act="h-cat" data-c="all">Все</button>';
+    var cl = $('ddCatList');
+  if(cl){
+    var opts = '<button class="'+(hCat==='all'?'on':'')+'" data-act="h-cat" data-c="all">Все категории</button>';
     for(i=0;i<CATS.length;i++){
-      ch += '<button class="chip '+(hCat===CATS[i].id?'on':'')+'" data-act="h-cat" data-c="'+CATS[i].id+'">'+CATS[i].n+'</button>';
+      opts += '<button class="'+(hCat===CATS[i].id?'on':'')+'" data-act="h-cat" data-c="'+CATS[i].id+'"><span class="sic '+CATS[i].k+'"><svg class="ic"><use href="#'+CATS[i].i+'"/></svg></span>'+CATS[i].n+'</button>';
     }
-    hc.innerHTML = ch;
+    cl.innerHTML = opts;
   }
+  var clbl = $('ddCatLbl');
+  if(clbl){ clbl.textContent = hCat==='all' ? 'Все категории' : catById(hCat).n; }
   var all = fSp.concat(fIn).sort(function(a,b){ return b.d - a.d; });
   var h = ''; var lastKey = '';
   for(i=0;i<all.length;i++){
@@ -2025,10 +2027,17 @@ document.addEventListener('click', function(e){
   else if(act === 'an-day'){ openDaySheet(el.getAttribute('data-d')); }
   else if(act === 'an-compare'){ openCompareSheet(); }
       else if(act === 'an-habit'){ openHabitSheet(el.getAttribute('data-h')); }
-          else if(act === 'h-prev'){ var r0 = histRange(); hFrom = addM(r0.from,-1); hTo = addM(r0.to,-1); renderTx(); }
+           else if(act === 'dd-toggle'){
+    var dd3 = el.closest('.dd');
+    var wasOn = dd3.classList.contains('on');
+    var dd4 = document.querySelectorAll('.dd.on');
+    for(var d3=0;d3<dd4.length;d3++){ dd4[d3].classList.remove('on'); }
+    if(!wasOn){ dd3.classList.add('on'); }
+  }
+  else if(act === 'h-prev'){ var r0 = histRange(); hFrom = addM(r0.from,-1); hTo = addM(r0.to,-1); renderTx(); }
   else if(act === 'h-next'){ var r1 = histRange(); hFrom = addM(r1.from,1); hTo = addM(r1.to,1); renderTx(); }
-  else if(act === 'h-cat'){ hCat = el.getAttribute('data-c'); renderTx(); }
-  else if(act === 'h-period'){ openPeriodSheet(); }
+  else if(act === 'h-cat'){ hCat = el.getAttribute('data-c'); var dd5 = document.querySelectorAll('.dd.on'); for(var d5=0;d5<dd5.length;d5++){ dd5[d5].classList.remove('on'); } renderTx(); }
+  else if(act === 'h-period'){ var dd6 = document.querySelectorAll('.dd.on'); for(var d6=0;d6<dd6.length;d6++){ dd6[d6].classList.remove('on'); } openPeriodSheet(); }
   else if(act === 'h-quick'){
     var n2 = new Date();
     var v2 = el.getAttribute('data-v');
@@ -2036,6 +2045,8 @@ document.addEventListener('click', function(e){
     else if(v2==='pm'){ hFrom = new Date(n2.getFullYear(), n2.getMonth()-1, 1); hTo = new Date(n2.getFullYear(), n2.getMonth(), 1); }
     else if(v2==='q'){ hFrom = new Date(n2.getFullYear(), n2.getMonth()-2, 1); hTo = new Date(n2.getFullYear(), n2.getMonth()+1, 1); }
     else if(v2==='y'){ hFrom = new Date(n2.getFullYear(), 0, 1); hTo = new Date(n2.getFullYear()+1, 0, 1); }
+    else if(v2==='all'){ hFrom = new Date(2020, 0, 1); hTo = new Date(n2.getFullYear()+1, 0, 1); }
+    var dd7 = document.querySelectorAll('.dd.on'); for(var d7=0;d7<dd7.length;d7++){ dd7[d7].classList.remove('on'); }
     closeSheet(); renderTx();
   }
   else if(act === 'h-period-save'){
@@ -2136,6 +2147,13 @@ document.addEventListener('click', function(e){
 });
 
 $('shb').addEventListener('click', closeSheet);
+
+document.addEventListener('click', function(e){
+  var open = document.querySelectorAll('.dd.on');
+  for(var i=0;i<open.length;i++){
+    if(!open[i].contains(e.target)){ open[i].classList.remove('on'); }
+  }
+});
 
 var gbtn = $('googleBtn');
 if(gbtn){
