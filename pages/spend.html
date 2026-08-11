@@ -1,16 +1,37 @@
-<div class="page on">
-  <div class="cap">Траты · ручной учёт</div>
-  <div class="msw"><button data-act="m-prev">‹</button><b id="spLabel"></b><button data-act="m-next">›</button></div>
-  <div class="chart-card glass" id="spSum" style="margin-bottom:14px"></div>
-  <div class="chart-card glass" style="margin-bottom:14px">
-    <div class="cap" style="margin:0 0 10px">Добавить трату</div>
+<div class="page">
+  <div class="cap">Добавить трату</div>
+  <div class="glass card-padding">
     <div class="form">
       <div class="row2"><input class="inp" id="spAmt" type="number" placeholder="Сумма, ₽"><input class="inp" id="spDate" type="date"></div>
-      <input class="inp" id="spNote" type="text" placeholder="Описание — например: Самокат 50 или Пятерочка 3000">
-      <div class="hint">Категория определится автоматически — поменять можно ниже или тапнув по трате</div>
       <select class="inp" id="spCat"></select>
-      <button class="sh-btn" style="margin-top:0" data-act="spend-add">Добавить трату</button>
+      <input class="inp" id="spNote" placeholder="Комментарий (необязательно)">
+      <button class="sh-btn" data-act="spend-add">Добавить трату</button>
     </div>
   </div>
-  <div id="spList"></div>
+
+  <div class="cap">История операций</div>
+  <div class="tx-card glass">
+    <div class="h-controls">
+      <div class="msw"><button data-act="h-prev">‹</button><b id="hLabel2">--</b><button data-act="h-next">›</button></div>
+      <div class="dd">
+        <button class="dd-btn" data-act="dd-toggle"><svg class="ic"><use href="#i-cal"/></svg><span>Период</span><svg class="ic chev"><use href="#i-chev"/></svg></button>
+        <div class="dd-list">
+          <button data-act="h-quick" data-v="m">Этот месяц</button>
+          <button data-act="h-quick" data-v="pm">Прошлый месяц</button>
+          <button data-act="h-quick" data-v="q">3 месяца</button>
+          <button data-act="h-quick" data-v="y">Год</button>
+          <button data-act="h-quick" data-v="all">Всё время</button>
+          <button data-act="h-period"><svg class="ic"><use href="#i-cal"/></svg>Свой период…</button>
+        </div>
+      </div>
+      <div class="dd">
+        <button class="dd-btn" data-act="dd-toggle"><svg class="ic"><use href="#i-grid"/></svg><span id="ddCatLbl2">Все категории</span><svg class="ic chev"><use href="#i-chev"/></svg></button>
+        <div class="dd-list" id="ddCatList2"></div>
+      </div>
+      <button class="dd-btn" data-act="h-export"><svg class="ic"><use href="#i-import"/></svg><span>CSV</span></button>
+    </div>
+    <div id="hSum2" class="hist-sum"></div>
+    <div class="search"><svg class="ic"><use href="#i-search"/></svg><input id="q2" placeholder="Поиск операции..."></div>
+    <div id="txList2"></div>
+  </div>
 </div>
