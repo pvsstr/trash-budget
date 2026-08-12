@@ -175,7 +175,8 @@ function allSpends(){
 function sums(){
   var si=0, ss=0, i;
   for(i=0;i<(D.incomes||[]).length;i++){ si += D.incomes[i].s; }
-  for(i=0;i<(D.spends||[]).length;i++){ ss += D.spends[i].s; }
+  var all = allSpends();
+  for(i=0;i<all.length;i++){ ss += all[i].s; }
   return {inc:si, spend:ss};
 }
 function realBal(){ var t = sums(); return (D.baseBalance||0) + t.inc - t.spend; }
