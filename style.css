@@ -437,3 +437,12 @@ html{scroll-behavior:smooth}
 .merch-row .m-cnt{font-size:10.5px;color:var(--mut)}
 .bulk-row{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap}
 .bulk-row .b-info{flex:1;min-width:140px;font-size:11.5px}
+
+/* Hero: карточки справа напротив текста */
+.dash-hero{display:flex;flex-direction:row;align-items:stretch;gap:18px;flex-wrap:wrap}
+.hero-left{flex:1;min-width:260px;display:flex;flex-direction:column;gap:6px}
+.hero-right{display:flex;flex-direction:column;gap:10px;width:300px;flex:none;justify-content:center}
+@media (max-width:860px){
+  .dash-hero{flex-direction:column}
+  .hero-right{width:100%}
+}
