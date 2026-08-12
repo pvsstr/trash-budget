@@ -149,6 +149,7 @@ function normalize(){
     D.insts=[{id:1,n:'Рассрочка',d:'2026-08-23',s:5000},{id:2,n:'Рассрочка',d:'2026-09-23',s:12000},{id:3,n:'Рассрочка',d:'2026-10-23',s:12000},{id:4,n:'Рассрочка',d:'2026-11-23',s:12000},{id:5,n:'Рассрочка',d:'2026-12-23',s:12000},{id:6,n:'Рассрочка (финал)',d:'2027-01-23',s:4624}];
   }
   D.learned=D.learned||[];
+  D.removedAuto=D.removedAuto||[];
   D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{};
   if(D.goals && !Array.isArray(D.goals)){
     D.goals = [
@@ -2813,6 +2814,22 @@ document.addEventListener('click', function(e){
     D.incomes.push({id:Date.now(), d: $('incDate').value || iso(new Date()), n: $('incNote').value.trim() || kindById(k2b)[1], s:a2, k:k2b});
     save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
   }
+
+  else if(act === 'del-income'){
+    var idD = el.getAttribute('data-id');
+    dConfirm('Удалить поступление?', 'Удаление', true).then(function(ok){
+      if(!ok){ return; }
+      var delIt2 = null;
+      for(var x3=0;x3<D.incomes.length;x3++){ if(String(D.incomes[x3].id) === String(idD)){ delIt2 = D.incomes[x3]; break; } }
+      if(delIt2 && delIt2.auto && delIt2.ck){
+        D.removedAuto = D.removedAuto || [];
+        if(D.removedAuto.indexOf(delIt2.ck) === -1){ D.removedAuto.push(delIt2.ck); }
+      }
+      D.incomes = D.incomes.filter(function(x){ return String(x.id) !== String(idD); });
+      save(); closeSheet(); render(); toast('Поступление удалено');
+    });
+  }
+      
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
   else if(act === 'p-prev'){ pOff--; renderAnalytics(); }
   else if(act === 'p-next'){ if(pOff < 0){ pOff++; renderAnalytics(); } }
@@ -3166,10 +3183,16 @@ document.addEventListener('click', function(e){
       save(); closeSheet(); render(); toast('Поступление обновлено');
     }
   }
-  else if(act === 'i-del'){
+   else if(act === 'i-del'){
     var iid2 = window._incEf;
     dConfirm('Удалить поступление?', 'Удаление', true).then(function(ok){
       if(!ok){ return; }
+      var delIt = null;
+      for(var x2=0;x2<D.incomes.length;x2++){ if(String(D.incomes[x2].id) === String(iid2)){ delIt = D.incomes[x2]; break; } }
+      if(delIt && delIt.auto && delIt.ck){
+        D.removedAuto = D.removedAuto || [];
+        if(D.removedAuto.indexOf(delIt.ck) === -1){ D.removedAuto.push(delIt.ck); }
+      }
       D.incomes = D.incomes.filter(function(x){ return String(x.id) !== String(iid2); });
       save(); closeSheet(); render(); toast('Поступление удалено');
     });
