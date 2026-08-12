@@ -150,7 +150,7 @@ function normalize(){
   }
   D.learned=D.learned||[];
   D.removedAuto=D.removedAuto||[];
-  D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{};
+  D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{}; D.paid=D.paid||{};
   if(D.goals && !Array.isArray(D.goals)){
     D.goals = [
       {id:1, n:'Подушка безопасности', cur:D.goals.cushion||0, target:D.goals.cushionT||100000, done:false},
@@ -609,8 +609,29 @@ function delEdit(){
   });
 }
 
+function cycleKey(){ var cs = cycleStart(new Date()); return cs.getFullYear()+'-'+cs.getMonth(); }
+function renderBudSummary(){
+  var el = $('budSummary');
+  if(!el){ return; }
+  var paysSum = 0, subsSum = 0, envSum = 0, i;
+  for(i=0;i<D.pays.length;i++){ paysSum += D.pays[i].s; }
+  for(i=0;i<D.subs.length;i++){ if(!D.subs[i].off){ subsSum += D.subs[i].s; } }
+  for(i=0;i<D.envs.length;i++){ envSum += D.envs[i].lim; }
+  var fixed = paysSum + subsSum;
+  var used = fixed + envSum;
+  var inc = D.income || 1;
+  var pct = Math.min(100, Math.round(used/inc*100));
+  var col = pct > 100 ? 'var(--red)' : (pct > 85 ? 'var(--org)' : 'var(--grn)');
+  var free = calcSafeBalance();
+  el.innerHTML = '<div class="cap-title"><span>Бюджет месяца</span><b style="color:'+col+'">занято '+pct+'% дохода</b></div>'
+    + '<div class="bar-large" style="height:8px;margin:8px 0"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
+    + '<div class="hist-sum" style="margin:0"><span>Обязательные: <b>'+fmt(fixed)+'</b></span><span>Конверты: <b>'+fmt(envSum)+'</b></span><span>Свободно: <b style="color:var(--grn)">'+fmt(free)+'</b></span></div>';
+}
 function renderEnv(){
-  var cs = cycleStart(new Date());
+  var now = new Date();
+  var cs = cycleStart(now); var ce = cycleEnd(cs);
+  var totalDays = Math.max(1, Math.round((ce - cs)/864e5));
+  var elapsed = Math.max(1, Math.round((now - cs)/864e5));
   var list = allSpends().filter(function(x){ return inCycle(x.d, cs); });
   var h = '';
   for(var i=0;i<D.envs.length;i++){
@@ -619,11 +640,14 @@ function renderEnv(){
     for(var a=0;a<list.length;a++){ if(envMatch(e, list[a])){ f += list[a].s; } }
     var p = e.lim > 0 ? Math.round(f / e.lim * 100) : 0;
     var cls = p > 100 ? 'var(--red)' : (p > 85 ? 'var(--org)' : 'var(--grn)');
+    var prog = Math.round(f / elapsed * totalDays);
+    var paceTxt = e.lim > 0 ? (prog > e.lim ? 'темп '+fmt(prog)+' к концу цикла · перебор '+fmt(prog - e.lim) : 'вписываешься · темп '+fmt(prog)+' к концу цикла') : '';
+    var paceCol = e.lim > 0 ? (prog > e.lim ? 'var(--red)' : 'var(--grn)') : 'var(--mut)';
     h += '<div class="env glass hov" data-act="env" data-i="'+e.id+'">'
       + '<header><div class="env-name"><div class="sic '+e.k+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#'+e.ic+'"/></svg></div>'+e.n+'</div>'
       + '<b class="'+(f > e.lim ? 'over' : '')+'">'+fmt(f)+' / '+fmt(e.lim)+'</b></header>'
       + '<div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+Math.min(100,p)+'%;background:'+cls+'"></i></div>'
-      + '<div class="note">'+p+'% лимита · нажмите: траты и смена лимита</div></div>';
+      + '<div class="note">'+p+'% лимита · <span style="color:'+paceCol+'">'+paceTxt+'</span></div></div>';
   }
   $('envList').innerHTML = h;
 }
@@ -654,10 +678,18 @@ function openEnv(i){
 }
 
 function renderPays(){
+  var key = cycleKey();
+  D.paid = D.paid || {};
+  var marks = D.paid[key] || {};
   var h = '';
   for(var i=0;i<D.pays.length;i++){
     var p = D.pays[i];
-    h += '<div class="env glass hov" data-act="edit" data-t="pay" data-i="'+p.id+'"><header><div class="env-name"><div class="sic c-blu" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-cal"/></svg></div>'+p.n+'</div><b>'+fmt(p.s)+' · '+p.d+'-го</b></header><div class="note">ежемесячно · нажмите для изменения</div></div>';
+    var paid = marks[p.id];
+    h += '<div class="env glass hov" data-act="edit" data-t="pay" data-i="'+p.id+'" style="'+(paid?'opacity:.65':'')+'">'
+      + '<header><div class="env-name"><div class="sic '+(paid?'c-grn':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#'+(paid?'i-check':'i-cal')+'"/></svg></div>'+p.n+(paid?' · оплачено':'')+'</div><b>'+fmt(p.s)+' · '+p.d+'-го</b></header>'
+      + '<div class="note">ежемесячно · тап по карточке — изменить</div>'
+      + (paid ? '<button class="sh-btn ghost" style="margin-top:8px" data-act="pay-unpaid" data-i="'+p.id+'">Снять отметку</button>' : '<button class="sh-btn" style="margin-top:8px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="pay-paid" data-i="'+p.id+'">Отметить оплаченным</button>')
+      + '</div>';
   }
   $('paysList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Платежей нет — добавьте первый</p>';
 }
@@ -666,7 +698,9 @@ function renderSubs(){
   var h = '';
   for(var i=0;i<D.subs.length;i++){
     var s = D.subs[i];
-    h += '<div class="env glass hov" data-act="edit" data-t="sub" data-i="'+s.id+'"><header><div class="env-name"><div class="sic '+(s.off?'':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;'+(s.off?'opacity:.4':'')+'"><svg class="ic"><use href="#i-sub"/></svg></div>'+s.n+'</div><b style="'+(s.off?'opacity:.4;text-decoration:line-through':'')+'">'+fmt(s.s)+'/мес</b></header><div class="note">'+(s.off?'отключена · нажмите для управления':'активна · нажмите для изменения')+'</div></div>';
+    h += '<div class="env glass hov" data-act="edit" data-t="sub" data-i="'+s.id+'"><header><div class="env-name"><div class="sic '+(s.off?'':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;'+(s.off?'opacity:.4':'')+'"><svg class="ic"><use href="#i-sub"/></svg></div>'+s.n+'</div><b style="'+(s.off?'opacity:.4;text-decoration:line-through':'')+'">'+fmt(s.s)+'/мес</b></header>'
+      + '<div class="note">'+(s.off?'отключена':'активна · '+fmt(s.s*12)+' в год')+'</div>'
+      + '<button class="sh-btn '+(s.off?'':'ghost')+'" style="margin-top:8px" data-act="sub-toggle" data-i="'+s.id+'">'+(s.off?'Включить':'Отключить')+'</button></div>';
   }
   $('subsList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Подписок нет</p>';
 }
@@ -676,8 +710,7 @@ function renderCredits(){
   for(var i=0;i<D.credits.length;i++){
     var c = D.credits[i];
     var paid = Math.max(0, Math.round((1 - c.cur / Math.max(1,c.total)) * 100));
-    h += '<div class="env glass hov" data-act="edit" data-t="cred" data-i="'+c.id+'"><header><div class="env-name"><div class="sic c-red" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-card"/></svg></div>'+c.n+'</div><b>'+fmt(c.cur)+'</b></header><div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+paid+'%;background:var(--grn)"></i></div><div class="note">погашено '+paid+'% · нажмите: изменить долг или внести платёж</div></div>';
-  }
+    h += '<div class="env glass hov" data-act="edit" data-t="cred" data-i="'+c.id+'"><header><div class="env-name"><div class="sic c-red" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-card"/></svg></div>'+c.n+'</div><b>'+fmt(c.cur)+'</b></header><div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+paid+'%;background:var(--grn)"></i></div><div class="note">погашено '+paid+'% · тап по карточке — изменить долг</div><button class="sh-btn" style="margin-top:8px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="cred-pay" data-i="'+c.id+'">Внести платёж</button></div>';  }
   $('credList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Кредитов нет — отлично!</p>';
 }
 
@@ -689,8 +722,7 @@ function renderInsts(){
     var x = D.insts[i];
     var d = parseD(x.d);
     var past = d < now;
-    h += '<div class="env glass hov" data-act="edit" data-t="inst" data-i="'+x.id+'"><header><div class="env-name"><div class="sic '+(past?'c-grn':'c-org')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-cal"/></svg></div>'+x.n+'</div><b>'+fmt(x.s)+'</b></header><div class="note">'+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()+(past?' · прошло':' · впереди')+' · нажмите для изменения</div></div>';
-  }
+    h += '<div class="env glass hov" data-act="edit" data-t="inst" data-i="'+x.id+'"><header><div class="env-name"><div class="sic '+(past?'c-grn':'c-org')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-cal"/></svg></div>'+x.n+'</div><b>'+fmt(x.s)+'</b></header><div class="note">'+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()+(past?' · прошло':' · впереди')+' · тап по карточке — изменить</div><button class="sh-btn" style="margin-top:8px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="inst-pay" data-i="'+x.id+'">Оплатить '+fmt(x.s)+'</button></div>';  }
   $('instsList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Рассрочек нет</p>';
 }
 
@@ -2529,6 +2561,17 @@ function openCanBuy(){
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
 
+function openEnvAdd(){
+  var types = ['Продукты','Кафе','Самокаты','Такси','Тройка','Аренда','Личное'];
+  var opts = '';
+  for(var i=0;i<types.length;i++){ opts += '<option value="'+types[i]+'">'+types[i]+'</option>'; }
+  $('sheetBody').innerHTML = sheetHead('i-target','c-pur','Новый конверт','имя определяет, какие траты попадут внутрь')
+    + '<div class="form"><select class="inp" id="envType">'+opts+'</select>'
+    + '<input class="inp" id="envLim" type="number" placeholder="Лимит в месяц, ₽"></div>'
+    + '<button class="sh-btn" data-act="env-add-save">Создать конверт</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+
 function openQuickSpend(){
   var opts = '';
   for(var i=0;i<CATS.length;i++){ opts += '<option value="'+CATS[i].id+'">'+CATS[i].n+'</option>'; }
@@ -2675,6 +2718,7 @@ function render(){
   try { renderDigest(); } catch(e) { console.error('Ошибка в renderDigest:', e); }
   try { renderRec(); } catch(e) { console.error('Ошибка в renderRec:', e); }
   try { renderAllTx(); } catch(e) { console.error('Ошибка в renderTx:', e); }
+   try { renderBudSummary(); } catch(e) { console.error('Ошибка в renderBudSummary:', e); }
   try { renderEnv(); } catch(e) { console.error('Ошибка в renderEnv:', e); }
   try { renderPays(); } catch(e) { console.error('Ошибка в renderPays:', e); }
   try { renderSubs(); } catch(e) { console.error('Ошибка в renderSubs:', e); }
@@ -3207,6 +3251,79 @@ document.addEventListener('click', function(e){
       else { toast('+'+fmt(window._cashAmt)+' к цели "'+cg.n+'"'); }
       save(); closeSheet(); render();
     }
+      else if(act === 'env-add'){ openEnvAdd(); }
+  else if(act === 'env-add-save'){
+    var tE = $('envType').value;
+    var lE = parseFloat($('envLim').value);
+    if(isNaN(lE) || lE <= 0){ dAlert('Укажи лимит.', 'Конверт'); return; }
+    var icMap = {'Продукты':['i-cart','c-grn'],'Кафе':['i-coffee','c-red'],'Самокаты':['i-scoot','c-org'],'Такси':['i-taxi','c-blu'],'Тройка':['i-train','c-blu'],'Аренда':['i-home','c-pur'],'Личное':['i-gift','c-pur']};
+    var mm = icMap[tE] || ['i-gift','c-pur'];
+    D.envs.push({id:Date.now(), n:tE, lim:lE, ic:mm[0], k:mm[1]});
+    save(); closeSheet(); render(); toast('Конверт "'+tE+'" создан');
+  }
+  else if(act === 'pay-paid'){
+    var pid = parseInt(el.getAttribute('data-i'),10);
+    var pay = null;
+    for(var p2=0;p2<D.pays.length;p2++){ if(D.pays[p2].id===pid){ pay = D.pays[p2]; break; } }
+    if(pay){
+      dConfirm('Отметить "'+pay.n+'" оплаченным? Запишется трата '+fmt(pay.s)+'.', 'Платёж').then(function(ok){
+        if(!ok){ return; }
+        var sid = Date.now();
+        D.spends.push({id:sid, d:iso(new Date()), n:pay.n, cat:autoCat(pay.n), s:pay.s, manual:1});
+        D.paid = D.paid || {}; var key = cycleKey(); D.paid[key] = D.paid[key] || {}; D.paid[key][pay.id] = sid;
+        save(); render(); toast('Платёж отмечен оплаченным');
+      });
+    }
+  }
+  else if(act === 'pay-unpaid'){
+    var pid2 = parseInt(el.getAttribute('data-i'),10);
+    var key2 = cycleKey();
+    var sid2 = ((D.paid||{})[key2]||{})[pid2];
+    dConfirm('Снять отметку? Трата платежа будет удалена.', 'Платёж', true).then(function(ok){
+      if(!ok){ return; }
+      if(sid2){ D.spends = D.spends.filter(function(x){ return x.id !== sid2; }); }
+      if(D.paid && D.paid[key2]){ delete D.paid[key2][pid2]; }
+      save(); render(); toast('Отметка снята');
+    });
+  }
+  else if(act === 'sub-toggle'){
+    var sid3 = parseInt(el.getAttribute('data-i'),10);
+    var sIt = null;
+    for(var s4=0;s4<D.subs.length;s4++){ if(D.subs[s4].id===sid3){ sIt = D.subs[s4]; break; } }
+    if(sIt){
+      sIt.off = sIt.off ? 0 : 1;
+      save(); render(); toast(sIt.off ? 'Подписка "'+sIt.n+'" отключена' : 'Подписка "'+sIt.n+'" включена');
+    }
+  }
+  else if(act === 'cred-pay'){
+    var cid = parseInt(el.getAttribute('data-i'),10);
+    var cr = null;
+    for(var c5=0;c5<D.credits.length;c5++){ if(D.credits[c5].id===cid){ cr = D.credits[c5]; break; } }
+    if(cr){
+      dPrompt('Сумма платежа по "'+cr.n+'", ₽?', 'Платёж по кредиту', String(cr.cur)).then(function(v){
+        if(!v){ return; }
+        var a5 = parseFloat(v);
+        if(isNaN(a5) || a5 <= 0){ return; }
+        a5 = Math.min(a5, cr.cur);
+        cr.cur -= a5;
+        D.spends.push({id:Date.now(), d:iso(new Date()), n:'Платёж: '+cr.n, cat:'other', s:a5, manual:1});
+        save(); render(); toast(cr.cur <= 0 ? 'Кредит "'+cr.n+'" закрыт!' : 'Платёж '+fmt(a5)+' учтён');
+      });
+    }
+  }
+  else if(act === 'inst-pay'){
+    var iid3 = parseInt(el.getAttribute('data-i'),10);
+    var in3 = null;
+    for(var i7=0;i7<D.insts.length;i7++){ if(D.insts[i7].id===iid3){ in3 = D.insts[i7]; break; } }
+    if(in3){
+      dConfirm('Оплатить рассрочку '+fmt(in3.s)+' ('+in3.n+')? Запишется тррата.'.replace('тррата','трата'), 'Рассрочка').then(function(ok){
+        if(!ok){ return; }
+        D.spends.push({id:Date.now(), d:iso(new Date()), n:in3.n, cat:'other', s:in3.s, manual:1});
+        D.insts = D.insts.filter(function(x){ return x.id !== iid3; });
+        save(); render(); toast('Рассрочка оплачена');
+      });
+    }
+  }
   }   
   else if(act === 'exit'){ signOut(auth); }
 });
