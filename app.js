@@ -1234,6 +1234,32 @@ var hFrom = null, hTo = null, hCat = 'all';
 
 var hMode2 = 'cal', cycOff2 = 0;
 var hGroup = 'day';
+var iFrom = null, iTo = null, iMode = 'cal', iCycOff = 0, iKind = 'all';
+var INCOME_KINDS = [
+  ['salary','Зарплата','c-grn','i-wallet'],
+  ['side','Подработка','c-blu','i-card'],
+  ['cash','Кэшбэк','c-org','i-gift'],
+  ['transfer','Перевод','c-pur','i-in'],
+  ['other','Прочее','c-red','i-gift']
+];
+function kindById(k){ for(var i=0;i<INCOME_KINDS.length;i++){ if(INCOME_KINDS[i][0]===k){ return INCOME_KINDS[i]; } } return INCOME_KINDS[4]; }
+function incomeKind(x){
+  if(x.k){ return x.k; }
+  var s = (x.n||'').toLowerCase();
+  if(x.auto || s.indexOf('заработн')!==-1){ return 'salary'; }
+  if(s.indexOf('кэшбэк')!==-1 || s.indexOf('cashback')!==-1 || s.indexOf('лояльн')!==-1){ return 'cash'; }
+  if(s.indexOf('перевод')!==-1 || s.indexOf('sbp')!==-1){ return 'transfer'; }
+  if(s.indexOf('подработ')!==-1 || s.indexOf('фриланс')!==-1){ return 'side'; }
+  return 'other';
+}
+function incRange(){
+  if(iMode === 'cyc'){ var now = new Date(); var cs = cycleStart(addM(now, iCycOff)); return {from:cs, to:cycleEnd(cs)}; }
+  if(iFrom && iTo && iTo > iFrom){ return {from:iFrom, to:iTo}; }
+  var n = new Date();
+  return {from:new Date(n.getFullYear(), n.getMonth(), 1), to:new Date(n.getFullYear(), n.getMonth()+1, 1)};
+}
+
+
 function histRange2(){
   if(hMode2 === 'cyc'){
     var now = new Date();
@@ -1599,21 +1625,91 @@ function renderSpend(){
 }
 
 function renderIncome(){
-  var cs = cycleStart(new Date());
-  var list = (D.incomes||[]).filter(function(x){ return inCycle(parseD(x.d), cs); }).sort(function(a,b){ return parseD(b.d) - parseD(a.d); });
-  var total = 0;
-  for(var i=0;i<list.length;i++){ total += list[i].s; }
-  $('incSum').textContent = fmt(total);
-  var h = '';
-  for(var j=0;j<list.length;j++){
-    var t = list[j];
-    var d = parseD(t.d);
-    h += '<div class="tx"><div class="tx-ic c-grn"><svg class="ic"><use href="#i-in"/></svg></div>'
-      + '<div class="tx-body"><b>'+t.n+(t.auto?' · авто':'')+'</b><span>'+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'</span></div>'
-      + '<div class="tx-right"><b class="pos">+'+fmt(t.s)+'</b></div>'
-      + '<button class="del" data-act="del-income" data-id="'+t.id+'"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></button></div>';
+  var r = incRange();
+  var lbl = $('iLabel');
+  if(lbl){
+    if(r.from.getDate() === 1 && r.to.getDate() === 1 && (r.to - r.from) < 32*864e5){
+      lbl.textContent = MONTHS[r.from.getMonth()]+' '+r.from.getFullYear();
+    } else {
+      lbl.textContent = r.from.getDate()+'.'+String(r.from.getMonth()+1).padStart(2,'0')+'.'+r.from.getFullYear()+' – '+r.to.getDate()+'.'+String(r.to.getMonth()+1).padStart(2,'0')+'.'+r.to.getFullYear();
+    }
   }
-  $('incList').innerHTML = h || '<p style="color:var(--mut);font-size:13px;padding:12px">Поступлений пока нет</p>';
+  var mc1 = $('imCal'), mc2 = $('imCyc');
+  if(mc1){ mc1.classList.toggle('on', iMode==='cal'); }
+  if(mc2){ mc2.classList.toggle('on', iMode==='cyc'); }
+  var items = [];
+  var i;
+  for(i=0;i<(D.incomes||[]).length;i++){
+    var x = D.incomes[i];
+    var d = parseD(x.d);
+    if(d >= r.from && d < r.to){ items.push({id:x.id, d:d, s:x.s, n:x.n, k:incomeKind(x), auto:x.auto}); }
+  }
+  var totAll = 0;
+  for(i=0;i<items.length;i++){ totAll += items[i].s; }
+  var fItems = items.filter(function(x){ return iKind==='all' || x.k===iKind; });
+  var tot = 0;
+  for(i=0;i<fItems.length;i++){ tot += fItems[i].s; }
+  var hs = $('iSum');
+  if(hs){ hs.innerHTML = '<span class="hs-in">Поступило: <b>+'+fmt(tot)+'</b></span><span>операций: '+fItems.length+'</span>'+(iKind!=='all'?'<span class="hs-cat">'+kindById(iKind)[1]+'</span>':''); }
+  var kl = $('iKindList');
+  if(kl){
+    var kh = '<button class="'+(iKind==='all'?'on':'')+'" data-act="i-kind" data-c="all">Все типы</button>';
+    for(i=0;i<INCOME_KINDS.length;i++){
+      kh += '<button class="'+(iKind===INCOME_KINDS[i][0]?'on':'')+'" data-act="i-kind" data-c="'+INCOME_KINDS[i][0]+'">'+INCOME_KINDS[i][1]+'</button>';
+    }
+    kl.innerHTML = kh;
+  }
+  var klbl = $('iKindLbl');
+  if(klbl){ klbl.textContent = iKind==='all' ? 'Все типы' : kindById(iKind)[1]; }
+  var ab = $('iAvgBox');
+  if(ab){
+    var now = new Date();
+    var avg6 = 0;
+    for(var m=1;m<=6;m++){
+      var f6 = new Date(now.getFullYear(), now.getMonth()-m, 1), t6 = new Date(now.getFullYear(), now.getMonth()-m+1, 1);
+      for(i=0;i<(D.incomes||[]).length;i++){ var dd6 = parseD(D.incomes[i].d); if(dd6 >= f6 && dd6 < t6){ avg6 += D.incomes[i].s; } }
+    }
+    avg6 = Math.round(avg6/6);
+    var curM = 0;
+    var cf = new Date(now.getFullYear(), now.getMonth(), 1);
+    for(i=0;i<(D.incomes||[]).length;i++){ var dd2 = parseD(D.incomes[i].d); if(dd2 >= cf){ curM += D.incomes[i].s; } }
+    var tr = avg6 > 0 ? Math.round((curM-avg6)/avg6*100) : 0;
+    ab.innerHTML = '<div class="sh-tip">Средний доход за 6 мес: <b>'+fmt(avg6)+'</b> · этот месяц '+(tr>=0?'+':'')+tr+'% к среднему</div>';
+  }
+  var sb = $('iStructBox');
+  if(sb){
+    var byK = {};
+    for(i=0;i<items.length;i++){ byK[items[i].k] = (byK[items[i].k]||0)+items[i].s; }
+    var arrK = []; for(var k2 in byK){ arrK.push({k:k2, s:byK[k2]}); }
+    arrK.sort(function(a,b){ return b.s-a.s; });
+    var sh = '';
+    var colsK = ['#30d158','#0a84ff','#ff9f0a','#bf5af2','#ff453a'];
+    for(i=0;i<arrK.length;i++){
+      var kk = kindById(arrK[i].k);
+      var p = totAll>0 ? Math.round(arrK[i].s/totAll*100) : 0;
+      sh += '<div class="catsum-row" data-act="i-kind" data-c="'+arrK[i].k+'"><span class="catsum-name">'+kk[1]+'</span><div class="bar-large" style="height:6px;flex:1"><i style="width:'+p+'%;background:'+colsK[i%5]+'"></i></div><b>'+fmt(arrK[i].s)+'</b></div>';
+    }
+    sb.innerHTML = sh ? '<div class="cap" style="margin:10px 4px 6px">Структура доходов · тап фильтрует список</div>'+sh : '';
+    var cashSum = byK['cash']||0;
+    var cb = $('iCashbackBox');
+    if(cb){ cb.innerHTML = cashSum>0 ? '<div class="sh-tip">Кэшбэк за период: <b>'+fmt(cashSum)+'</b> <button class="chip" style="margin-left:6px" data-act="cashback-add">В копилку</button></div>' : ''; }
+  }
+  var tb = $('iTplBox');
+  if(tb){
+    tb.innerHTML = '<button class="chip" data-act="i-tpl" data-k="salary">Зарплата · '+fmt(D.income)+'</button>'
+      + '<button class="chip" data-act="i-tpl" data-k="side">Подработка</button>'
+      + '<button class="chip" data-act="i-tpl" data-k="cash">Кэшбэк</button>';
+  }
+  fItems.sort(function(a,b){ return b.d - a.d; });
+  var h = ''; var lastKey = '';
+  for(i=0;i<fItems.length;i++){
+    var t = fItems[i];
+    var k = iso(t.d);
+    if(k !== lastKey){ lastKey = k; h += '<div class="hist-day">'+t.d.getDate()+' '+MONTHS[t.d.getMonth()]+' · '+WEEKDAYS[t.d.getDay()]+'</div>'; }
+    var kk2 = kindById(t.k);
+    h += '<div class="tx" data-act="i-edit" data-i="'+t.id+'" style="cursor:pointer"><div class="tx-ic '+kk2[2]+'"><svg class="ic"><use href="#'+kk2[3]+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+kk2[1]+(t.auto?' · авто':'')+'</span></div><div class="tx-right"><b class="pos">+'+fmt(t.s)+'</b></div></div>';
+  }
+  $('incList').innerHTML = h || '<p style="color:var(--mut);font-size:13px;padding:12px">За выбранный период поступлений нет</p>';
 }
 
 function renderDigest(){
@@ -2443,10 +2539,52 @@ function openQuickSpend(){
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
 function openIncomeSheet(){
+  var ko = '';
+  for(var ki=0;ki<INCOME_KINDS.length;ki++){ ko += '<option value="'+INCOME_KINDS[ki][0]+'">'+INCOME_KINDS[ki][1]+'</option>'; }
   $('sheetBody').innerHTML = sheetHead('i-in','c-grn','Добавить поступление','сумма попадёт в реальный остаток')
     + '<div class="form"><div class="row2"><input class="inp" id="incAmt" type="number" placeholder="Сумма, ₽"><input class="inp" id="incDate" type="date" value="'+iso(new Date())+'"></div>'
+    + '<select class="inp" id="incKind">'+ko+'</select>'
     + '<input class="inp" id="incNote" placeholder="Что это (подработка, кэшбэк...)"></div>'
     + '<button class="sh-btn" data-act="income-save">Сохранить</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openIncEdit(id){
+  var it = null;
+  for(var i=0;i<(D.incomes||[]).length;i++){ if(String(D.incomes[i].id) === String(id)){ it = D.incomes[i]; break; } }
+  if(!it){ return; }
+  window._incEf = id;
+  var opts = '';
+  var curK = incomeKind(it);
+  for(var j=0;j<INCOME_KINDS.length;j++){ opts += '<option value="'+INCOME_KINDS[j][0]+'"'+(INCOME_KINDS[j][0]===curK?' selected':'')+'>'+INCOME_KINDS[j][1]+'</option>'; }
+  $('sheetBody').innerHTML = sheetHead('i-pen','c-grn','Поступление','сумма, тип, дата и название')
+    + '<div class="form"><input class="inp" id="ieAmt" type="number" value="'+it.s+'">'
+    + '<select class="inp" id="ieKind">'+opts+'</select>'
+    + '<input class="inp" id="ieDate" type="date" value="'+it.d+'">'
+    + '<input class="inp" id="ieNote" value="'+String(it.n||'').replace(/"/g,'&quot;')+'"></div>'
+    + '<button class="sh-btn" data-act="i-edit-save">Сохранить</button>'
+    + '<button class="sh-btn danger" data-act="i-del">Удалить</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openIncPeriodSheet(){
+  var r = incRange();
+  $('sheetBody').innerHTML = sheetHead('i-cal','c-blu','Период доходов','любые даты')
+    + '<div class="form"><div class="row2"><input class="inp" type="date" id="ipFrom" value="'+iso(r.from)+'"><input class="inp" type="date" id="ipTo" value="'+iso(new Date(r.to.getTime()-864e5))+'"></div></div>'
+    + '<button class="sh-btn" data-act="i-period-save">Показать</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openCashbackSheet(){
+  var act = (D.goals||[]).filter(function(g){ return !g.done; });
+  if(!act.length){ dAlert('Нет активных целей.', 'Копилка'); return; }
+  var r = incRange();
+  var cashSum = 0;
+  for(var i=0;i<(D.incomes||[]).length;i++){ var x = D.incomes[i]; var d = parseD(x.d); if(d >= r.from && d < r.to && incomeKind(x)==='cash'){ cashSum += x.s; } }
+  window._cashAmt = Math.round(cashSum);
+  var opts = '';
+  for(var j=0;j<act.length;j++){ opts += '<option value="'+act[j].id+'">'+act[j].n+'</option>'; }
+  $('sheetBody').innerHTML = sheetHead('i-gift','c-org','Кэшбэк в копилку','пусть работает на цель')
+    + rowHtml('Кэшбэк за период', fmt(window._cashAmt))
+    + '<div class="form"><select class="inp" id="cbGoal">'+opts+'</select></div>'
+    + '<button class="sh-btn" data-act="cashback-save">Закинуть</button>';
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
 function openQuickGoal(){
@@ -2667,17 +2805,12 @@ document.addEventListener('click', function(e){
       save(); closeSheet(); render(); toast('Трата удалена');
     });
   }
-  else if(act === 'addincome'){
-    $('sheetBody').innerHTML = sheetHead('i-in','c-grn','Добавить поступление','сумма попадёт в реальный остаток')
-      + '<div class="form"><div class="row2"><input class="inp" id="incAmt" type="number" placeholder="Сумма, ₽"><input class="inp" id="incDate" type="date" value="'+iso(new Date())+'"></div>'
-      + '<input class="inp" id="incNote" placeholder="Что это (подработка, кэшбэк...)"></div>'
-      + '<button class="sh-btn" data-act="income-save">Сохранить</button>';
-    $('sheet').classList.add('on'); $('shb').classList.add('on');
-  }
-  else if(act === 'income-save'){
+    else if(act === 'addincome'){ openIncomeSheet(); }
+    else if(act === 'income-save'){
     var a2 = parseFloat($('incAmt').value);
     if(isNaN(a2) || a2 <= 0){ dAlert('Введите сумму поступления.', 'Поступление'); return; }
-    D.incomes.push({id:Date.now(), d: $('incDate').value || iso(new Date()), n: $('incNote').value.trim() || 'Поступление', s:a2});
+    var k2b = $('incKind') ? $('incKind').value : 'other';
+    D.incomes.push({id:Date.now(), d: $('incDate').value || iso(new Date()), n: $('incNote').value.trim() || kindById(k2b)[1], s:a2, k:k2b});
     save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
   }
   else if(act === 'p-set'){ pMode = el.getAttribute('data-v'); pOff = 0; renderAnalytics(); }
@@ -2977,6 +3110,80 @@ document.addEventListener('click', function(e){
   else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
   else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
   else if(act === 'send'){ ask(); }
+   else if(act === 'i-mode'){ iMode = el.getAttribute('data-v'); iCycOff = 0; renderIncome(); }
+  else if(act === 'i-prev'){
+    if(iMode==='cyc'){ iCycOff--; } else { var r0 = incRange(); iFrom = addM(r0.from,-1); iTo = addM(r0.to,-1); }
+    renderIncome();
+  }
+  else if(act === 'i-next'){
+    if(iMode==='cyc'){ iCycOff++; } else { var r1 = incRange(); iFrom = addM(r1.from,1); iTo = addM(r1.to,1); }
+    renderIncome();
+  }
+  else if(act === 'i-quick'){
+    var n3 = new Date(); var v3 = el.getAttribute('data-v');
+    if(v3==='m'){ iFrom = new Date(n3.getFullYear(), n3.getMonth(), 1); iTo = new Date(n3.getFullYear(), n3.getMonth()+1, 1); }
+    else if(v3==='pm'){ iFrom = new Date(n3.getFullYear(), n3.getMonth()-1, 1); iTo = new Date(n3.getFullYear(), n3.getMonth(), 1); }
+    else if(v3==='q'){ iFrom = new Date(n3.getFullYear(), n3.getMonth()-2, 1); iTo = new Date(n3.getFullYear(), n3.getMonth()+1, 1); }
+    else if(v3==='y'){ iFrom = new Date(n3.getFullYear(), 0, 1); iTo = new Date(n3.getFullYear()+1, 0, 1); }
+    else if(v3==='all'){ iFrom = new Date(2020, 0, 1); iTo = new Date(n3.getFullYear()+1, 0, 1); }
+    iMode = 'cal';
+    var dd9 = document.querySelectorAll('.dd.on'); for(var d9=0;d9<dd9.length;d9++){ dd9[d9].classList.remove('on'); }
+    closeSheet(); renderIncome();
+  }
+  else if(act === 'i-period'){ openIncPeriodSheet(); }
+  else if(act === 'i-period-save'){
+    var f9 = $('ipFrom').value, t9 = $('ipTo').value;
+    if(f9 && t9){ var dF9 = parseD(f9), dT9 = parseD(t9); if(dT9 >= dF9){ iFrom = dF9; iTo = new Date(dT9.getFullYear(), dT9.getMonth(), dT9.getDate()+1); iMode = 'cal'; } }
+    closeSheet(); renderIncome();
+  }
+  else if(act === 'i-kind'){ iKind = el.getAttribute('data-c'); var ddA = document.querySelectorAll('.dd.on'); for(var dA=0;dA<ddA.length;dA++){ ddA[dA].classList.remove('on'); } renderIncome(); }
+  else if(act === 'i-tpl'){
+    var tk3 = el.getAttribute('data-k');
+    if(tk3 === 'salary'){
+      D.incomes.push({id:Date.now(), d:iso(new Date()), n:'Заработная плата', s:D.income, k:'salary'});
+      save(); render(); toast('Поступление +'+fmt(D.income));
+    } else {
+      dPrompt('Сумма поступления, ₽?', tk3==='side' ? 'Подработка' : 'Кэшбэк', '5000').then(function(v){
+        if(!v){ return; }
+        var a9 = parseFloat(v);
+        if(isNaN(a9) || a9 <= 0){ return; }
+        D.incomes.push({id:Date.now(), d:iso(new Date()), n: tk3==='side' ? 'Подработка' : 'Кэшбэк', s:a9, k:tk3});
+        save(); render(); toast('Поступление +'+fmt(a9));
+      });
+    }
+  }
+  else if(act === 'i-edit'){ openIncEdit(el.getAttribute('data-i')); }
+  else if(act === 'i-edit-save'){
+    var iid = window._incEf;
+    var it9 = null;
+    for(var i9=0;i9<(D.incomes||[]).length;i9++){ if(String(D.incomes[i9].id) === String(iid)){ it9 = D.incomes[i9]; break; } }
+    if(it9){
+      var aA = parseFloat($('ieAmt').value);
+      if(isNaN(aA) || aA <= 0){ dAlert('Введите сумму.', 'Поступление'); return; }
+      it9.s = aA; it9.k = $('ieKind').value;
+      if($('ieDate').value){ it9.d = $('ieDate').value; }
+      if($('ieNote').value.trim()){ it9.n = $('ieNote').value.trim(); }
+      save(); closeSheet(); render(); toast('Поступление обновлено');
+    }
+  }
+  else if(act === 'i-del'){
+    var iid2 = window._incEf;
+    dConfirm('Удалить поступление?', 'Удаление', true).then(function(ok){
+      if(!ok){ return; }
+      D.incomes = D.incomes.filter(function(x){ return String(x.id) !== String(iid2); });
+      save(); closeSheet(); render(); toast('Поступление удалено');
+    });
+  }
+  else if(act === 'cashback-add'){ openCashbackSheet(); }
+  else if(act === 'cashback-save'){
+    var cg = findGoal(parseInt($('cbGoal').value,10));
+    if(cg && (window._cashAmt||0) > 0){
+      cg.cur = (cg.cur||0) + window._cashAmt;
+      if(cg.cur >= cg.target && cg.target > 0){ cg.done = true; toast('Цель "'+cg.n+'" выполнена!'); }
+      else { toast('+'+fmt(window._cashAmt)+' к цели "'+cg.n+'"'); }
+      save(); closeSheet(); render();
+    }
+  }   
   else if(act === 'exit'){ signOut(auth); }
 });
 
