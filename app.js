@@ -1715,7 +1715,9 @@ function renderDashboardNew() {
   var elp2 = Math.max(1, Math.round((now - csP)/864e5));
   var pace2 = cycSp / elp2;
   var left2 = Math.round(realBal() - pace2 * dtp);
-  if($('paydayVal')){ $('paydayVal').textContent = (left2 >= 0 ? 'останется ' : 'не хватит ') + fmt(Math.abs(left2)); $('paydayVal').style.color = left2 >= 0 ? 'var(--grn)' : 'var(--red)'; }
+  if($('paydayVal')){ $('paydayVal').textContent = fmt(Math.abs(left2)); $('paydayVal').style.color = left2 >= 0 ? 'var(--grn)' : 'var(--red)'; }
+  var plbl = document.querySelector('[data-t="payday"] span');
+  if(plbl){ plbl.textContent = left2 >= 0 ? 'До зарплаты останется' : 'До зарплаты не хватит'; }
   if($('paydayHint')){ $('paydayHint').textContent = 'темп '+fmt(Math.round(pace2))+'/день · зарплата '+ceP.getDate()+'.'+String(ceP.getMonth()+1).padStart(2,'0'); }
   var debtsCur = 0, debtsTot = 0;
   for(var dc2=0;dc2<D.credits.length;dc2++){ debtsCur += D.credits[dc2].cur||0; debtsTot += (D.credits[dc2].total||D.credits[dc2].cur||0); }
