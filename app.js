@@ -579,12 +579,7 @@ function openSheet(t, i){
       ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Manrope';
       ctx.fillText(fmt(vals[minI])+' · день '+minI, mpx+8, mpy-6);
     }, 60);
-  }
-    h += tipHtml(minB3.val < 0 ? 'Через '+minB3.daysFromNow+' дн баланс уйдёт в минус. Срежь гибкие траты или ускорь поступления.' : 'Прогноз стабильный — минимум положительный.');
-    $('sheetBody').innerHTML = h;
-    $('sheet').classList.add('on'); $('shb').classList.add('on');
-
-  } else if(t === 'saverate'){
+} else if(t === 'saverate'){
     var nowS = new Date();
     var mF = new Date(nowS.getFullYear(), nowS.getMonth(), 1), mT = new Date(nowS.getFullYear(), nowS.getMonth()+1, 1);
     var incS = 0;
@@ -2289,7 +2284,7 @@ function goalFund(id){
     var amt = parseFloat(v);
     if(isNaN(amt) || amt === 0){ return; }
     g.cur = (g.cur||0) + amt;
-    if(g.cur >= g.target && g.target > 0){ g.done = true; toast('🎉 Цель «'+g.n+'» выполнена!'); }
+    if(g.cur >= g.target && g.target > 0){ g.done = true; toast('Цель «'+g.n+'» выполнена!'); }
     else { toast('+'+fmt(amt)+' к «'+g.n+'»'); }
     save(); render();
   });
@@ -2591,7 +2586,7 @@ function openStmtSheet(){
 }
 function parseStatement(txt){
   var out = [];
-  var t = txt.replace(/\r/g,'').replace(/\n/g,' ');
+ var t = txt.replace(/\r/g,'').replace(/\n/g,' ');
   var m;
   var re1 = /CRD_[A-Z0-9]+ Операция по карте: \d+\++\d+, на сумму: ([\d.]+) RUR, дата совершения операции: (\d{2})\.(\d{2})\.(\d{2}), место совершения операции: (.+?) MCC\d+/g;
   while((m = re1.exec(t)) !== null){
@@ -3129,8 +3124,9 @@ document.addEventListener('click', function(e){
         var newCat = rules[mk];
         var curCat = TX2CAT[D.tx[i].c] || D.tx[i].c || 'other';
         if(curCat !== newCat){ D.tx[i].c = newCat; changed++; }
-          else if(act === 'whatif'){ openWhatIf(); }
-  else if(act === 'debt-plan'){ openDebtPlan(); }
+else if(act === 'bulk-set'){
+else if(act === 'whatif'){ openWhatIf(); }
+else if(act === 'debt-plan'){ openDebtPlan(); }
   else if(act === 'wi-calc'){
     var sel = $('wiCat'); var pct = parseInt($('wiPct').value,10);
     if(!sel || isNaN(pct)){ return; }
