@@ -1556,9 +1556,11 @@ function renderTx(suffix){
     for(i=0;i<spends.length;i++){ if((spends[i].cat||'other')==='other'){ otherN++; } }
     var aEl2 = $('hActions2');
     if(aEl2){
+      var memN = 0; for(var mk2 in (D.merchRules||{})){ memN++; }
       var btns2 = (otherN>0 ? '<button class="chip" data-act="other-bulk">Разобрать Прочее ('+otherN+')</button>' : '')
         + '<button class="chip" data-act="stmt-import">Вставить выписку</button>'
         + '<button class="chip" data-act="dup-find">Найти дубликаты</button>'
+        + (memN>0 ? '<button class="chip" data-act="mem-apply">Применить память ('+memN+')</button>' : '')
         + (hMode2==='cyc' ? '<button class="chip" data-act="cyc-compare">Сравнить с прошлым циклом</button>' : '');
       aEl2.innerHTML = '<div class="cap" style="margin:10px 4px 6px">Инструменты</div><div class="h-actions" style="margin:0 0 10px">'+btns2+'</div>';
     }
@@ -2975,6 +2977,19 @@ document.addEventListener('click', function(e){
   else if(act === 'tx-apply-suggest'){ if($('teCat')){ $('teCat').value = el.getAttribute('data-c'); } saveTxEdit(); }
   else if(act === 'merch-open'){ openMerchSheet(parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'other-bulk'){ openOtherBulk(); }
+  else if(act === 'mem-apply'){
+    var rules = D.merchRules || {};
+    var changed = 0;
+    for(var i=0;i<D.tx.length;i++){
+      var mk = merchName(D.tx[i].n || '').toLowerCase();
+      if(rules[mk]){
+        var newCat = rules[mk];
+        var curCat = TX2CAT[D.tx[i].c] || D.tx[i].c || 'other';
+        if(curCat !== newCat){ D.tx[i].c = newCat; changed++; }
+      }
+    }
+    save(); render(); toast('Память применена: обновлено операций: '+changed);
+  }    
   else if(act === 'bulk-set'){
     var bi = parseInt(el.getAttribute('data-i'),10);
     var bc = el.getAttribute('data-c');
