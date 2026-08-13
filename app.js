@@ -3847,51 +3847,6 @@ if(info){ info.innerHTML = '<b>'+d.getDate()+'.'+String(d.getMonth()+1).padStart
 });
 }
 
-function drawForecastChart(f){
-var c = $('forecastChart'); if(!c){ return; }
-var W = c.clientWidth || 300, H = 180;
-c.width = W*2; c.height = H*2;
-var ctx = c.getContext('2d');
-ctx.setTransform(2,0,0,2,0,0);
-var vals = []; for(var i=0;i<f.flow.length;i++){ vals.push(f.flow[i].balance); }
-var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
-var rng = (mx - mn) || 1;
-function Y(v){ return H - 24 - ((v - mn)/rng)*(H - 48); }
-function X(i){ return 4 + i/(vals.length-1)*(W-8); }
-ctx.clearRect(0,0,W,H);
-if(mn < 0){
-ctx.strokeStyle = 'rgba(255,69,58,.35)';
-ctx.setLineDash([3,3]);
-ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.stroke();
-ctx.setLineDash([]);
-ctx.fillStyle = 'rgba(255,69,58,.7)'; ctx.font = '600 9px Manrope';
-ctx.fillText('НОЛЬ', 4, Y(0)-3);
-}
-ctx.beginPath();
-for(var i=0;i<vals.length;i++){ var px=X(i), py=Y(vals[i]); if(i===0){ ctx.moveTo(px,py); } else { ctx.lineTo(px,py); } }
-ctx.strokeStyle = '#64d2ff'; ctx.lineWidth = 2; ctx.stroke();
-for(var e=0;e<f.events.length;e++){
-var dayIdx = Math.round((f.events[e].date - f.flow[0].date)/864e5);
-if(dayIdx < 0 || dayIdx >= vals.length){ continue; }
-ctx.fillStyle = f.events[e].amt > 0 ? '#30d158' : '#ff9f0a';
-ctx.beginPath(); ctx.arc(X(dayIdx), Y(vals[dayIdx]), 3, 0, 6.28); ctx.fill();
-}
-var minI = 0; for(var m2=1;m2<vals.length;m2++){ if(vals[m2] < vals[minI]){ minI = m2; } }
-ctx.fillStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
-ctx.beginPath(); ctx.arc(X(minI), Y(vals[minI]), 5, 0, 6.28); ctx.fill();
-ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Manrope';
-ctx.fillText('мин '+fmt(vals[minI]), Math.min(W-90, X(minI)+8), Math.max(10, Y(vals[minI])-8));
-c.addEventListener('click', function(ev){
-var rect = c.getBoundingClientRect();
-var idx = Math.round((ev.clientX - rect.left)/rect.width*(vals.length-1));
-if(idx < 0 || idx >= vals.length){ return; }
-var d = f.flow[idx].date;
-var evTxt = '';
-for(var e2=0;e2<f.flow[idx].events.length;e2++){ evTxt += ' · '+f.flow[idx].events[e2].n+' '+(f.flow[idx].events[e2].amt>0?'+':'−')+fmt(Math.abs(f.flow[idx].events[e2].amt)); }
-var info = $('fcInfo');
-if(info){ info.innerHTML = '<b>'+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'</b> · баланс '+fmt(vals[idx])+evTxt; }
-});
-}
 function explainForecast(f){
 var el = $('fcExplain'); if(!el){ return; }
 var now = new Date();
