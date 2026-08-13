@@ -2910,35 +2910,6 @@ document.addEventListener('click', function(e){
     if(act === 'h-mode'){ hMode2 = el.getAttribute('data-v'); cycOff2 = 0; renderTx('2'); return; }
   if(act === 'h-prev' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2--; renderTx('2'); return; }
   if(act === 'h-next' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2++; renderTx('2'); return; }
-  } else if(t === 'runway'){
-var f = forecastCashFlow(90);
-var rw3 = cashRunway();
-var minB3 = minBalance(90);
-var h = sheetHead('i-cal','c-blu','Cash Runway','прогноз баланса на 90 дней')
-+ rowHtml('Денег хватит на', rw3 >= 90 ? '90+ дней' : rw3+' дн')
-+ rowHtml('Минимум за 90 дней', fmt(minB3.val)+' · через '+minB3.daysFromNow+' дн')
-+ rowHtml('Дневной темп гибких', fmt(f.flexPerDay)+'/день')
-+ '<div class="cap" style="margin:10px 4px 6px">График прогноза</div>'
-+ '<div style="position:relative;background:rgba(255,255,255,.03);border-radius:12px;padding:8px;margin-bottom:10px"><canvas id="forecastChart" width="600" height="180" style="width:100%;height:180px;display:block"></canvas>'
-+ '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:4px"><span>сегодня</span><span>+30 дн</span><span>+60 дн</span><span>+90 дн</span></div></div>'
-+ '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по графику — баланс и события дня. Зелёные точки — зарплата, оранжевые — платежи, красная — минимум.</div>'
-+ '<div class="cap" style="margin:10px 4px 6px">Что произойдёт в ближайшие 30 дней</div>'
-+ '<div id="fcExplain"></div>'
-+ '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';
-var shown = 0;
-for(var ei=0;ei<f.events.length && shown<8;ei++){
-if(f.events[ei].date < new Date()){ continue; }
-h += '<div class="dig-item"><span>'+f.events[ei].date.getDate()+'.'+String(f.events[ei].date.getMonth()+1).padStart(2,'0')+' · '+f.events[ei].n+'</span><b class="'+(f.events[ei].amt>0?'pos':'')+'">'+(f.events[ei].amt>0?'+':'−')+fmt(Math.abs(f.events[ei].amt))+'</b></div>';
-shown++;
-}
-h += '<div style="margin-top:14px;display:flex;gap:8px">'
-+ '<button class="sh-btn" style="margin:0;flex:1" data-act="whatif">Что если…</button>'
-+ '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="debt-plan">План выхода из долгов</button>'
-+ '</div>';
-h += tipHtml(minB3.val < 0 ? 'Через '+minB3.daysFromNow+' дн баланс уйдёт в минус. Открой «Что если» и посмотри, что срезать.' : 'Прогноз стабильный — минимум положительный.');
-$('sheetBody').innerHTML = h;
-$('sheet').classList.add('on'); $('shb').classList.add('on');
-setTimeout(function(){ drawForecastChart(f); explainForecast(f); }, 60);
   if(act === 'whatif'){ openWhatIf(); return; }
 if(act === 'debt-plan'){ openDebtPlan(); return; }
 if(act === 'wi-calc'){
