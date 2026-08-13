@@ -3551,4 +3551,425 @@ function deployCheck(){
       deploySchedule(60000);
     });
 }
+
+// ========== МОЗГ ПРИЛОЖЕНИЯ v2 ==========
+
+// Прогнозный движок: строит баланс на каждый день вперёд
+// Учитывает: текущий остаток, средний дневной темп гибких трат,
+//            все будущие платежи, подписки, рассрочки, зарплату
+function forecastCashFlow(daysAhead, fromDate){
+  daysAhead = daysAhead || 90;
+  fromDate = fromDate || new Date();
+  fromDate = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+  
+  // 1. Определяем дневной темп гибких трат (исключая обязательные)
+  var lookback = 30;
+  var fromLook = new Date(fromDate.getTime() - lookback*864e5);
+  var allSp = allSpends();
+  var flexSum = 0, flexDays = 0;
+  var fixedCats = ['home', 'subs'];
+  var fixedKeywords = ['аренд','жкх','коммунал','подписк','telegram','yandex plus','netflix','ivi','spotify'];
+  
+  for(var i=0;i<allSp.length;i++){
+    if(allSp[i].d < fromLook || allSp[i].d >= fromDate){ continue; }
+    if(fixedCats.indexOf(allSp[i].cat||'other') !== -1){ continue; }
+    var nm = (allSp[i].n||'').toLowerCase();
+    var isFixed = false;
+    for(var f=0;f<fixedKeywords.length;f++){ if(nm.indexOf(fixedKeywords[f])!==-1){ isFixed = true; break; } }
+    if(!isFixed){ flexSum += allSp[i].s; }
+  }
+  flexDays = Math.max(1, Math.round((fromDate - fromLook)/864e5));
+  var flexPerDay = flexDays > 0 ? flexSum / flexDays : 0;
+  
+  // 2. Собираем все будущие известные списания и поступления
+  var events = [];
+  var i, d, key;
+  
+  // Подписки — списание 1 числа каждого месяца (или по дате, если известна)
+  for(i=0;i<D.subs.length;i++){
+    if(D.subs[i].off){ continue; }
+    for(var md=1; md<=daysAhead+30; md+=30){
+      var subDay = new Date(fromDate.getTime() + md*864e5);
+      subDay = new Date(subDay.getFullYear(), subDay.getMonth(), 1);
+      if(subDay >= fromDate){ events.push({date:subDay, amt:-D.subs[i].s, n:'Подписка: '+D.subs[i].n}); }
+    }
+  }
+  
+  // Платежи — по дню месяца
+  for(i=0;i<D.pays.length;i++){
+    for(var pd=0; pd<=daysAhead+60; pd++){
+      var check = new Date(fromDate.getTime() + pd*864e5);
+      if(check.getDate() === D.pays[i].d){
+        if(check >= fromDate){ events.push({date:check, amt:-D.pays[i].s, n:'Платёж: '+D.pays[i].n}); break; }
+      }
+      if(pd > 60){ break; }
+    }
+  }
+  
+  // Рассрочки — по точной дате
+  for(i=0;i<D.insts.length;i++){
+    var id = parseD(D.insts[i].d);
+    if(id >= fromDate){ events.push({date:id, amt:-D.insts[i].s, n:'Рассрочка: '+D.insts[i].n}); }
+  }
+  
+  // Зарплата — по календарю (с учётом выходных)
+  for(var mo=0; mo<=Math.ceil(daysAhead/30)+1; mo++){
+    var sd = salaryDate(fromDate.getFullYear(), fromDate.getMonth()+mo);
+    if(sd >= fromDate){ events.push({date:sd, amt: D.income || 0, n:'Зарплата'}); }
+  }
+  
+  events.sort(function(a,b){ return a.date - b.date; });
+  
+  // 3. Строим прогноз день за днём
+  var flow = [];
+  var curBal = realBal();
+  var curDate = new Date(fromDate);
+  
+  for(var day=0; day<=daysAhead; day++){
+    // применяем все события этого дня
+    for(var ei=0; ei<events.length; ei++){
+      if(iso(events[ei].date) === iso(curDate)){
+        curBal += events[ei].amt;
+      }
+    }
+    // вычитаем дневной темп гибких трат
+    if(day > 0){ curBal -= flexPerDay; }
+    
+    flow.push({
+      date: new Date(curDate),
+      balance: Math.round(curBal),
+      events: events.filter(function(e){ return iso(e.date) === iso(curDate); })
+    });
+    curDate = new Date(curDate.getTime() + 864e5);
+  }
+  
+  return {flow:flow, flexPerDay:Math.round(flexPerDay), events:events};
+}
+
+// Сколько дней денег хватит до нуля
+function cashRunway(){
+  var f = forecastCashFlow(90);
+  for(var i=0;i<f.flow.length;i++){
+    if(f.flow[i].balance < 0){ return i; }
+  }
+  return 90;
+}
+
+// Минимальный баланс за N дней и дата минимума
+function minBalance(days){
+  var f = forecastCashFlow(days);
+  var min = Infinity, minDate = null;
+  for(var i=0;i<f.flow.length;i++){
+    if(f.flow[i].balance < min){ min = f.flow[i].balance; minDate = f.flow[i].date; }
+  }
+  return {val:min, date:minDate, daysFromNow: Math.round((minDate - new Date())/864e5)};
+}
+
+// Могу ли купить X? Честный ответ с расчётом
+function canAfford(amount){
+  var f = forecastCashFlow(30);
+  var daily = calcDailyLimit();
+  var safe = calcSafeBalance();
+  var pay3 = nextPay(3);
+  var free = Math.max(0, safe - pay3);
+  
+  // Смотрим минимальный баланс после покупки
+  var minAfter = minBalance(30);
+  var postMin = minAfter.val - amount;
+  
+  if(amount <= daily.perDay && postMin >= 0){
+    return {verdict:'yes', txt:'Можно: вписывается в дневной лимит, после покупки минимальный баланс будет '+fmt(postMin)+' ₽.', color:'var(--grn)'};
+  } else if(postMin >= -5000){
+    return {verdict:'warn', txt:'Можно, но осторожно: после покупки минимум будет '+fmt(postMin)+' ₽. Срежь гибкие траты на пару дней.', color:'var(--org)'};
+  } else {
+    return {verdict:'no', txt:'Не советую: минимум уйдёт в '+fmt(postMin)+' ₽. Лучше подождать или найти дешевле.', color:'var(--red)'};
+  }
+}
+
+// План выхода из долгов — снежный ком или лавина
+function debtSnowball(){
+  var debts = [];
+  for(var i=0;i<D.credits.length;i++){
+    if(D.credits[i].cur > 0){ debts.push({n:D.credits[i].n, cur:D.credits[i].cur, total:D.credits[i].total}); }
+  }
+  if(!debts.length){ return null; }
+  
+  var totalDebt = 0;
+  for(var j=0;j<debts.length;j++){ totalDebt += debts[j].cur; }
+  
+  // Сколько можем платить в месяц сверх обязательных
+  var monthlyExtra = Math.max(0, (D.income||0) - calcMonthlyFixedPay() - 50000); // 50к минимум на жизнь
+  
+  if(monthlyExtra <= 0){
+    return {txt:'Обязательные платежи съедают весь доход. Сначала урежь гибкие траты (кафе, самокаты).', debts:debts};
+  }
+  
+  // Сортируем по размеру — снежный ком
+  debts.sort(function(a,b){ return a.cur - b.cur; });
+  var months = Math.ceil(totalDebt / monthlyExtra);
+  
+  return {
+    txt: 'При платеже '+fmt(monthlyExtra)+'/мес закроешь все долги за '+months+' мес. Начни с "'+debts[0].n+'" ('+fmt(debts[0].cur)+') — это даст психологическую победу.',
+    first: debts[0],
+    total: totalDebt,
+    months: months,
+    monthlyExtra: monthlyExtra
+  };
+}
+
+// Движок сигналов — 10 типов, каждый даёт ₽/мес выгоды
+function getSignals(){
+  var signals = [];
+  var now = new Date();
+  var allSp = allSpends();
+  
+  // 1. Runway отрицательный
+  var rw = cashRunway();
+  var payday = calcDailyLimit().daysLeft;
+  if(rw < payday){
+    signals.push({
+      sev: 9,
+      title: 'Через '+rw+' дн. денег не хватит',
+      desc: 'Зарплата только через '+payday+' дн. Нужно срочно урезать гибкие траты.',
+      benefit: 0,
+      act: {t:'sheet', i:'daily'}
+    });
+  }
+  
+  // 2. Подписки годовой стоимостью
+  var subsAnnual = 0;
+  for(var i=0;i<D.subs.length;i++){ if(!D.subs[i].off){ subsAnnual += D.subs[i].s * 12; } }
+  if(subsAnnual > 5000){
+    signals.push({
+      sev: 5,
+      title: 'Подписки = '+fmt(subsAnnual)+' в год',
+      desc: 'Пересмотри автоплатежи — часть можно отключить.',
+      benefit: Math.round(subsAnnual * 0.3 / 12), // 30% можно срезать
+      act: {t:'fixed'}
+    });
+  }
+  
+  // 3. Долги > 50% дохода
+  var debtTotal = 0;
+  for(var d=0;d<D.credits.length;d++){ debtTotal += D.credits[d].cur || 0; }
+  if(debtTotal > (D.income||0) * 0.5){
+    var plan = debtSnowball();
+    signals.push({
+      sev: 8,
+      title: 'Долги = '+Math.round(debtTotal/Math.max(1,D.income||1)*100)+'% дохода',
+      desc: plan ? plan.txt : 'Начни гасить с самого маленького.',
+      benefit: 0,
+      act: {t:'fixed'}
+    });
+  }
+  
+  // 4. Перерасход в конвертах
+  var actLeak = activeLeaks();
+  if(actLeak.length){
+    var leakSum = 0;
+    for(var l=0;l<actLeak.length;l++){ leakSum += actLeak[l].over; }
+    signals.push({
+      sev: 7,
+      title: actLeak.length+' конверт(а) в перерасходе',
+      desc: 'Перерасход '+fmt(leakSum)+' за цикл. Сократи: '+actLeak[0].n+'.',
+      benefit: Math.round(leakSum * 0.4),
+      act: {t:'leaks'}
+    });
+  }
+  
+  // 5. Гибкие траты > 20% дохода
+  var mNow = new Date(now.getFullYear(), now.getMonth(), 1);
+  var flexSpend = 0;
+  for(var i2=0;i2<allSp.length;i2++){
+    if(allSp[i2].d < mNow){ continue; }
+    var c = allSp[i2].cat || 'other';
+    if(c!=='home' && c!=='subs' && c!=='transport' && c!=='grocery'){ flexSpend += allSp[i2].s; }
+  }
+  var flexPct = (D.income||0) > 0 ? flexSpend / (D.income||1) : 0;
+  if(flexPct > 0.2){
+    var over = flexSpend - (D.income||0)*0.2;
+    signals.push({
+      sev: 6,
+      title: 'Гибкие траты = '+Math.round(flexPct*100)+'% дохода',
+      desc: 'Норма — до 20%. Сверх нормы: '+fmt(over)+'. Это кафе, такси, самокаты.',
+      benefit: Math.round(over * 0.5),
+      act: {t:'leaks'}
+    });
+  }
+  
+  // 6. Неразобранное «Прочее»
+  var otherN = 0;
+  for(var i3=0;i3<allSp.length;i3++){
+    if(allSp[i3].d >= mNow && (allSp[i3].cat||'other')==='other'){ otherN++; }
+  }
+  if(otherN > 3){
+    signals.push({
+      sev: 4,
+      title: otherN+' операций в «Прочее»',
+      desc: 'Разбери их — статистика станет точнее.',
+      benefit: 0,
+      act: {act:'other-bulk'}
+    });
+  }
+  
+  // 7. Кэшбэк без цели
+  var cashSum = 0;
+  for(var i4=0;i4<(D.incomes||[]).length;i4++){
+    var xd = parseD(D.incomes[i4].d);
+    if(xd >= mNow && incomeKind(D.incomes[i4])==='cash'){ cashSum += D.incomes[i4].s; }
+  }
+  if(cashSum > 500){
+    signals.push({
+      sev: 3,
+      title: 'Кэшбэк '+fmt(cashSum)+' без цели',
+      desc: 'Закинь в копилку — пусть работает на подушку или отпуск.',
+      benefit: Math.round(cashSum),
+      act: {act:'cashback-add'}
+    });
+  }
+  
+  // 8. Нет прогресса в подушке
+  var cush = null;
+  for(var ig=0;ig<(D.goals||[]).length;ig++){ if(/подушк/i.test(D.goals[ig].n)){ cush = D.goals[ig]; break; } }
+  if(cush && !cush.done && (cush.cur||0) < cush.target * 0.1){
+    signals.push({
+      sev: 7,
+      title: 'Подушка = '+Math.round((cush.cur||0)/cush.target*100)+'% от цели',
+      desc: 'Нужно 3-6 месяцев расходов. Авто-перевод 10% от зарплаты поможет.',
+      benefit: 0,
+      act: {t:'goals'}
+    });
+  }
+  
+  // 9. Крупный платёж в ближайшие 3 дня
+  var pay3 = nextPay(3);
+  if(pay3 > (D.income||0) * 0.3){
+    signals.push({
+      sev: 5,
+      title: 'Через 3 дня платёж '+fmt(pay3),
+      desc: 'Это '+Math.round(pay3/Math.max(1,D.income||1)*100)+'% зарплаты. Убедись, что деньги в резерве.',
+      benefit: 0,
+      act: {t:'upcoming-detail'}
+    });
+  }
+  
+  // 10. Сдача не закинута в копилку
+  var roundSum = 0;
+  for(var i5=0;i5<allSp.length;i5++){
+    if(allSp[i5].d >= mNow){ roundSum += Math.ceil(allSp[i5].s/10)*10 - allSp[i5].s; }
+  }
+  if(Math.round(roundSum) > 300){
+    signals.push({
+      sev: 2,
+      title: 'Сдача '+fmt(Math.round(roundSum))+' ждёт копилки',
+      desc: 'Округления трат накопились. Закинь в цель одним тапом.',
+      benefit: Math.round(roundSum),
+      act: {act:'round-add'}
+    });
+  }
+  
+  signals.sort(function(a,b){ return (b.benefit||0) - (a.benefit||0) || b.sev - a.sev; });
+  return signals.slice(0, 5);
+}
+
+// What-if симулятор
+function whatIf(change){
+  // change: {type: 'cut'|'add', category/name, amount}
+  var original = forecastCashFlow(90);
+  var originalMin = minBalance(90);
+  // Применяем изменение и пересчитываем
+  var f2 = forecastCashFlow(90);
+  if(change.type === 'cut'){
+    for(var i=0;i<f2.flow.length;i++){ f2.flow[i].balance += change.amount; }
+  } else if(change.type === 'add_debt'){
+    for(var i=0;i<f2.flow.length;i++){ f2.flow[i].balance -= change.amount / 12; }
+  }
+  var newMin = {val:Infinity, date:null};
+  for(var j=0;j<f2.flow.length;j++){
+    if(f2.flow[j].balance < newMin.val){ newMin.val = f2.flow[j].balance; newMin.date = f2.flow[j].date; }
+  }
+  return {
+    originalMin: originalMin.val,
+    newMin: newMin.val,
+    diff: newMin.val - originalMin.val
+  };
+}
+
+// Парсер намерений для копилота
+function agentParse(query){
+  var q = query.toLowerCase();
+  var numMatch = q.match(/(\d[\d\s]*)/);
+  var amount = numMatch ? parseInt(numMatch[1].replace(/\s/g,'')) : 0;
+  
+  if(/куп|можн|потяну|afford|хват/i.test(q) && amount > 0){
+    var r = canAfford(amount);
+    return {type:'afford', data:{amount:amount, verdict:r.verdict, txt:r.txt, color:r.color}};
+  }
+  if(/долг|кредит|рассроч|закрыть/i.test(q)){
+    return {type:'debt', data:debtSnowball()};
+  }
+  if(/утеч|перерасход|лимит/i.test(q)){
+    var leaks = activeLeaks();
+    return {type:'leaks', data:{leaks:leaks, total: leaks.reduce(function(s,l){return s+l.over;},0)}};
+  }
+  if(/подпис/i.test(q)){
+    var subs = D.subs.filter(function(s){ return !s.off; });
+    var total = 0; for(var i=0;i<subs.length;i++){ total += subs[i].s; }
+    return {type:'subs', data:{subs:subs, monthly:total, annual:total*12}};
+  }
+  if(/зарплат|зп|до зп|payday/i.test(q)){
+    var d = calcDailyLimit();
+    var rw2 = cashRunway();
+    return {type:'payday', data:{days:d.daysLeft, runway:rw2, daily:d.perDay}};
+  }
+  if(/итог|месяц|месяц/i.test(q)){
+    var now2 = new Date();
+    var from2 = new Date(now2.getFullYear(), now2.getMonth(), 1);
+    var tot2 = 0;
+    var all2 = allSpends();
+    for(var i=0;i<all2.length;i++){ if(all2[i].d >= from2){ tot2 += all2[i].s; } }
+    return {type:'month', data:{spent:tot2, income:D.income, saved:(D.income||0)-tot2}};
+  }
+  if(/накоп|копить|цель|отпуск/i.test(q)){
+    if(amount > 0){
+      var months2 = Math.ceil(amount / Math.max(1, (D.income||0) * 0.1));
+      return {type:'savings', data:{target:amount, months:months2, monthly:Math.round(amount/months2)}};
+    }
+    return {type:'savings', data:{goals:D.goals||[]}};
+  }
+  
+  // По умолчанию — топ-3 сигнала
+  var sigs = getSignals().slice(0,3);
+  return {type:'signals', data:sigs};
+}
+
+function agentAnswer(query){
+  var r = agentParse(query);
+  var ans = '';
+  if(r.type === 'afford'){
+    ans = '<b>'+fmt(r.data.amount)+'</b> — '+r.data.txt;
+  } else if(r.type === 'debt'){
+    if(!r.data){ ans = 'Долгов нет — отлично!'; }
+    else { ans = 'Всего долгов: <b>'+fmt(r.data.total)+'</b>. '+r.data.txt; }
+  } else if(r.type === 'leaks'){
+    if(!r.data.leaks.length){ ans = 'Утечек нет — лимиты в порядке.'; }
+    else { ans = '<b>'+r.data.leaks.length+' утечек</b> на '+fmt(r.data.total)+'. Главная: '+r.data.leaks[0].n+' — перерасход '+fmt(r.data.leaks[0].over)+'.'; }
+  } else if(r.type === 'subs'){
+    ans = '<b>'+r.data.subs.length+' активных подписок</b>: '+fmt(r.data.monthly)+'/мес, '+fmt(r.data.annual)+'/год.';
+  } else if(r.type === 'payday'){
+    ans = 'Зарплата через <b>'+r.data.days+' дн</b>. Runway: '+r.data.runway+' дн. Дневной лимит: '+fmt(r.data.daily)+'.';
+  } else if(r.type === 'month'){
+    ans = 'В этом месяце: потрачено <b>'+fmt(r.data.spent)+'</b> из дохода '+fmt(r.data.income)+'. '+(r.data.saved>=0?'Сэкономлено '+fmt(r.data.saved)+'.':'Перерасход '+fmt(-r.data.saved)+'.');
+  } else if(r.type === 'savings'){
+    if(r.data.months){ ans = 'Чтобы накопить '+fmt(r.data.target)+', откладывай '+fmt(r.data.monthly)+'/мес — накопишь за '+r.data.months+' мес.'; }
+    else { ans = 'Активных целей: '+(r.data.goals||[]).filter(function(g){return !g.done;}).length; }
+  } else if(r.type === 'signals'){
+    ans = '<b>Что важно сейчас:</b><br>';
+    for(var i=0;i<r.data.length;i++){
+      ans += '• '+r.data[i].title+'<br>';
+    }
+  }
+  return ans;
+}
+
 deployCheck();
