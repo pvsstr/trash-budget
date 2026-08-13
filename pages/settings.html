@@ -1,0 +1,31 @@
+<div id="pageSettings" class="page" style="display:none; padding: 16px; padding-bottom: 80px;">
+  <h2 style="margin-top:0;">Настройки</h2>
+  
+  <div class="card" style="margin-bottom:16px;">
+    <div style="font-weight:bold; margin-bottom:8px;">Управление данными</div>
+    <p style="font-size:13px; color:#aaa; margin-bottom:12px;">Сохраните копию своих данных перед крупными изменениями или восстановите из ранее созданной копии.</p>
+    
+    <button data-act="backup-export" style="width:100%; padding:14px; background:#2e7d32; color:white; border:none; border-radius:8px; font-size:15px; font-weight:500; margin-bottom:10px; display:flex; align-items:center; justify-content:center; gap:8px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Скачать копию данных
+    </button>
+    
+    <label style="width:100%; padding:14px; background:#1976d2; color:white; border-radius:8px; font-size:15px; font-weight:500; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-sizing:border-box;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+      Восстановить из файла
+      <input type="file" data-act="backup-import" accept=".json" style="display:none;">
+    </label>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="font-weight:bold; margin-bottom:8px;">Данные приложения</div>
+    <p style="font-size:13px; color:#aaa; margin-bottom:12px;">Версия приложения: <span id="appVersion">1.0.0</span></p>
+    <p style="font-size:13px; color:#aaa;">Последнее сохранение: <span id="lastSaveTime">Неизвестно</span></p>
+  </div>
+
+  <div class="card" style="border:1px solid #f44336;">
+    <div style="font-weight:bold; color:#f44336; margin-bottom:8px;">Опасная зона</div>
+    <p style="font-size:13px; color:#aaa; margin-bottom:12px;">Полный сброс всех данных. Действие необратимо.</p>
+    <button data-act="reset-all" style="width:100%; padding:14px; background:transparent; color:#f44336; border:1px solid #f44336; border-radius:8px; font-size:15px; font-weight:500;">Сбросить все данные</button>
+  </div>
+</div>
