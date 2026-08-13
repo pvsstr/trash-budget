@@ -2910,6 +2910,35 @@ document.addEventListener('click', function(e){
     if(act === 'h-mode'){ hMode2 = el.getAttribute('data-v'); cycOff2 = 0; renderTx('2'); return; }
   if(act === 'h-prev' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2--; renderTx('2'); return; }
   if(act === 'h-next' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2++; renderTx('2'); return; }
+  } else if(t === 'runway'){
+var f = forecastCashFlow(90);
+var rw3 = cashRunway();
+var minB3 = minBalance(90);
+var h = sheetHead('i-cal','c-blu','Cash Runway','прогноз баланса на 90 дней')
++ rowHtml('Денег хватит на', rw3 >= 90 ? '90+ дней' : rw3+' дн')
++ rowHtml('Минимум за 90 дней', fmt(minB3.val)+' · через '+minB3.daysFromNow+' дн')
++ rowHtml('Дневной темп гибких', fmt(f.flexPerDay)+'/день')
++ '<div class="cap" style="margin:10px 4px 6px">График прогноза</div>'
++ '<div style="position:relative;background:rgba(255,255,255,.03);border-radius:12px;padding:8px;margin-bottom:10px"><canvas id="forecastChart" width="600" height="180" style="width:100%;height:180px;display:block"></canvas>'
++ '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:4px"><span>сегодня</span><span>+30 дн</span><span>+60 дн</span><span>+90 дн</span></div></div>'
++ '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по графику — баланс и события дня. Зелёные точки — зарплата, оранжевые — платежи, красная — минимум.</div>'
++ '<div class="cap" style="margin:10px 4px 6px">Что произойдёт в ближайшие 30 дней</div>'
++ '<div id="fcExplain"></div>'
++ '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';
+var shown = 0;
+for(var ei=0;ei<f.events.length && shown<8;ei++){
+if(f.events[ei].date < new Date()){ continue; }
+h += '<div class="dig-item"><span>'+f.events[ei].date.getDate()+'.'+String(f.events[ei].date.getMonth()+1).padStart(2,'0')+' · '+f.events[ei].n+'</span><b class="'+(f.events[ei].amt>0?'pos':'')+'">'+(f.events[ei].amt>0?'+':'−')+fmt(Math.abs(f.events[ei].amt))+'</b></div>';
+shown++;
+}
+h += '<div style="margin-top:14px;display:flex;gap:8px">'
++ '<button class="sh-btn" style="margin:0;flex:1" data-act="whatif">Что если…</button>'
++ '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="debt-plan">План выхода из долгов</button>'
++ '</div>';
+h += tipHtml(minB3.val < 0 ? 'Через '+minB3.daysFromNow+' дн баланс уйдёт в минус. Открой «Что если» и посмотри, что срезать.' : 'Прогноз стабильный — минимум положительный.');
+$('sheetBody').innerHTML = h;
+$('sheet').classList.add('on'); $('shb').classList.add('on');
+setTimeout(function(){ drawForecastChart(f); explainForecast(f); }, 60);
   if(act === 'whatif'){ openWhatIf(); return; }
 if(act === 'debt-plan'){ openDebtPlan(); return; }
 if(act === 'wi-calc'){
@@ -3868,6 +3897,94 @@ for(var e2=0;e2<f.flow[idx].events.length;e2++){ evTxt += ' · '+f.flow[idx].eve
 var info = $('fcInfo');
 if(info){ info.innerHTML = '<b>'+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'</b> · баланс '+fmt(vals[idx])+evTxt; }
 });
+}
+
+function drawForecastChart(f){
+var c = $('forecastChart'); if(!c){ return; }
+var W = c.clientWidth || 300, H = 180;
+c.width = W*2; c.height = H*2;
+var ctx = c.getContext('2d');
+ctx.setTransform(2,0,0,2,0,0);
+var vals = []; for(var i=0;i<f.flow.length;i++){ vals.push(f.flow[i].balance); }
+var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+var rng = (mx - mn) || 1;
+function Y(v){ return H - 24 - ((v - mn)/rng)*(H - 48); }
+function X(i){ return 4 + i/(vals.length-1)*(W-8); }
+ctx.clearRect(0,0,W,H);
+if(mn < 0){
+ctx.strokeStyle = 'rgba(255,69,58,.35)';
+ctx.setLineDash([3,3]);
+ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.stroke();
+ctx.setLineDash([]);
+ctx.fillStyle = 'rgba(255,69,58,.7)'; ctx.font = '600 9px Manrope';
+ctx.fillText('НОЛЬ', 4, Y(0)-3);
+}
+ctx.beginPath();
+for(var i=0;i<vals.length;i++){ var px=X(i), py=Y(vals[i]); if(i===0){ ctx.moveTo(px,py); } else { ctx.lineTo(px,py); } }
+ctx.strokeStyle = '#64d2ff'; ctx.lineWidth = 2; ctx.stroke();
+for(var e=0;e<f.events.length;e++){
+var dayIdx = Math.round((f.events[e].date - f.flow[0].date)/864e5);
+if(dayIdx < 0 || dayIdx >= vals.length){ continue; }
+ctx.fillStyle = f.events[e].amt > 0 ? '#30d158' : '#ff9f0a';
+ctx.beginPath(); ctx.arc(X(dayIdx), Y(vals[dayIdx]), 3, 0, 6.28); ctx.fill();
+}
+var minI = 0; for(var m2=1;m2<vals.length;m2++){ if(vals[m2] < vals[minI]){ minI = m2; } }
+ctx.fillStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
+ctx.beginPath(); ctx.arc(X(minI), Y(vals[minI]), 5, 0, 6.28); ctx.fill();
+ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Manrope';
+ctx.fillText('мин '+fmt(vals[minI]), Math.min(W-90, X(minI)+8), Math.max(10, Y(vals[minI])-8));
+c.addEventListener('click', function(ev){
+var rect = c.getBoundingClientRect();
+var idx = Math.round((ev.clientX - rect.left)/rect.width*(vals.length-1));
+if(idx < 0 || idx >= vals.length){ return; }
+var d = f.flow[idx].date;
+var evTxt = '';
+for(var e2=0;e2<f.flow[idx].events.length;e2++){ evTxt += ' · '+f.flow[idx].events[e2].n+' '+(f.flow[idx].events[e2].amt>0?'+':'−')+fmt(Math.abs(f.flow[idx].events[e2].amt)); }
+var info = $('fcInfo');
+if(info){ info.innerHTML = '<b>'+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'</b> · баланс '+fmt(vals[idx])+evTxt; }
+});
+}
+function explainForecast(f){
+var el = $('fcExplain'); if(!el){ return; }
+var now = new Date();
+var salary = 0, salaryStr = '—', paysSum = 0, paysN = 0, instSum = 0, instN = 0, subsSum = 0;
+for(var e=0;e<f.events.length;e++){
+var ev = f.events[e];
+var dd = Math.round((ev.date - now)/864e5);
+if(dd < 0 || dd > 30){ continue; }
+if(ev.n.indexOf('Зарплата')===0){ salary += ev.amt; salaryStr = ev.date.getDate()+'.'+String(ev.date.getMonth()+1).padStart(2,'0'); }
+else if(ev.n.indexOf('Платёж:')===0){ paysSum += -ev.amt; paysN++; }
+else if(ev.n.indexOf('Рассрочка:')===0){ instSum += -ev.amt; instN++; }
+else if(ev.n.indexOf('Подписка:')===0){ subsSum += -ev.amt; }
+}
+var flex30 = Math.round(f.flexPerDay * 30);
+var b30 = 0, min30v = Infinity, min30d = null;
+for(var j=0;j<f.flow.length;j++){
+var ddn = Math.round((f.flow[j].date - now)/864e5);
+if(ddn === 30){ b30 = f.flow[j].balance; }
+if(ddn <= 30 && f.flow[j].balance < min30v){ min30v = f.flow[j].balance; min30d = f.flow[j].date; }
+}
+var h = '';
+h += '<div class="dig-item"><span>Зарплата '+salaryStr+'</span><b class="pos">+'+fmt(salary)+'</b></div>';
+h += '<div class="dig-item"><span>Обязательные платежи ('+paysN+'): аренда, симки и т.д.</span><b>−'+fmt(paysSum)+'</b></div>';
+if(instN){ h += '<div class="dig-item"><span>Рассрочки ('+instN+')</span><b>−'+fmt(instSum)+'</b></div>'; }
+if(subsSum>0){ h += '<div class="dig-item"><span>Подписки за месяц</span><b>−'+fmt(subsSum)+'</b></div>'; }
+h += '<div class="dig-item"><span>Повседневные траты темпом '+fmt(f.flexPerDay)+'/день</span><b>−'+fmt(flex30)+'</b></div>';
+h += '<div class="dig-item"><span>Баланс через 30 дней</span><b style="color:'+(b30>=0?'var(--grn)':'var(--red)')+'">'+fmt(b30)+'</b></div>';
+h += '<div class="dig-item"><span>Минимум за 30 дней</span><b style="color:'+(min30v<0?'var(--red)':'var(--grn)')+'">'+fmt(min30v)+' · '+min30d.getDate()+'.'+String(min30d.getMonth()+1).padStart(2,'0')+'</b></div>';
+var verdict, vcol;
+if(min30v < 0){
+vcol = 'var(--red)';
+verdict = 'Тревога: деньги закончатся примерно '+min30d.getDate()+'.'+String(min30d.getMonth()+1).padStart(2,'0')+'. Чтобы остаться в плюсе, урежь повседневные траты на '+fmt(Math.ceil(-min30v/30))+'/день или сдвинь покупку.';
+} else if(min30v < f.flexPerDay*7){
+vcol = 'var(--org)';
+verdict = 'Впритык: запас в самой низкой точке — '+fmt(min30v)+', это меньше недели трат. Крупные покупки сейчас лучше не планировать.';
+} else {
+vcol = 'var(--grn)';
+verdict = 'Спокойно: в самой низкой точке останется '+fmt(min30v)+'. Покупки в пределах этого запаса безопасны.';
+}
+h += '<div class="sh-tip" style="margin-top:8px;border-left:3px solid '+vcol+'">'+verdict+'</div>';
+el.innerHTML = h;
 }
 
 // Сколько дней денег хватит до нуля
