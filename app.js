@@ -527,8 +527,8 @@ function openSheet(t, i){
       + rowHtml('Дневной темп гибких', fmt(f.flexPerDay)+'/день')
       + '<div class="cap" style="margin:10px 4px 6px">График прогноза</div>'
       + '<div style="position:relative;background:rgba(255,255,255,.03);border-radius:12px;padding:8px;margin-bottom:10px"><canvas id="forecastChart" width="600" height="180" style="width:100%;height:180px;display:block"></canvas>'
-      + '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:4px"><span>сегодня</span><span>+30 дн</span><span>+60 дн</span><span>+90 дн</span></div></div>'
-      + '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';
++ '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:4px"><span>сегодня</span><span>+30 дн</span><span>+60 дн</span><span>+90 дн</span></div></div>'
++ '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по графику — баланс и события дня. Зелёные точки — зарплата, оранжевые — платежи, красная — минимум.</div>'      + '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';
     var shown = 0;
     for(var ei=0;ei<f.events.length && shown<8;ei++){
       if(f.events[ei].date < new Date()){ continue; }
@@ -542,43 +542,7 @@ function openSheet(t, i){
     h += tipHtml(minB3.val < 0 ? 'Через '+minB3.daysFromNow+' дн баланс уйдёт в минус. Открой «Что если» и посмотри, что срезать.' : 'Прогноз стабильный — минимум положительный.');
     $('sheetBody').innerHTML = h;
     $('sheet').classList.add('on'); $('shb').classList.add('on');
-    // рисуем большой график
-    setTimeout(function(){
-      var c = $('forecastChart'); if(!c){ return; }
-      var W = c.clientWidth, H = 180;
-      c.width = W*2; c.height = H*2;
-      var ctx = c.getContext('2d');
-      ctx.setTransform(2,0,0,2,0,0);
-      var vals = []; for(var i=0;i<f.flow.length;i++){ vals.push(f.flow[i].balance); }
-      var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
-      var rng = mx - mn || 1;
-      // нулевая линия
-      var zeroY = H - 20 - ((0 - mn)/rng)*(H-40);
-      if(zeroY > 0 && zeroY < H){
-        ctx.strokeStyle = 'rgba(255,69,58,.3)';
-        ctx.setLineDash([3,3]);
-        ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(W, zeroY); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      // линия
-      ctx.strokeStyle = 'rgba(100,210,255,.9)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for(var i=0;i<vals.length;i++){
-        var px = i/(vals.length-1)*W;
-        var py = H - 20 - ((vals[i]-mn)/rng)*(H-40);
-        if(i===0){ ctx.moveTo(px,py); } else { ctx.lineTo(px,py); }
-      }
-      ctx.stroke();
-      // минимум — точка
-      var minI = 0; for(var i=1;i<vals.length;i++){ if(vals[i] < vals[minI]){ minI = i; } }
-      var mpx = minI/(vals.length-1)*W;
-      var mpy = H - 20 - ((vals[minI]-mn)/rng)*(H-40);
-      ctx.fillStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
-      ctx.beginPath(); ctx.arc(mpx, mpy, 5, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Manrope';
-      ctx.fillText(fmt(vals[minI])+' · день '+minI, mpx+8, mpy-6);
-    }, 60);
+   setTimeout(function(){ drawForecastChart(f); }, 60);
 } else if(t === 'saverate'){
     var nowS = new Date();
     var mF = new Date(nowS.getFullYear(), nowS.getMonth(), 1), mT = new Date(nowS.getFullYear(), nowS.getMonth()+1, 1);
@@ -2946,6 +2910,32 @@ document.addEventListener('click', function(e){
     if(act === 'h-mode'){ hMode2 = el.getAttribute('data-v'); cycOff2 = 0; renderTx('2'); return; }
   if(act === 'h-prev' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2--; renderTx('2'); return; }
   if(act === 'h-next' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2++; renderTx('2'); return; }
+  if(act === 'whatif'){ openWhatIf(); return; }
+if(act === 'debt-plan'){ openDebtPlan(); return; }
+if(act === 'wi-calc'){
+var selW = $('wiCat'); var pctW = parseInt($('wiPct').value,10);
+if(!selW || isNaN(pctW)){ return; }
+var optW = selW.options[selW.selectedIndex];
+var catAmtW = parseFloat(optW ? optW.getAttribute('data-s') : '');
+if(isNaN(catAmtW)){ dAlert('Выбери категорию.', 'Что если'); return; }
+var cutW = Math.round(catAmtW * pctW / 100);
+var simW = whatIf(cutW);
+var colW = simW.diff > 0 ? 'var(--grn)' : 'var(--red)';
+$('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-left:3px solid '+colW+'">Минимум за 90 дней станет: <b style="color:'+colW+'">'+fmt(simW.newMin)+'</b> '
++ '(было '+fmt(simW.originalMin)+', '+(simW.diff>0?'+':'')+fmt(simW.diff)+')<br>'
++ 'Экономия: '+fmt(cutW)+'/мес.</div>';
+return;
+}
+if(act === 'wi-calc-debt'){
+var payW = parseFloat($('wiDebtPay').value);
+if(isNaN(payW) || payW <= 0){ dAlert('Введи ежемесячный платёж.', 'Что если'); return; }
+var simD = whatIf(-payW);
+var colD = simD.diff < 0 ? 'var(--red)' : 'var(--org)';
+$('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-left:3px solid '+colD+'">С новым кредитом минимум за 90 дней: <b style="color:'+colD+'">'+fmt(simD.newMin)+'</b> '
++ '(было '+fmt(simD.originalMin)+', '+(simD.diff>0?'+':'')+fmt(simD.diff)+')<br>'
++ 'Нагрузка: '+fmt(payW)+'/мес.</div>';
+return;
+}
   if(act === 'nav'){ go(el.getAttribute('data-p')); }
   else if(act === 'sheet'){ window._sheetM = parseInt(el.getAttribute('data-m')||'0',10); openSheet(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
   else if(act === 'env'){ openEnv(parseInt(el.getAttribute('data-i'), 10)); }
@@ -3834,6 +3824,52 @@ function forecastCashFlow(daysAhead, fromDate){
   return {flow:flow, flexPerDay:Math.round(flexPerDay), events:events};
 }
 
+function drawForecastChart(f){
+var c = $('forecastChart'); if(!c){ return; }
+var W = c.clientWidth || 300, H = 180;
+c.width = W*2; c.height = H*2;
+var ctx = c.getContext('2d');
+ctx.setTransform(2,0,0,2,0,0);
+var vals = []; for(var i=0;i<f.flow.length;i++){ vals.push(f.flow[i].balance); }
+var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+var rng = (mx - mn) || 1;
+function Y(v){ return H - 24 - ((v - mn)/rng)*(H - 48); }
+function X(i){ return 4 + i/(vals.length-1)*(W-8); }
+ctx.clearRect(0,0,W,H);
+if(mn < 0){
+ctx.strokeStyle = 'rgba(255,69,58,.35)';
+ctx.setLineDash([3,3]);
+ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.stroke();
+ctx.setLineDash([]);
+ctx.fillStyle = 'rgba(255,69,58,.7)'; ctx.font = '600 9px Manrope';
+ctx.fillText('НОЛЬ', 4, Y(0)-3);
+}
+ctx.beginPath();
+for(var i=0;i<vals.length;i++){ var px=X(i), py=Y(vals[i]); if(i===0){ ctx.moveTo(px,py); } else { ctx.lineTo(px,py); } }
+ctx.strokeStyle = '#64d2ff'; ctx.lineWidth = 2; ctx.stroke();
+for(var e=0;e<f.events.length;e++){
+var dayIdx = Math.round((f.events[e].date - f.flow[0].date)/864e5);
+if(dayIdx < 0 || dayIdx >= vals.length){ continue; }
+ctx.fillStyle = f.events[e].amt > 0 ? '#30d158' : '#ff9f0a';
+ctx.beginPath(); ctx.arc(X(dayIdx), Y(vals[dayIdx]), 3, 0, 6.28); ctx.fill();
+}
+var minI = 0; for(var m2=1;m2<vals.length;m2++){ if(vals[m2] < vals[minI]){ minI = m2; } }
+ctx.fillStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
+ctx.beginPath(); ctx.arc(X(minI), Y(vals[minI]), 5, 0, 6.28); ctx.fill();
+ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Manrope';
+ctx.fillText('мин '+fmt(vals[minI]), Math.min(W-90, X(minI)+8), Math.max(10, Y(vals[minI])-8));
+c.addEventListener('click', function(ev){
+var rect = c.getBoundingClientRect();
+var idx = Math.round((ev.clientX - rect.left)/rect.width*(vals.length-1));
+if(idx < 0 || idx >= vals.length){ return; }
+var d = f.flow[idx].date;
+var evTxt = '';
+for(var e2=0;e2<f.flow[idx].events.length;e2++){ evTxt += ' · '+f.flow[idx].events[e2].n+' '+(f.flow[idx].events[e2].amt>0?'+':'−')+fmt(Math.abs(f.flow[idx].events[e2].amt)); }
+var info = $('fcInfo');
+if(info){ info.innerHTML = '<b>'+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'</b> · баланс '+fmt(vals[idx])+evTxt; }
+});
+}
+
 // Сколько дней денег хватит до нуля
 function cashRunway(){
   var f = forecastCashFlow(90);
@@ -4061,26 +4097,16 @@ function getSignals(){
 }
 
 // What-if симулятор
-function whatIf(change){
-  // change: {type: 'cut'|'add', category/name, amount}
-  var original = forecastCashFlow(90);
-  var originalMin = minBalance(90);
-  // Применяем изменение и пересчитываем
-  var f2 = forecastCashFlow(90);
-  if(change.type === 'cut'){
-    for(var i=0;i<f2.flow.length;i++){ f2.flow[i].balance += change.amount; }
-  } else if(change.type === 'add_debt'){
-    for(var i=0;i<f2.flow.length;i++){ f2.flow[i].balance -= change.amount / 12; }
-  }
-  var newMin = {val:Infinity, date:null};
-  for(var j=0;j<f2.flow.length;j++){
-    if(f2.flow[j].balance < newMin.val){ newMin.val = f2.flow[j].balance; newMin.date = f2.flow[j].date; }
-  }
-  return {
-    originalMin: originalMin.val,
-    newMin: newMin.val,
-    diff: newMin.val - originalMin.val
-  };
+function whatIf(perMonth){
+var f2 = forecastCashFlow(90);
+var perDay = perMonth / 30;
+for(var i=0;i<f2.flow.length;i++){ f2.flow[i].balance += Math.round(perDay * i); }
+var newMin = {val:Infinity, date:null};
+for(var j=0;j<f2.flow.length;j++){
+if(f2.flow[j].balance < newMin.val){ newMin.val = f2.flow[j].balance; newMin.date = f2.flow[j].date; }
+}
+var orig = minBalance(90);
+return {originalMin: orig.val, newMin: newMin.val, diff: newMin.val - orig.val};
 }
 
 // Парсер намерений для копилота
