@@ -3406,81 +3406,8 @@ save(); render(); toast('Память применена: обновлено о�
       else { toast('+'+fmt(window._cashAmt)+' к цели "'+cg.n+'"'); }
       save(); closeSheet(); render();
     }
+  }
   else if(act === 'env-add'){ openEnvAdd(); }
-  else if(act === 'env-add-save'){
-    var tE = $('envType').value;
-    var lE = parseFloat($('envLim').value);
-    if(isNaN(lE) || lE <= 0){ dAlert('Укажи лимит.', 'Конверт'); return; }
-    var icMap = {'Продукты':['i-cart','c-grn'],'Кафе':['i-coffee','c-red'],'Самокаты':['i-scoot','c-org'],'Такси':['i-taxi','c-blu'],'Тройка':['i-train','c-blu'],'Аренда':['i-home','c-pur'],'Личное':['i-gift','c-pur']};
-    var mm = icMap[tE] || ['i-gift','c-pur'];
-    D.envs.push({id:Date.now(), n:tE, lim:lE, ic:mm[0], k:mm[1]});
-    save(); closeSheet(); render(); toast('Конверт "'+tE+'" создан');
-  }
-  else if(act === 'pay-paid'){
-    var pid = parseInt(el.getAttribute('data-i'),10);
-    var pay = null;
-    for(var p2=0;p2<D.pays.length;p2++){ if(D.pays[p2].id===pid){ pay = D.pays[p2]; break; } }
-    if(pay){
-      dConfirm('Отметить "'+pay.n+'" оплаченным? Запишется трата '+fmt(pay.s)+'.', 'Платёж').then(function(ok){
-        if(!ok){ return; }
-        var sid = Date.now();
-        D.spends.push({id:sid, d:iso(new Date()), n:pay.n, cat:autoCat(pay.n), s:pay.s, manual:1});
-        D.paid = D.paid || {}; var key = cycleKey(); D.paid[key] = D.paid[key] || {}; D.paid[key][pay.id] = sid;
-        save(); render(); toast('Платёж отмечен оплаченным');
-      });
-    }
-  }
-  else if(act === 'pay-unpaid'){
-    var pid2 = parseInt(el.getAttribute('data-i'),10);
-    var key2 = cycleKey();
-    var sid2 = ((D.paid||{})[key2]||{})[pid2];
-    dConfirm('Снять отметку? Трата платежа будет удалена.', 'Платёж', true).then(function(ok){
-      if(!ok){ return; }
-      if(sid2){ D.spends = D.spends.filter(function(x){ return x.id !== sid2; }); }
-      if(D.paid && D.paid[key2]){ delete D.paid[key2][pid2]; }
-      save(); render(); toast('Отметка снята');
-    });
-  }
-  else if(act === 'sub-toggle'){
-    var sid3 = parseInt(el.getAttribute('data-i'),10);
-    var sIt = null;
-    for(var s4=0;s4<D.subs.length;s4++){ if(D.subs[s4].id===sid3){ sIt = D.subs[s4]; break; } }
-    if(sIt){
-      sIt.off = sIt.off ? 0 : 1;
-      save(); render(); toast(sIt.off ? 'Подписка "'+sIt.n+'" отключена' : 'Подписка "'+sIt.n+'" включена');
-    }
-  }
-  else if(act === 'cred-pay'){
-    var cid = parseInt(el.getAttribute('data-i'),10);
-    var cr = null;
-    for(var c5=0;c5<D.credits.length;c5++){ if(D.credits[c5].id===cid){ cr = D.credits[c5]; break; } }
-    if(cr){
-      dPrompt('Сумма платежа по "'+cr.n+'", ₽?', 'Платёж по кредиту', String(cr.cur)).then(function(v){
-        if(!v){ return; }
-        var a5 = parseFloat(v);
-        if(isNaN(a5) || a5 <= 0){ return; }
-        a5 = Math.min(a5, cr.cur);
-        cr.cur -= a5;
-        D.spends.push({id:Date.now(), d:iso(new Date()), n:'Платёж: '+cr.n, cat:'other', s:a5, manual:1});
-        save(); render(); toast(cr.cur <= 0 ? 'Кредит "'+cr.n+'" закрыт!' : 'Платёж '+fmt(a5)+' учтён');
-      });
-    }
-  }
-  else if(act === 'inst-pay'){
-    var iid3 = parseInt(el.getAttribute('data-i'),10);
-    var in3 = null;
-    for(var i7=0;i7<D.insts.length;i7++){ if(D.insts[i7].id===iid3){ in3 = D.insts[i7]; break; } }
-    if(in3){
-      dConfirm('Оплатить рассрочку '+fmt(in3.s)+' ('+in3.n+')? Запишется трата.', 'Рассрочка').then(function(ok){
-        if(!ok){ return; }
-        D.spends.push({id:Date.now(), d:iso(new Date()), n:in3.n, cat:'other', s:in3.s, manual:1});
-        D.insts = D.insts.filter(function(x){ return x.id !== iid3; });
-        save(); render(); toast('Рассрочка оплачена');
-      });
-    }
-  }
-  }   
-      else if(act === 'env-add'){ openEnvAdd(); }
   else if(act === 'env-add-save'){
     var tE = $('envType').value;
     var lE = parseFloat($('envLim').value);
@@ -4191,7 +4118,7 @@ function agentAnswer(query){
   } else if(r.type === 'subs'){
     ans = '<b>'+r.data.subs.length+' активных подписок</b>: '+fmt(r.data.monthly)+'/мес, '+fmt(r.data.annual)+'/год.';
   } else if(r.type === 'payday'){
-    ans = 'Зарплата через <b>'+r.data.days+' дн</b>. Runway: '+r.data.runway+' дн. Дневной лимит: '+fmt(r.data.daily)+'.';
+    ans = 'Зарплата через <b>'+r.data.days+' дн</b>. Прогноз: '+r.data.runway+' дн. Дневной лимит: '+fmt(r.data.daily)+'.';
   } else if(r.type === 'month'){
     ans = 'В этом месяце: потрачено <b>'+fmt(r.data.spent)+'</b> из дохода '+fmt(r.data.income)+'. '+(r.data.saved>=0?'Сэкономлено '+fmt(r.data.saved)+'.':'Перерасход '+fmt(-r.data.saved)+'.');
   } else if(r.type === 'savings'){
