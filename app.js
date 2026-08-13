@@ -3116,15 +3116,41 @@ document.addEventListener('click', function(e){
   else if(act === 'merch-open'){ openMerchSheet(parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'other-bulk'){ openOtherBulk(); }
   else if(act === 'mem-apply'){
-    var rules = D.merchRules || {};
-    var changed = 0;
-    for(var i=0;i<D.tx.length;i++){
-      var mk = merchName(D.tx[i].n || '').toLowerCase();
-      if(rules[mk]){
-        var newCat = rules[mk];
-        var curCat = TX2CAT[D.tx[i].c] || D.tx[i].c || 'other';
-        if(curCat !== newCat){ D.tx[i].c = newCat; changed++; }
-else if(act === 'bulk-set'){
+var rules = D.merchRules || {};
+var changed = 0;
+for(var i=0;i<D.tx.length;i++){
+var mk = merchName(D.tx[i].n || '').toLowerCase();
+if(rules[mk]){
+var newCat = rules[mk];
+var curCat = TX2CAT[D.tx[i].c] || D.tx[i].c || 'other';
+if(curCat !== newCat){ D.tx[i].c = newCat; changed++; }
+}
+}
+save(); render(); toast('Память применена: обновлено операций: '+changed);
+}
+else if(act === 'whatif'){ openWhatIf(); }
+else if(act === 'debt-plan'){ openDebtPlan(); }
+else if(act === 'wi-calc'){
+var sel = $('wiCat'); var pct = parseInt($('wiPct').value,10);
+if(!sel || isNaN(pct)){ return; }
+var catAmt = parseFloat(sel.getAttribute('data-s'));
+var cut = Math.round(catAmt * pct / 100);
+var sim = whatIf({type:'cut', amount:cut});
+var col = sim.diff > 0 ? 'var(--grn)' : 'var(--red)';
+$('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-left:3px solid '+col+'">Минимум за 90 дней станет: <b style="color:'+col+'">'+fmt(sim.newMin)+'</b> '
++ '(было '+fmt(sim.originalMin)+', '+(sim.diff>0?'+':'')+fmt(sim.diff)+')<br>'
++ 'Экономия: '+fmt(cut)+'/мес.</div>';
+}
+else if(act === 'wi-calc-debt'){
+var amt = parseFloat($('wiDebt').value);
+var pay = parseFloat($('wiDebtPay').value);
+if(isNaN(amt) || isNaN(pay) || pay<=0){ dAlert('Введи сумму и платёж.', 'Что если'); return; }
+var sim = whatIf({type:'add_debt', amount:pay*12});
+var col = sim.diff < 0 ? 'var(--red)' : 'var(--org)';
+$('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-left:3px solid '+col+'">После нового кредита минимум за 90 дней: <b style="color:'+col+'">'+fmt(sim.newMin)+'</b> '
++ '(было '+fmt(sim.originalMin)+', '+(sim.diff>0?'+':'')+fmt(sim.diff)+')<br>'
++ 'Нагрузка: '+fmt(pay)+'/мес.</div>';
+}
 else if(act === 'whatif'){ openWhatIf(); }
 else if(act === 'debt-plan'){ openDebtPlan(); }
   else if(act === 'wi-calc'){
