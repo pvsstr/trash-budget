@@ -2332,6 +2332,13 @@ function smartTips(){
   return tips;
 }
 
+function rememberRule(name, cat){
+  var nm = String(name||'').toLowerCase().trim();
+  if(!nm || nm.length < 3 || !cat || cat === 'other'){ return; }
+  D.merchRules = D.merchRules || {};
+  D.merchRules[merchName(nm).toLowerCase()] = cat;
+}
+
 function merchName(n){
   var s = (n||'').toLowerCase();
   if(s.indexOf('пятероч')!==-1 || s.indexOf('pyateroch')!==-1){ return 'Пятерочка'; }
@@ -2354,23 +2361,17 @@ function saveTxEdit(){
   var amt = parseFloat($('teAmt').value);
   if(isNaN(amt) || amt <= 0){ dAlert('Введите сумму.', 'Операция'); return; }
   var cat = $('teCat').value, dtv = $('teDate').value, note = $('teNote').value.trim();
-  if(f.src === 'sp'){
-    for(var i6=0;i6<D.spends.length;i6++){ if(String(D.spends[i6].id) === String(f.i)){ D.spends[i6].s = amt; D.spends[i6].cat = cat; if(dtv){ D.spends[i6].d = dtv; } if(note){ D.spends[i6].n = note; } break; } }
-  } else {
-    var t6 = D.tx[+f.i];
-    if(t6){ t6.s = -amt; t6.c = cat; if(dtv){ t6.d = dtv; } if(note){ t6.n = note; } }
-  }
-  // Запоминаем правило: название → категория
   var savedItem = null;
   if(f.src === 'sp'){
-    for(var r2=0;r2<D.spends.length;r2++){ if(String(D.spends[r2].id) === String(f.i)){ savedItem = D.spends[r2]; break; } }
-  } else { savedItem = D.tx[+f.i]; }
-  var nm2 = (savedItem && savedItem.n ? String(savedItem.n).toLowerCase().trim() : '');
-  if(nm2 && cat !== 'other' && nm2.length > 2){
-    D.merchRules = D.merchRules || {};
-    D.merchRules[merchName(nm2).toLowerCase()] = cat;
+    for(var i6=0;i6<D.spends.length;i6++){ if(String(D.spends[i6].id) === String(f.i)){ savedItem = D.spends[i6]; break; } }
+    if(savedItem){ savedItem.s = amt; savedItem.cat = cat; if(dtv){ savedItem.d = dtv; } if(note){ savedItem.n = note; } }
+  } else {
+    var t6 = D.tx[+f.i];
+    if(t6){ savedItem = t6; t6.s = -amt; t6.c = cat; if(dtv){ t6.d = dtv; } if(note){ t6.n = note; } }
   }
-  save(); closeSheet(); render(); toast('Операция обновлена');
+  if(savedItem){ rememberRule(savedItem.n, cat); }
+  save(); closeSheet(); render();
+  toast(savedItem && cat !== 'other' ? 'Сохранено · '+merchName(String(savedItem.n).toLowerCase())+' → '+catById(cat).n : 'Операция обновлена');
 }
 function getTxItem(src, i){
   if(src === 'sp'){
@@ -2995,9 +2996,10 @@ document.addEventListener('click', function(e){
     var bc = el.getAttribute('data-c');
     var bit = (window._otherList||[])[bi];
     if(bit){
-      if(bit.src === 'tx'){ var bt = D.tx[bit.sid]; if(bt){ bt.c = bc; } }
+            if(bit.src === 'tx'){ var bt = D.tx[bit.sid]; if(bt){ bt.c = bc; } }
       else { for(var b4=0;b4<D.spends.length;b4++){ if(String(D.spends[b4].id) === String(bit.sid)){ D.spends[b4].cat = bc; break; } } }
-      save(); render(); openOtherBulk(); toast('Категория присвоена');
+      rememberRule(bit.n, bc);
+      save(); render(); openOtherBulk(); toast('Категория присвоена · память: '+merchName(String(bit.n).toLowerCase())+' → '+catById(bc).n);
     }
   }
   else if(act === 'stmt-import'){ openStmtSheet(); }
