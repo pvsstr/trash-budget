@@ -205,6 +205,7 @@ textarea{width:100%;height:140px;background:rgba(255,255,255,.06);border:1px sol
 .c-org{color:var(--org);background:rgba(255,159,10,.14)}
 @media(min-width:1100px){#rail{display:flex}}
 @media(max-width:960px){.cols{grid-template-columns:1fr}.dash-row.cols-2{grid-template-columns:1fr}.bento-stats{grid-template-columns:1fr 1fr}.hero-right{width:100%}.hero-card{flex:1;min-width:140px}#bnav{display:grid}}
+@media(max-width:480px){.dash-hero{padding:16px;gap:12px}.hero-left h2{font-size:22px}.hero-card{padding:12px 14px;min-width:140px}.stat .val{font-size:20px}.bento-stats{grid-template-columns:1fr}.dash-row{gap:12px}.card-padding{padding:14px 16px}.tx-body b{font-size:13.5px}.tx-right b{font-size:14px}.sh-h b{font-size:16px}.sh-h .sic{width:42px;height:42px}}
 @media(min-width:961px){#bnav{display:none}}
 /* Красивая шапка: оживает при наведении, но НЕ кликабельна */
 .hov-static{transition:transform .3s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .3s}
