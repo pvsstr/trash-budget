@@ -104,7 +104,7 @@ var LESSONS = [
 {id:7,t:'Обязательное и гибкое',x:'Аренда и подписки урезать трудно. Кафе, самокаты, такси — гибкие траты.'},
 {id:8,t:'Рассрочка без ловушек',x:'Рассрочка безопасна, только если платёж уже вписан в бюджет.'}];
 
-var DEMO = {demo:true, income:114493, salaryDay:20, baseBalance:0,
+var DEMO = {demo:true, income:114493, salaryDay:20, baseBalance:50000,
 goals:{cushion:0, cushionT:100000, vacation:0, vacationT:200000},
 spends:[], incomes:[],
 envs:[
@@ -521,7 +521,7 @@ function openSheet(t, i){
     var f = forecastCashFlow(90);
     var rw3 = cashRunway();
     var minB3 = minBalance(90);
-    var h = sheetHead('i-cal','c-blu','Cash Runway','прогноз баланса на 90 дней')
+    var h = sheetHead('i-cal','c-blu','Прогноз баланса','прогноз на 90 дней')
       + rowHtml('Денег хватит на', rw3 >= 90 ? '90+ дней' : rw3+' дн')
       + rowHtml('Минимум за 90 дней', fmt(minB3.val)+' · через '+minB3.daysFromNow+' дн')
       + rowHtml('Дневной темп гибких', fmt(f.flexPerDay)+'/день')
@@ -1872,7 +1872,7 @@ function renderDashboardNew() {
     if(rwNow >= 90){ $('runwayVal').textContent = '90+ дн'; $('runwayVal').style.color = 'var(--grn)'; }
     else { $('runwayVal').textContent = rwNow + ' дн'; $('runwayVal').style.color = rwNow >= paydayDays ? 'var(--grn)' : (rwNow > 7 ? 'var(--org)' : 'var(--red)'); }
   }
-  if($('runwayLbl')){ $('runwayLbl').textContent = rwNow < paydayDays ? 'Денег хватит на' : 'Cash Runway'; }
+  if($('runwayLbl')){ $('runwayLbl').textContent = rwNow < paydayDays ? 'Денег хватит на' : 'Прогноз баланса'; }
   if($('runwayHint')){
     if(minB.val < 0){
       $('runwayHint').textContent = 'мин. баланс '+fmt(minB.val)+' через '+minB.daysFromNow+' дн';
@@ -2249,7 +2249,7 @@ function goalFund(id){
     if(isNaN(amt) || amt === 0){ return; }
     g.cur = (g.cur||0) + amt;
     if(g.cur >= g.target && g.target > 0){ g.done = true; toast('Цель «'+g.n+'» выполнена!'); }
-    else { toast('+'+fmt(amt)+' к «'+g.n+'»'); }
+    else { toast('Пополнение цели «'+g.n+'» на '+fmt(amt)); }
     save(); render();
   });
 }
