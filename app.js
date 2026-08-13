@@ -517,14 +517,17 @@ function openSheet(t, i){
         + '<button class="mini-btn danger" data-act="fix-del" data-t="inst" data-i="'+ii.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
     h += '<div class="dlg-btns" style="margin-top:14px"><button class="sh-btn" style="margin:0" data-act="add" data-t="pay">+ Платёж</button><button class="sh-btn ghost" style="margin:0" data-act="add" data-t="sub">+ Подписка</button></div>';
-  } else if(t === 'runway'){
+   } else if(t === 'runway'){
     var f = forecastCashFlow(90);
     var rw3 = cashRunway();
     var minB3 = minBalance(90);
-    var h = sheetHead('i-cal','c-blu','Cash Runway','прогноз баланса на 90 дней с учётом календаря')
+    var h = sheetHead('i-cal','c-blu','Cash Runway','прогноз баланса на 90 дней')
       + rowHtml('Денег хватит на', rw3 >= 90 ? '90+ дней' : rw3+' дн')
       + rowHtml('Минимум за 90 дней', fmt(minB3.val)+' · через '+minB3.daysFromNow+' дн')
       + rowHtml('Дневной темп гибких', fmt(f.flexPerDay)+'/день')
+      + '<div class="cap" style="margin:10px 4px 6px">График прогноза</div>'
+      + '<div style="position:relative;background:rgba(255,255,255,.03);border-radius:12px;padding:8px;margin-bottom:10px"><canvas id="forecastChart" width="600" height="180" style="width:100%;height:180px;display:block"></canvas>'
+      + '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:4px"><span>сегодня</span><span>+30 дн</span><span>+60 дн</span><span>+90 дн</span></div></div>'
       + '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';
     var shown = 0;
     for(var ei=0;ei<f.events.length && shown<8;ei++){
@@ -532,6 +535,51 @@ function openSheet(t, i){
       h += '<div class="dig-item"><span>'+f.events[ei].date.getDate()+'.'+String(f.events[ei].date.getMonth()+1).padStart(2,'0')+' · '+f.events[ei].n+'</span><b class="'+(f.events[ei].amt>0?'pos':'')+'">'+(f.events[ei].amt>0?'+':'−')+fmt(Math.abs(f.events[ei].amt))+'</b></div>';
       shown++;
     }
+    h += '<div style="margin-top:14px;display:flex;gap:8px">'
+      + '<button class="sh-btn" style="margin:0;flex:1" data-act="whatif">Что если…</button>'
+      + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="debt-plan">План выхода из долгов</button>'
+      + '</div>';
+    h += tipHtml(minB3.val < 0 ? 'Через '+minB3.daysFromNow+' дн баланс уйдёт в минус. Открой «Что если» и посмотри, что срезать.' : 'Прогноз стабильный — минимум положительный.');
+    $('sheetBody').innerHTML = h;
+    $('sheet').classList.add('on'); $('shb').classList.add('on');
+    // рисуем большой график
+    setTimeout(function(){
+      var c = $('forecastChart'); if(!c){ return; }
+      var W = c.clientWidth, H = 180;
+      c.width = W*2; c.height = H*2;
+      var ctx = c.getContext('2d');
+      ctx.setTransform(2,0,0,2,0,0);
+      var vals = []; for(var i=0;i<f.flow.length;i++){ vals.push(f.flow[i].balance); }
+      var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+      var rng = mx - mn || 1;
+      // нулевая линия
+      var zeroY = H - 20 - ((0 - mn)/rng)*(H-40);
+      if(zeroY > 0 && zeroY < H){
+        ctx.strokeStyle = 'rgba(255,69,58,.3)';
+        ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.moveTo(0, zeroY); ctx.lineTo(W, zeroY); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      // линия
+      ctx.strokeStyle = 'rgba(100,210,255,.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for(var i=0;i<vals.length;i++){
+        var px = i/(vals.length-1)*W;
+        var py = H - 20 - ((vals[i]-mn)/rng)*(H-40);
+        if(i===0){ ctx.moveTo(px,py); } else { ctx.lineTo(px,py); }
+      }
+      ctx.stroke();
+      // минимум — точка
+      var minI = 0; for(var i=1;i<vals.length;i++){ if(vals[i] < vals[minI]){ minI = i; } }
+      var mpx = minI/(vals.length-1)*W;
+      var mpy = H - 20 - ((vals[minI]-mn)/rng)*(H-40);
+      ctx.fillStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
+      ctx.beginPath(); ctx.arc(mpx, mpy, 5, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Manrope';
+      ctx.fillText(fmt(vals[minI])+' · день '+minI, mpx+8, mpy-6);
+    }, 60);
+  }
     h += tipHtml(minB3.val < 0 ? 'Через '+minB3.daysFromNow+' дн баланс уйдёт в минус. Срежь гибкие траты или ускорь поступления.' : 'Прогноз стабильный — минимум положительный.');
     $('sheetBody').innerHTML = h;
     $('sheet').classList.add('on'); $('shb').classList.add('on');
@@ -1873,8 +1921,39 @@ function renderDashboardNew() {
     } else {
       $('runwayHint').textContent = 'минимум '+fmt(minB.val)+' через '+minB.daysFromNow+' дн';
       $('runwayHint').style.color = 'var(--mut)';
+    var mini = $('forecastMini');
+  if(mini){
+    var fMini = forecastCashFlow(90);
+    var Wm = mini.clientWidth || 200;
+    mini.width = Wm * 2; mini.height = 60;
+    mini.style.height = '30px';
+    var ym = mini.getContext('2d');
+    ym.setTransform(2,0,0,2,0,0);
+    var vals = [];
+    for(var vi=0;vi<fMini.flow.length;vi++){ vals.push(fMini.flow[vi].balance); }
+    var mnV = Math.min.apply(null, vals), mxV = Math.max.apply(null, vals);
+    var rng = mxV - mnV || 1;
+    ym.strokeStyle = 'rgba(100,210,255,.6)';
+    ym.lineWidth = 1.5;
+    ym.beginPath();
+    for(var pi=0;pi<vals.length;pi++){
+      var px = pi/(vals.length-1)*Wm;
+      var py = 30 - ((vals[pi]-mnV)/rng)*26 - 2;
+      if(pi===0){ ym.moveTo(px,py); } else { ym.lineTo(px,py); }
+    }
+    ym.stroke();
+    // красная точка на минимуме
+    var minI = 0; for(var mi=1;mi<vals.length;mi++){ if(vals[mi] < vals[minI]){ minI = mi; } }
+    var mpx = minI/(vals.length-1)*Wm;
+    var mpy = 30 - ((vals[minI]-mnV)/rng)*26 - 2;
+    ym.fillStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
+    ym.beginPath(); ym.arc(mpx, mpy, 3, 0, 6.28); ym.fill();
+  }
     }
   }
+
+
+  
   var plbl = document.querySelector('[data-t="payday"] span');
   if(plbl){ plbl.textContent = left2 >= 0 ? 'До зарплаты останется' : 'До зарплаты не хватит'; }
   if($('paydayHint')){ $('paydayHint').textContent = 'темп '+fmt(Math.round(pace2))+'/день · зарплата '+ceP.getDate()+'.'+String(ceP.getMonth()+1).padStart(2,'0'); }
@@ -2441,6 +2520,69 @@ function openOtherBulk(){
   $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
+
+function openWhatIf(){
+  var f = forecastCashFlow(90);
+  var minB = minBalance(90);
+  var cats = {};
+  var allSp = allSpends();
+  var mNow = new Date(); mNow = new Date(mNow.getFullYear(), mNow.getMonth(), 1);
+  for(var i=0;i<allSp.length;i++){
+    if(allSp[i].d < mNow){ continue; }
+    var c = allSp[i].cat || 'other';
+    cats[c] = (cats[c]||0) + allSp[i].s;
+  }
+  var arr = []; for(var k in cats){ arr.push({id:k, s:cats[k]}); }
+  arr.sort(function(a,b){ return b.s - a.s; });
+  var h = sheetHead('i-cal','c-org','Что если…','симулятор будущего баланса')
+    + '<div class="sh-tip" style="margin-bottom:10px">Сейчас минимум за 90 дней: <b>'+fmt(minB.val)+'</b></div>'
+    + '<div class="cap" style="margin:10px 4px 6px">Урезать категорию</div>'
+    + '<select class="inp" id="wiCat">';
+  for(var i=0;i<arr.length;i++){
+    h += '<option value="'+arr[i].id+'" data-s="'+arr[i].s+'">'+catById(arr[i].id).n+' ('+fmt(arr[i].s)+' за месяц)</option>';
+  }
+  h += '</select>'
+    + '<div class="form"><label style="font-size:11px;color:var(--mut)">На сколько % урезать: <b id="wiPctVal">30</b>%</label>'
+    + '<input type="range" id="wiPct" min="10" max="100" step="10" value="30" style="width:100%"></div>'
+    + '<button class="sh-btn" data-act="wi-calc">Посмотреть эффект</button>'
+    + '<div class="cap" style="margin:14px 4px 6px">Или: взять ещё долг</div>'
+    + '<div class="form"><input class="inp" id="wiDebt" type="number" placeholder="Сумма кредита, ₽">'
+    + '<input class="inp" id="wiDebtPay" type="number" placeholder="Ежемесячный платёж, ₽"></div>'
+    + '<button class="sh-btn ghost" data-act="wi-calc-debt">Посмотреть эффект</button>'
+    + '<div id="wiResult"></div>';
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+  var sl = $('wiPct'); var lb = $('wiPctVal');
+  if(sl && lb){ sl.addEventListener('input', function(){ lb.textContent = sl.value; }); }
+}
+function openDebtPlan(){
+  var plan = debtSnowball();
+  var debts = [];
+  for(var i=0;i<D.credits.length;i++){ if((D.credits[i].cur||0)>0){ debts.push(D.credits[i]); } }
+  if(!debts.length){
+    $('sheetBody').innerHTML = sheetHead('i-card','c-grn','Долги','у тебя их нет — отлично!')
+      + '<div class="sh-tip">Кредитов и рассрочек с долгом нет. Продолжай так!</div>';
+    $('sheet').classList.add('on'); $('shb').classList.add('on');
+    return;
+  }
+  debts.sort(function(a,b){ return a.cur - b.cur; });
+  var h = sheetHead('i-card','c-red','План выхода из долгов','метод снежного кома')
+    + (plan ? '<div class="sh-tip">'+plan.txt+'</div>' : '')
+    + '<div class="cap" style="margin:10px 4px 6px">Порядок погашения</div>';
+  for(var i=0;i<debts.length;i++){
+    h += '<div class="dig-item"><span>'+(i+1)+'. '+debts[i].n+'</span><b>'+fmt(debts[i].cur)+'</b></div>';
+  }
+  if(plan && plan.monthlyExtra > 0){
+    h += '<div class="cap" style="margin:14px 4px 6px">Твои цифры</div>'
+      + rowHtml('Всего долгов', fmt(plan.total))
+      + rowHtml('Свободно в месяц', fmt(plan.monthlyExtra))
+      + rowHtml('Закроешь всё за', plan.months+' мес');
+  }
+  h += tipHtml('Сначала гаси самый маленький долг полностью — это даёт психологическую победу и мотивацию на следующий.');
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+
 function openStmtSheet(){
   $('sheetBody').innerHTML = sheetHead('i-import','c-blu','Вставить выписку','текст из Альфы или Т-Банка')
     + '<div class="form"><textarea class="inp" id="stmtTxt" style="min-height:160px" placeholder="Вставь текст выписки сюда..."></textarea></div>'
@@ -2987,6 +3129,29 @@ document.addEventListener('click', function(e){
         var newCat = rules[mk];
         var curCat = TX2CAT[D.tx[i].c] || D.tx[i].c || 'other';
         if(curCat !== newCat){ D.tx[i].c = newCat; changed++; }
+          else if(act === 'whatif'){ openWhatIf(); }
+  else if(act === 'debt-plan'){ openDebtPlan(); }
+  else if(act === 'wi-calc'){
+    var sel = $('wiCat'); var pct = parseInt($('wiPct').value,10);
+    if(!sel || isNaN(pct)){ return; }
+    var catAmt = parseFloat(sel.getAttribute('data-s'));
+    var cut = Math.round(catAmt * pct / 100);
+    var sim = whatIf({type:'cut', amount:cut});
+    var col = sim.diff > 0 ? 'var(--grn)' : 'var(--red)';
+    $('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-left:3px solid '+col+'">Минимум за 90 дней станет: <b style="color:'+col+'">'+fmt(sim.newMin)+'</b> '
+      + '(было '+fmt(sim.originalMin)+', '+(sim.diff>0?'+':'')+fmt(sim.diff)+')<br>'
+      + 'Экономия: '+fmt(cut)+'/мес.</div>';
+  }
+  else if(act === 'wi-calc-debt'){
+    var amt = parseFloat($('wiDebt').value);
+    var pay = parseFloat($('wiDebtPay').value);
+    if(isNaN(amt) || isNaN(pay) || pay<=0){ dAlert('Введи сумму и платёж.', 'Что если'); return; }
+    var sim = whatIf({type:'add_debt', amount:pay*12});
+    var col = sim.diff < 0 ? 'var(--red)' : 'var(--org)';
+    $('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-left:3px solid '+col+'">После нового кредита минимум за 90 дней: <b style="color:'+col+'">'+fmt(sim.newMin)+'</b> '
+      + '(было '+fmt(sim.originalMin)+', '+(sim.diff>0?'+':'')+fmt(sim.diff)+')<br>'
+      + 'Нагрузка: '+fmt(pay)+'/мес.</div>';
+  }
       }
     }
     save(); render(); toast('Память применена: обновлено операций: '+changed);
