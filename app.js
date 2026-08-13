@@ -1327,7 +1327,7 @@ function histRange(){
   return {from:new Date(n.getFullYear(), n.getMonth(), 1), to:new Date(n.getFullYear(), n.getMonth()+1, 1)};
 }
 function openPeriodSheet(){
-  var r = (sfx==='2') ? histRange2() : histRange();
+  var r = histRange();
   $('sheetBody').innerHTML = sheetHead('i-cal','c-blu','Период истории','любые даты — хоть за прошлые годы')
     + '<div class="form"><div class="row2"><input class="inp" type="date" id="hpFrom" value="'+iso(r.from)+'"><input class="inp" type="date" id="hpTo" value="'+iso(new Date(r.to.getTime()-864e5))+'"></div></div>'
        + '<div class="dd-list static">'
@@ -2716,7 +2716,7 @@ function openEnvAdd(){
 function openQuickSpend(){
   var opts = '';
   for(var i=0;i<CATS.length;i++){ opts += '<option value="'+CATS[i].id+'">'+CATS[i].n+'</option>'; }
-  $('sheetBody').innerHTML = sheetHead('i-out','c-red','Быстрая тррата'.replace('трата','трата'),'сумма уменьшит реальный остаток')
+  $('sheetBody').innerHTML = sheetHead('i-out','c-red','Быстрая трата','сумма уменьшит реальный остаток')
     + '<div class="form"><input class="inp" id="qsAmt" type="number" placeholder="Сумма, ₽">'
     + '<select class="inp" id="qsCat">'+opts+'</select>'
     + '<input class="inp" id="qsNote" placeholder="Комментарий (необязательно)">'
@@ -3118,29 +3118,6 @@ if(curCat !== newCat){ D.tx[i].c = newCat; changed++; }
 }
 save(); render(); toast('Память применена: обновлено операций: '+changed);
 }
-else if(act === 'whatif'){ openWhatIf(); }
-else if(act === 'debt-plan'){ openDebtPlan(); }
-else if(act === 'wi-calc'){
-var sel = $('wiCat'); var pct = parseInt($('wiPct').value,10);
-if(!sel || isNaN(pct)){ return; }
-var catAmt = parseFloat(sel.getAttribute('data-s'));
-var cut = Math.round(catAmt * pct / 100);
-var sim = whatIf({type:'cut', amount:cut});
-var col = sim.diff > 0 ? 'var(--grn)' : 'var(--red)';
-$('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-left:3px solid '+col+'">Минимум за 90 дней станет: <b style="color:'+col+'">'+fmt(sim.newMin)+'</b> '
-+ '(было '+fmt(sim.originalMin)+', '+(sim.diff>0?'+':'')+fmt(sim.diff)+')<br>'
-+ 'Экономия: '+fmt(cut)+'/мес.</div>';
-}
-else if(act === 'wi-calc-debt'){
-var amt = parseFloat($('wiDebt').value);
-var pay = parseFloat($('wiDebtPay').value);
-if(isNaN(amt) || isNaN(pay) || pay<=0){ dAlert('Введи сумму и платёж.', 'Что если'); return; }
-var sim = whatIf({type:'add_debt', amount:pay*12});
-var col = sim.diff < 0 ? 'var(--red)' : 'var(--org)';
-$('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-left:3px solid '+col+'">После нового кредита минимум за 90 дней: <b style="color:'+col+'">'+fmt(sim.newMin)+'</b> '
-+ '(было '+fmt(sim.originalMin)+', '+(sim.diff>0?'+':'')+fmt(sim.diff)+')<br>'
-+ 'Нагрузка: '+fmt(pay)+'/мес.</div>';
-}    
   else if(act === 'bulk-set'){
     var bi = parseInt(el.getAttribute('data-i'),10);
     var bc = el.getAttribute('data-c');
@@ -3429,7 +3406,7 @@ $('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-lef
       else { toast('+'+fmt(window._cashAmt)+' к цели "'+cg.n+'"'); }
       save(); closeSheet(); render();
     }
-      else if(act === 'env-add'){ openEnvAdd(); }
+  else if(act === 'env-add'){ openEnvAdd(); }
   else if(act === 'env-add-save'){
     var tE = $('envType').value;
     var lE = parseFloat($('envLim').value);
@@ -3494,7 +3471,7 @@ $('wiResult').innerHTML = '<div class="sh-tip" style="margin-top:12px;border-lef
     var in3 = null;
     for(var i7=0;i7<D.insts.length;i7++){ if(D.insts[i7].id===iid3){ in3 = D.insts[i7]; break; } }
     if(in3){
-      dConfirm('Оплатить рассрочку '+fmt(in3.s)+' ('+in3.n+')? Запишется тррата.'.replace('тррата','трата'), 'Рассрочка').then(function(ok){
+      dConfirm('Оплатить рассрочку '+fmt(in3.s)+' ('+in3.n+')? Запишется трата.', 'Рассрочка').then(function(ok){
         if(!ok){ return; }
         D.spends.push({id:Date.now(), d:iso(new Date()), n:in3.n, cat:'other', s:in3.s, manual:1});
         D.insts = D.insts.filter(function(x){ return x.id !== iid3; });
