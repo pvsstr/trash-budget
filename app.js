@@ -583,7 +583,8 @@ function openSheet(t, i){
 + '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по графику — баланс и события дня. Зелёные точки — зарплата, оранжевые — платежи, красная — минимум.</div>'
 + '<div class="cap" style="margin:10px 4px 6px">Что произойдёт в ближайшие 30 дней</div>'
 + '<div id="fcExplain"></div>'
-+ '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';    var shown = 0;
++ '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';
+    var shown = 0;
     for(var ei=0;ei<f.events.length && shown<8;ei++){
       if(f.events[ei].date < new Date()){ continue; }
       h += '<div class="dig-item"><span>'+f.events[ei].date.getDate()+'.'+String(f.events[ei].date.getMonth()+1).padStart(2,'0')+' · '+f.events[ei].n+'</span><b class="'+(f.events[ei].amt>0?'pos':'')+'">'+(f.events[ei].amt>0?'+':'−')+fmt(Math.abs(f.events[ei].amt))+'</b></div>';
@@ -1646,6 +1647,26 @@ function renderRec(){
   $('recList').innerHTML = h;
 }
 
+function goalEta(g){
+var need = (g.target||0) - (g.cur||0);
+if(need <= 0){ return null; }
+var now = new Date();
+var pace = 0;
+for(var m=0;m<3;m++){
+var f = new Date(now.getFullYear(), now.getMonth()-m, 1), t = new Date(now.getFullYear(), now.getMonth()-m+1, 1);
+var inc = 0, sp = 0;
+for(var i=0;i<(D.incomes||[]).length;i++){ var d = parseD(D.incomes[i].d); if(d >= f && d < t){ inc += D.incomes[i].s; } }
+var all = allSpends();
+for(var j=0;j<all.length;j++){ if(all[j].d >= f && all[j].d < t){ sp += all[j].s; } }
+pace += Math.max(0, inc - sp);
+}
+pace = pace / 3;
+if(pace <= 0){ return null; }
+var months = Math.ceil(need / pace);
+var d = new Date(now.getFullYear(), now.getMonth()+months, 1);
+return d.toLocaleDateString('ru-RU',{month:'short', year:'2-digit'}).replace('.','');
+}
+
 function goalsHtml(){
   var act = (D.goals||[]).filter(function(g){ return !g.done; });
   var done = (D.goals||[]).filter(function(g){ return g.done; });
@@ -1656,7 +1677,9 @@ function goalsHtml(){
     for(var i=0;i<act.length;i++){
       var g = act[i];
       var p = Math.min(100, Math.round((g.cur||0) / Math.max(1,g.target||1) * 100));
-      var dl = g.deadline ? ' · до '+parseD(g.deadline).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) : '';
+var dl = g.deadline ? ' · до '+parseD(g.deadline).toLocaleDateString('ru-RU',{day:'numeric',month:'short'}) : '';
+var eta = goalEta(g);
+if(eta){ dl += ' · при темпе — '+eta; }
       h += '<div class="env glass hov" style="margin-bottom:12px">'
         + '<header><div class="env-name"><div class="sic c-pur" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-target"/></svg></div>'+g.n+'</div><b>'+fmt(g.cur||0)+' / '+fmt(g.target)+'</b></header>'
         + '<div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+p+'%;background:linear-gradient(90deg,var(--pur),var(--pink))"></i></div>'
@@ -2895,7 +2918,7 @@ function render(){
     for(var si=0;si<sigs.length;si++){
       var s = sigs[si];
       var col = s.sev >= 8 ? 'var(--red)' : (s.sev >= 5 ? 'var(--org)' : 'var(--blu)');
-      var actAttr = s.act.t ? 'data-act="sheet" data-t="'+s.act.t+'"' : 'data-act="'+s.act.act+'"';
+    var actAttr = s.act.t ? 'data-act="sheet" data-t="'+s.act.t+'"' : 'data-act="'+s.act.act+'"'+(s.act.h ? ' data-h="'+s.act.h+'"' : '');
       ih += '<div class="dig-item" style="cursor:pointer;border-left:3px solid '+col+'" '+actAttr+'><span><b style="color:'+col+'">'+s.title+'</b> — '+s.desc+(s.benefit?' · выгода '+fmt(s.benefit)+'/мес':'')+'</span><b>›</b></div>';
     }
     acEl.innerHTML = '<div class="cap-title"><span>Что важно сейчас</span><span class="pill '+(sigs.length?'c-org':'c-grn')+'" style="font-size:10px">'+(sigs.length?sigs.length+' сигналов':'всё спокойно')+'</span></div>'
@@ -4107,8 +4130,43 @@ function getSignals(){
     });
   }
   
-  signals.sort(function(a,b){ return (b.benefit||0) - (a.benefit||0) || b.sev - a.sev; });
-  return signals.slice(0, 5);
+  // 11. Пост-зарплатный всплеск
+var daysInMonth = Math.max(1, Math.round((now - mNow)/864e5));
+var f3sum = 0, rsum = 0;
+for(var i6=0;i6<allSp.length;i6++){
+if(allSp[i6].d < mNow){ continue; }
+var dn = Math.round((allSp[i6].d - mNow)/864e5);
+if(dn < 3){ f3sum += allSp[i6].s; } else { rsum += allSp[i6].s; }
+}
+var f3per = f3sum / 3;
+var rper = rsum / Math.max(1, daysInMonth - 3);
+if(f3sum > 0 && f3per > rper * 1.5){
+signals.push({
+sev: 4,
+title: 'Пост-зарплатный всплеск',
+desc: 'Первые 3 дня после зарплаты: '+fmt(Math.round(f3per))+'/день, дальше — '+fmt(Math.round(rper))+'/день. Придержи треть всплеска.',
+benefit: Math.round((f3per - rper) * 3),
+act: {t:'daily'}
+});
+}
+// 12. Дорогой день недели
+var wdSum = [0,0,0,0,0,0,0];
+for(var i7=0;i7<allSp.length;i7++){ wdSum[allSp[i7].d.getDay()] += allSp[i7].s; }
+var maxW = 0, avgW = 0;
+for(var i8=0;i8<7;i8++){ avgW += wdSum[i8]; if(wdSum[i8] > wdSum[maxW]){ maxW = i8; } }
+avgW = avgW / 7;
+var WD_NAMES = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+if(wdSum[maxW] > avgW * 1.6 && wdSum[maxW] > 0){
+signals.push({
+sev: 3,
+title: 'Дорогой день: '+WD_NAMES[maxW],
+desc: 'По '+WD_NAMES[maxW]+' уходит '+fmt(Math.round(wdSum[maxW]))+' за период. Крупное планируй на другие дни.',
+benefit: Math.round((wdSum[maxW] - avgW) * 0.3),
+act: {act:'an-habit', h:'wd'}
+});
+}
+signals.sort(function(a,b){ return (b.benefit||0) - (a.benefit||0) || b.sev - a.sev; });
+return signals.slice(0, 5);
 }
 
 // What-if симулятор
