@@ -1,89 +1,25 @@
-<div id="p-settings" class="page" style="display:none; padding: 16px; padding-bottom: 80px;">
-  <h2 style="margin-top:0;">Настройки</h2>
-  
-  <!-- Блок управления данными -->
-  <div class="card" style="margin-bottom:16px;">
-    <div style="font-weight:bold; margin-bottom:8px;">Управление данными</div>
-    <p style="font-size:13px; color:#aaa; margin-bottom:12px;">Сохраните копию своих данных перед крупными изменениями или восстановите из ранее созданной копии.</p>
-    
-    <button id="btn-export" style="width:100%; padding:14px; background:#2e7d32; color:white; border:none; border-radius:8px; font-size:15px; font-weight:500; margin-bottom:10px; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-      Скачать копию данных
-    </button>
-    
-    <label style="width:100%; padding:14px; background:#1976d2; color:white; border-radius:8px; font-size:15px; font-weight:500; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-sizing:border-box;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-      Восстановить из файла
-      <input type="file" id="input-import" accept=".json" style="display:none;">
-    </label>
-  </div>
+<div class="page">
+<div class="cap">Настройки</div>
 
-  <!-- Инфо -->
-  <div class="card" style="margin-bottom:16px;">
-    <div style="font-weight:bold; margin-bottom:8px;">Информация</div>
-    <p style="font-size:13px; color:#aaa; margin:0;">Версия: 2.1 (Mobile + Backup)</p>
-    <p style="font-size:13px; color:#aaa; margin:4px 0 0 0;">Данных в базе: <span id="db-size">0</span> записей</p>
-  </div>
-
-  <!-- Опасная зона -->
-  <div class="card" style="border:1px solid #f44336;">
-    <div style="font-weight:bold; color:#f44336; margin-bottom:8px;">Опасная зона</div>
-    <p style="font-size:13px; color:#aaa; margin-bottom:12px;">Полный сброс всех данных. Действие необратимо.</p>
-    <button id="btn-reset" style="width:100%; padding:14px; background:transparent; color:#f44336; border:1px solid #f44336; border-radius:8px; font-size:15px; font-weight:500; cursor:pointer;">Сбросить все данные</button>
-  </div>
+<div class="glass card-padding" style="margin:0 0 14px">
+<b style="font-size:14px">Управление данными</b>
+<p style="font-size:12px;color:var(--mut);margin:6px 0 12px">Скачайте копию данных перед крупными изменениями или восстановите из ранее созданной копии.</p>
+<button class="sh-btn" data-act="backup-export" style="margin:0 0 10px">Скачать копию данных</button>
+<label class="sh-btn ghost" style="margin:0;cursor:pointer">
+Восстановить из файла
+<input type="file" data-act="backup-import" accept=".json" style="display:none">
+</label>
 </div>
 
-<script>
-// Логика страницы настроек
-(function(){
-  // Экспорт
-  document.getElementById('btn-export').addEventListener('click', function(){
-    if(typeof D === 'undefined') return alert('Ошибка: данные не загружены');
-    var dataStr = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(D));
-    var dlAnchorElem = document.createElement('a');
-    dlAnchorElem.setAttribute("href", dataStr);
-    dlAnchorElem.setAttribute("download", "trash-budget-backup-" + new Date().toISOString().slice(0,10) + ".json");
-    dlAnchorElem.click();
-  });
+<div class="glass card-padding" style="margin:0 0 14px">
+<b style="font-size:14px">Данные приложения</b>
+<p style="font-size:12px;color:var(--mut);margin:6px 0 4px">Версия приложения: <span id="appVersion">1.0.0</span></p>
+<p style="font-size:12px;color:var(--mut);margin:0">Последнее сохранение: <span id="lastSaveTime">—</span></p>
+</div>
 
-  // Импорт
-  document.getElementById('input-import').addEventListener('change', function(e){
-    var file = e.target.files[0];
-    if(!file) return;
-    var reader = new FileReader();
-    reader.onload = function(ev){
-      try{
-        var json = JSON.parse(ev.target.result);
-        if(!json.spends || !json.incomes) throw new Error("Неверный формат");
-        if(confirm("Заменить текущие данные на загруженные? Это действие нельзя отменить.")){
-          D = json;
-          if(typeof saveData === 'function') saveData();
-          alert("Данные восстановлены! Страница перезагрузится.");
-          location.reload();
-        }
-      }catch(err){ 
-        alert("Ошибка файла: " + err.message); 
-      }
-    };
-    reader.readAsText(file);
-  });
-
-  // Сброс
-  document.getElementById('btn-reset').addEventListener('click', function(){
-    if(confirm("ВНИМАНИЕ: Вы уверены, что хотите удалить ВСЕ данные? Это действие нельзя отменить.")){
-      D = { spends:[], incomes:[], tx:[], envs:[], pays:[], subs:[], credits:[], insts:[], goals:[], events:[], her:[], learned:{}, leaks:{}, merchantRules:{}, paid:{}, removedAuto:{}, cancelled:{}, leakFixed:{}, baseBalance:0, income:0, salaryDay:10, demo:false };
-      if(typeof saveData === 'function') saveData();
-      location.reload();
-    }
-  });
-
-  // Подсчет размера БД
-  setTimeout(function(){
-    if(typeof D !== 'undefined'){
-      var count = (D.spends||[]).length + (D.incomes||[]).length + (D.tx||[]).length;
-      var el = document.getElementById('db-size');
-      if(el) el.textContent = count;
-    }
-  }, 500);
-})();
-</script>
+<div class="glass card-padding" style="margin:0;border:1px solid rgba(255,69,58,.45)">
+<b style="font-size:14px;color:var(--red)">Опасная зона</b>
+<p style="font-size:12px;color:var(--mut);margin:6px 0 12px">Полный сброс всех данных. Действие необратимо.</p>
+<button class="sh-btn danger" data-act="reset-all" style="margin:0">Сбросить все данные</button>
+</div>
+</div>
