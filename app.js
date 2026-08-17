@@ -136,7 +136,59 @@ var TIPS = [
 'Кредитка выгодна только при полном погашении в грейс-период.',
 'Конверт пуст — трата стоп. Правило работает без силы воли.'];
 
-function save(){ if(uid){ setDoc(doc(db,'users',uid), {data:D}, {merge:true}); } }
+function save(){ if(uid){ D.lastSave = new Date().getTime(); setDoc(doc(db,'users',uid), {data:D}, {merge:true}); } }
+
+function exportBackup(){
+  var json = JSON.stringify(D, null, 2);
+  var blob = new Blob([json], {type:'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'trash-budget-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Копия данных сохранена');
+}
+
+function importBackupFromFile(el){
+  var file = el.files[0];
+  if(!file){ return; }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      var data = JSON.parse(e.target.result);
+      if(!data.spends || !data.incomes){ throw new Error('Неверный формат файла'); }
+      dConfirm('Все текущие данные будут заменены данными из копии. Продолжить?', 'Восстановление данных').then(function(ok){
+        if(!ok){ return; }
+        D = data;
+        save();
+        render();
+        toast('Данные восстановлены');
+        setTimeout(function(){ location.reload(); }, 1500);
+      });
+    }catch(err){
+      dAlert('Ошибка импорта: ' + err.message, 'Ошибка');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetAllData(){
+  dConfirm('Вы уверены? Все данные будут безвозвратно удалены.', 'Сброс данных').then(function(ok){
+    if(!ok){ return; }
+    D = {
+      spends:[], incomes:[], tx:[], envs:[], pays:[], subs:[], credits:[], insts:[], goals:[], events:[], her:{},
+      learned:{}, leaks:[], merchantRules:[], paid:[], removedAuto:[], cancelled:[], leakFixed:[],
+      baseBalance:0, income:0, salaryDay:10, demo:false
+    };
+    save();
+    render();
+    toast('Все данные сброшены');
+    setTimeout(function(){ location.reload(); }, 1500);
+  });
+}
 
 function normalize(){
   D.spends=D.spends||[]; D.incomes=D.incomes||[]; D.tx=D.tx||[];
@@ -2788,6 +2840,12 @@ function openQuickGoal(){
 function render(){
   var now = new Date();
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
+  if ($('appVersion')) $('appVersion').textContent = '1.0.0';
+  if ($('lastSaveTime')) {
+    var lastSave = D.lastSave || now;
+    var saveDate = new Date(lastSave);
+    $('lastSaveTime').textContent = saveDate.toLocaleDateString('ru-RU') + ' ' + saveDate.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+  }
   if ($('demoTag')) $('demoTag').classList.toggle('hidden', !D.demo);
   if ($('hBal')) $('hBal').textContent = fmt(realBal());
   if ($('sInc')) $('sInc').textContent = fmt(D.income);
@@ -3480,6 +3538,9 @@ save(); render(); toast('Память применена: обновлено о�
       });
     }
   }
+  else if(act === 'backup-export'){ exportBackup(); }
+  else if(act === 'backup-import'){ importBackupFromFile(el); }
+  else if(act === 'reset-all'){ resetAllData(); }
   else if(act === 'exit'){ signOut(auth); }
 });
 
@@ -3506,7 +3567,7 @@ if(gbtn){
 }
 
 function loadPages() {
-  var pages = ['dash', 'spend', 'income', 'budget', 'learn', 'chat'];
+  var pages = ['dash', 'spend', 'income', 'budget', 'learn', 'chat', 'settings'];
   var container = document.getElementById('pageContent');
   if (!container) return Promise.resolve();
   var promises = pages.map(function(pageName) {
