@@ -3548,6 +3548,11 @@ save(); render(); toast('Память применена: обновлено о�
 
 $('shb').addEventListener('click', closeSheet);
 
+document.addEventListener('change', function(e){
+var el = e.target.closest ? e.target.closest('[data-act="backup-import"]') : null;
+if(el){ importBackupFromFile(el); }
+});
+
 document.addEventListener('click', function(e){
   var open = document.querySelectorAll('.dd.on');
   for(var i=0;i<open.length;i++){
