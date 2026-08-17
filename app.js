@@ -180,7 +180,7 @@ function resetAllData(){
     if(!ok){ return; }
     D = {
       spends:[], incomes:[], tx:[], envs:[], pays:[], subs:[], credits:[], insts:[], goals:[], events:[], her:{},
-      learned:{}, leaks:[], merchantRules:[], paid:[], removedAuto:[], cancelled:[], leakFixed:[],
+            learned:[], leaks:[], merchRules:{}, paid:{}, removedAuto:[], cancelled:[], leakFixed:{},
       baseBalance:0, income:0, salaryDay:10, demo:false
     };
     save();
@@ -208,6 +208,7 @@ function normalize(){
   D.learned=D.learned||[];
   D.removedAuto=D.removedAuto||[];
   D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{}; D.paid=D.paid||{};  D.merchRules = D.merchRules || {};
+  if(typeof D.lifeMin !== 'number'){ D.lifeMin = 50000; }
   if(D.goals && !Array.isArray(D.goals)){
     D.goals = [
       {id:1, n:'Подушка безопасности', cur:D.goals.cushion||0, target:D.goals.cushionT||100000, done:false},
@@ -1957,7 +1958,9 @@ function renderDashboardNew() {
     } else {
       $('runwayHint').textContent = 'минимум '+fmt(minB.val)+' через '+minB.daysFromNow+' дн';
       $('runwayHint').style.color = 'var(--mut)';
-    var mini = $('forecastMini');
+    }
+  }
+  var mini = $('forecastMini');
   if(mini){
     var fMini = forecastCashFlow(90);
     var Wm = mini.clientWidth || 200;
@@ -1984,8 +1987,6 @@ function renderDashboardNew() {
     var mpy = 30 - ((vals[minI]-mnV)/rng)*26 - 2;
     ym.fillStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
     ym.beginPath(); ym.arc(mpx, mpy, 3, 0, 6.28); ym.fill();
-  }
-    }
   }
 
 
@@ -2612,9 +2613,12 @@ function openDebtPlan(){
     h += '<div class="cap" style="margin:14px 4px 6px">Твои цифры</div>'
       + rowHtml('Всего долгов', fmt(plan.total))
       + rowHtml('Свободно в месяц', fmt(plan.monthlyExtra))
-      + rowHtml('Закроешь всё за', plan.months+' мес');
+            + rowHtml('Закроешь всё за', plan.months+' мес');
   }
-  h += tipHtml('Сначала гаси самый маленький долг полностью — это даёт психологическую победу и мотивацию на следующий.');
+  h += '<div class="cap" style="margin:14px 4px 6px">Минимум на жизнь</div>'
+    + '<div class="dig-item"><span>Оставляю себе в месяц</span><span class="row-actions"><b>'+fmt(typeof D.lifeMin === 'number' ? D.lifeMin : 50000)+'</b>'
+    + '<button class="mini-btn" data-act="life-min"><svg class="ic"><use href="#i-pen"/></svg></button></span></div>';
+  h += tipHtml(('Сначала гаси самый маленький долг полностью — это даёт психологическую победу и мотивацию на следующий.');
   $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
@@ -2995,6 +2999,16 @@ document.addEventListener('click', function(e){
   if(act === 'h-next' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2++; renderTx('2'); return; }
   if(act === 'whatif'){ openWhatIf(); return; }
 if(act === 'debt-plan'){ openDebtPlan(); return; }
+  if(act === 'life-min'){
+    dPrompt('Сколько оставляешь себе на жизнь в месяц, ₽:', 'Минимум на жизнь', 'Например: 50000').then(function(v){
+      var n = parseInt(String(v||'').replace(/\D/g,''), 10);
+      if(!n && n !== 0){ return; }
+      D.lifeMin = n;
+      save(); render(); toast('Минимум на жизнь: '+fmt(n));
+      openDebtPlan();
+    });
+    return;
+  }
 if(act === 'wi-calc'){
 var selW = $('wiCat'); var pctW = parseInt($('wiPct').value,10);
 if(!selW || isNaN(pctW)){ return; }
@@ -3768,14 +3782,13 @@ function forecastCashFlow(daysAhead, fromDate){
     }
   }
   
-  // Платежи — по дню месяца
+   // Платежи — по дню месяца, каждый месяц на всём горизонте
   for(i=0;i<D.pays.length;i++){
-    for(var pd=0; pd<=daysAhead+60; pd++){
-      var check = new Date(fromDate.getTime() + pd*864e5);
-      if(check.getDate() === D.pays[i].d){
-        if(check >= fromDate){ events.push({date:check, amt:-D.pays[i].s, n:'Платёж: '+D.pays[i].n}); break; }
+    for(var pmo=0; pmo<=Math.ceil(daysAhead/30)+1; pmo++){
+      var pDate = new Date(fromDate.getFullYear(), fromDate.getMonth()+pmo, D.pays[i].d);
+      if(pDate >= fromDate && (pDate - fromDate)/864e5 <= daysAhead){
+        events.push({date:pDate, amt:-D.pays[i].s, n:'Платёж: '+D.pays[i].n});
       }
-      if(pd > 60){ break; }
     }
   }
   
@@ -3960,7 +3973,8 @@ function debtSnowball(){
   for(var j=0;j<debts.length;j++){ totalDebt += debts[j].cur; }
   
   // Сколько можем платить в месяц сверх обязательных
-  var monthlyExtra = Math.max(0, (D.income||0) - calcMonthlyFixedPay() - 50000); // 50к минимум на жизнь
+    var lifeMin = typeof D.lifeMin === 'number' ? D.lifeMin : 50000;
+  var monthlyExtra = Math.max(0, (D.income||0) - calcMonthlyFixedPay() - lifeMin); // минимум на жизнь (D.lifeMin)
   
   if(monthlyExtra <= 0){
     return {txt:'Обязательные платежи съедают весь доход. Сначала урежь гибкие траты (кафе, самокаты).', debts:debts};
@@ -3994,7 +4008,7 @@ function getSignals(){
       title: 'Через '+rw+' дн. денег не хватит',
       desc: 'Зарплата только через '+payday+' дн. Нужно срочно урезать гибкие траты.',
       benefit: 0,
-      act: {t:'sheet', i:'daily'}
+            act: {t:'daily'}
     });
   }
   
