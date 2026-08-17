@@ -580,8 +580,10 @@ function openSheet(t, i){
       + '<div class="cap" style="margin:10px 4px 6px">График прогноза</div>'
       + '<div style="position:relative;background:rgba(255,255,255,.03);border-radius:12px;padding:8px;margin-bottom:10px"><canvas id="forecastChart" width="600" height="180" style="width:100%;height:180px;display:block"></canvas>'
 + '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:4px"><span>сегодня</span><span>+30 дн</span><span>+60 дн</span><span>+90 дн</span></div></div>'
-+ '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по графику — баланс и события дня. Зелёные точки — зарплата, оранжевые — платежи, красная — минимум.</div>'      + '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';
-    var shown = 0;
++ '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по графику — баланс и события дня. Зелёные точки — зарплата, оранжевые — платежи, красная — минимум.</div>'
++ '<div class="cap" style="margin:10px 4px 6px">Что произойдёт в ближайшие 30 дней</div>'
++ '<div id="fcExplain"></div>'
++ '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';    var shown = 0;
     for(var ei=0;ei<f.events.length && shown<8;ei++){
       if(f.events[ei].date < new Date()){ continue; }
       h += '<div class="dig-item"><span>'+f.events[ei].date.getDate()+'.'+String(f.events[ei].date.getMonth()+1).padStart(2,'0')+' · '+f.events[ei].n+'</span><b class="'+(f.events[ei].amt>0?'pos':'')+'">'+(f.events[ei].amt>0?'+':'−')+fmt(Math.abs(f.events[ei].amt))+'</b></div>';
@@ -594,7 +596,7 @@ function openSheet(t, i){
     h += tipHtml(minB3.val < 0 ? 'Через '+minB3.daysFromNow+' дн баланс уйдёт в минус. Открой «Что если» и посмотри, что срезать.' : 'Прогноз стабильный — минимум положительный.');
     $('sheetBody').innerHTML = h;
     $('sheet').classList.add('on'); $('shb').classList.add('on');
-   setTimeout(function(){ drawForecastChart(f); }, 60);
+setTimeout(function(){ drawForecastChart(f); explainForecast(f); }, 60);
 } else if(t === 'saverate'){
     var nowS = new Date();
     var mF = new Date(nowS.getFullYear(), nowS.getMonth(), 1), mT = new Date(nowS.getFullYear(), nowS.getMonth()+1, 1);
@@ -2300,7 +2302,7 @@ function goalFund(id){
     var amt = parseFloat(v);
     if(isNaN(amt) || amt === 0){ return; }
     g.cur = (g.cur||0) + amt;
-    if(g.cur >= g.target && g.target > 0){ g.done = true; toast('Цель «'+g.n+'» выполнена!'); }
+if(g.cur >= g.target && g.target > 0){ g.done = true; toast('Цель «'+g.n+'» выполнена!'); }
     else { toast('Пополнение цели «'+g.n+'» на '+fmt(amt)); }
     save(); render();
   });
@@ -2768,7 +2770,7 @@ function openEnvAdd(){
 function openQuickSpend(){
   var opts = '';
   for(var i=0;i<CATS.length;i++){ opts += '<option value="'+CATS[i].id+'">'+CATS[i].n+'</option>'; }
-  $('sheetBody').innerHTML = sheetHead('i-out','c-red','Быстрая трата','сумма уменьшит реальный остаток')
+$('sheetBody').innerHTML = sheetHead('i-out','c-red','Быстрая трата','сумма уменьшит реальный остаток')
     + '<div class="form"><input class="inp" id="qsAmt" type="number" placeholder="Сумма, ₽">'
     + '<select class="inp" id="qsCat">'+opts+'</select>'
     + '<input class="inp" id="qsNote" placeholder="Комментарий (необязательно)">'
