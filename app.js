@@ -581,13 +581,18 @@ function openSheet(t, i){
       + '<div class="cap" style="margin:10px 4px 6px">График прогноза</div>'
       + '<div class="sh-tip" style="margin-bottom:8px">Линия показывает, сколько денег останется на счету в каждый день. Вверх — пришла зарплата, вниз — уходят платежи и повседневные траты. Красная зона внизу — деньги кончились и ты в долгу.</div>'
       + '<div style="position:relative;background:rgba(255,255,255,.03);border-radius:12px;padding:8px;margin-bottom:6px"><canvas id="forecastChart" style="width:100%;display:block"></canvas></div>'
++ '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">'
++ '<button class="mini-btn" data-act="fc-zoom" data-t="out" style="min-width:32px">−</button>'
++ '<button class="mini-btn" data-act="fc-zoom" data-t="in" style="min-width:32px">+</button>'
++ '<button class="mini-btn" data-act="fc-zoom" data-t="reset">весь период</button>'
++ '<span id="fcRange" style="font-size:10px;color:var(--mut);margin-left:auto"></span></div>'
 + '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px;color:var(--mut);margin-bottom:8px">'
 + '<span><i style="display:inline-block;width:12px;height:3px;background:#64d2ff;border-radius:2px;vertical-align:middle"></i> деньги на счету</span>'
 + '<span><i style="display:inline-block;width:12px;height:3px;background:#ff453a;border-radius:2px;vertical-align:middle"></i> уход в минус</span>'
 + '<span style="color:#30d158">ЗП — приход зарплаты</span>'
 + '<span style="color:#ff9f0a">стрелка вниз — крупное списание</span>'
 + '<span>дно — самый бедный день</span></div>'
-+ '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по любому дню на графике — покажу, сколько останется и что списывается в этот день.</div>'
++ '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по любому дню — покажу, сколько останется, из чего сложилась эта цифра и что делать. Щипок двумя пальцами приближает, перетаскивание двигает по датам.</div>'
 + '<div class="cap" style="margin:10px 4px 6px">Что произойдёт в ближайшие 30 дней</div>'
 + '<div id="fcExplain"></div>'
 + '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';
@@ -3005,6 +3010,7 @@ document.addEventListener('click', function(e){
   if(act === 'h-next' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2++; renderTx('2'); return; }
   if(act === 'whatif'){ openWhatIf(); return; }
 if(act === 'debt-plan'){ openDebtPlan(); return; }
+  if(act === 'fc-zoom'){ fcZoom(el.getAttribute('data-t')); return; }
   if(act === 'life-min'){
     dPrompt('Сколько оставляешь себе на жизнь в месяц, ₽:', 'Минимум на жизнь', 'Например: 50000').then(function(v){
       var n = parseInt(String(v||'').replace(/\D/g,''), 10);
@@ -3838,143 +3844,346 @@ function forecastCashFlow(daysAhead, fromDate){
   return {flow:flow, flexPerDay:Math.round(flexPerDay), events:events};
 }
 
-function drawForecastChart(f){
-var c = $('forecastChart'); if(!c){ return; }
-var W = c.clientWidth || 300, H = 230;
-c.width = W*2; c.height = H*2;
-c.style.height = H+'px';
-var ctx = c.getContext('2d');
-ctx.setTransform(2,0,0,2,0,0);
-ctx.clearRect(0,0,W,H);
-var PL = 46, PR = 10, PT = 22, PB = 30;
-var vals = []; for(var i=0;i<f.flow.length;i++){ vals.push(f.flow[i].balance); }
-var rawMn = Math.min.apply(null, vals), rawMx = Math.max.apply(null, vals);
-var mn = Math.min(0, rawMn), mx = Math.max(0, rawMx);
-var pad = (mx - mn) * 0.12 || 1000;
-mn = mn - pad; mx = mx + pad;
-var rng = (mx - mn) || 1;
-function Y(v){ return PT + (1 - (v - mn)/rng) * (H - PT - PB); }
-function X(i){ return PL + i/(vals.length-1) * (W - PL - PR); }
-function shortRub(v){
+var FC = null;
+
+function fcShortRub(v){
   var a = Math.abs(v), s = v < 0 ? '−' : '';
   if(a >= 1000){ return s + Math.round(a/1000) + 'к'; }
   return s + Math.round(a);
 }
-// зона минуса
-if(rawMn < 0){
-  ctx.fillStyle = 'rgba(255,69,58,.09)';
-  ctx.fillRect(PL, Y(0), W - PL - PR, (H - PB) - Y(0));
+
+function fcClamp(){
+  var total = FC.f.flow.length - 1;
+  if(FC.span < 6){ FC.span = 6; }
+  if(FC.span > total){ FC.span = total; }
+  if(FC.i0 < 0){ FC.i0 = 0; }
+  if(FC.i0 + FC.span > total){ FC.i0 = total - FC.span; }
 }
-// горизонтальная сетка с подписями сумм
-var step = Math.pow(10, Math.floor(Math.log(rng/3.2)/Math.LN10));
-while(rng/step > 5){ step *= 2; }
-while(rng/step < 2.5){ step /= 2; }
-var gv = Math.ceil(mn/step)*step;
-ctx.font = '600 9px Manrope'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-for(; gv <= mx; gv += step){
-  var gy = Y(gv);
-  if(gy < PT - 2 || gy > H - PB + 2){ continue; }
-  var isZero = Math.abs(gv) < step/100;
-  ctx.strokeStyle = isZero ? 'rgba(255,69,58,.55)' : 'rgba(255,255,255,.07)';
-  ctx.lineWidth = isZero ? 1.5 : 1;
-  ctx.setLineDash(isZero ? [] : [2,4]);
-  ctx.beginPath(); ctx.moveTo(PL, gy); ctx.lineTo(W - PR, gy); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = isZero ? 'rgba(255,105,97,.95)' : 'rgba(255,255,255,.38)';
-  ctx.fillText(isZero ? '0' : shortRub(gv), PL - 6, gy);
+
+function fcZoom(dir, anchorIdx){
+  if(!FC){ return; }
+  var total = FC.f.flow.length - 1;
+  if(dir === 'reset'){ FC.i0 = 0; FC.span = total; fcPaint(); return; }
+  var k = dir === 'in' ? 0.6 : 1.7;
+  var a = (typeof anchorIdx === 'number') ? anchorIdx : (FC.i0 + FC.span/2);
+  var rel = (a - FC.i0) / FC.span;
+  FC.span = FC.span * k;
+  FC.i0 = a - rel * FC.span;
+  fcClamp();
+  fcPaint();
 }
-// заливка под линией до нуля
-var zeroY = Math.min(H - PB, Math.max(PT, Y(0)));
-var grad = ctx.createLinearGradient(0, PT, 0, H - PB);
-grad.addColorStop(0, 'rgba(100,210,255,.28)');
-grad.addColorStop(1, 'rgba(100,210,255,.02)');
-ctx.fillStyle = grad;
-ctx.beginPath(); ctx.moveTo(X(0), zeroY);
-for(var i=0;i<vals.length;i++){ ctx.lineTo(X(i), Y(vals[i])); }
-ctx.lineTo(X(vals.length-1), zeroY); ctx.closePath(); ctx.fill();
-// вертикальные метки дат
-ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-var stepD = vals.length > 70 ? 15 : 7;
-for(var xi=0; xi<vals.length; xi+=stepD){
-  var dt = f.flow[xi].date;
-  ctx.strokeStyle = 'rgba(255,255,255,.05)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(X(xi), PT); ctx.lineTo(X(xi), H - PB); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,.42)'; ctx.font = '600 9px Manrope';
-  ctx.fillText(xi === 0 ? 'сегодня' : dt.getDate()+'.'+String(dt.getMonth()+1).padStart(2,'0'), X(xi), H - PB + 8);
-}
-// линия баланса: синяя в плюсе, красная в минусе
-ctx.lineWidth = 2.4; ctx.lineJoin = 'round';
-for(var s=0;s<vals.length-1;s++){
-  ctx.strokeStyle = (vals[s] < 0 || vals[s+1] < 0) ? '#ff453a' : '#64d2ff';
-  ctx.beginPath(); ctx.moveTo(X(s), Y(vals[s])); ctx.lineTo(X(s+1), Y(vals[s+1])); ctx.stroke();
-}
-// события: зарплата — зелёная стрелка вверх, крупные списания — оранжевая вниз
-var labelled = [];
-for(var e=0;e<f.events.length;e++){
-  var dayIdx = Math.round((f.events[e].date - f.flow[0].date)/864e5);
-  if(dayIdx < 0 || dayIdx >= vals.length){ continue; }
-  var amt = f.events[e].amt;
-  var big = Math.abs(amt) >= 10000;
-  if(!big){ continue; }
-  var ex = X(dayIdx), ey = Y(vals[dayIdx]);
-  ctx.fillStyle = amt > 0 ? '#30d158' : '#ff9f0a';
-  ctx.beginPath();
-  if(amt > 0){ ctx.moveTo(ex, ey-9); ctx.lineTo(ex-4, ey-3); ctx.lineTo(ex+4, ey-3); }
-  else { ctx.moveTo(ex, ey+9); ctx.lineTo(ex-4, ey+3); ctx.lineTo(ex+4, ey+3); }
-  ctx.closePath(); ctx.fill();
-  if(amt > 0){
-    var free = true;
-    for(var l=0;l<labelled.length;l++){ if(Math.abs(labelled[l] - ex) < 30){ free = false; break; } }
-    if(free){
-      labelled.push(ex);
-      ctx.font = '700 9px Manrope'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillStyle = '#30d158';
-      ctx.fillText('ЗП', Math.max(PL+10, Math.min(W-PR-10, ex)), Math.max(PT+9, ey-11));
+
+function drawForecastChart(f){
+  var c = $('forecastChart'); if(!c){ return; }
+  FC = {f:f, i0:0, span:f.flow.length - 1, cv:c, plot:{}};
+  var drag = null, pinch = null;
+
+  function idxAt(clientX){
+    var rect = c.getBoundingClientRect();
+    var relX = (clientX - rect.left)/rect.width * FC.plot.W;
+    var i = FC.i0 + (relX - FC.plot.PL)/FC.plot.pw * FC.span;
+    return Math.max(0, Math.min(FC.f.flow.length-1, Math.round(i)));
+  }
+  function panBy(dxPx){
+    FC.i0 -= dxPx / FC.plot.pw * FC.span;
+    fcClamp(); fcPaint();
+  }
+
+  c.addEventListener('wheel', function(ev){
+    ev.preventDefault();
+    fcZoom(ev.deltaY < 0 ? 'in' : 'out', idxAt(ev.clientX));
+  }, {passive:false});
+
+  c.addEventListener('mousedown', function(ev){ drag = {x:ev.clientX, moved:0}; });
+  window.addEventListener('mousemove', function(ev){
+    if(!FC || FC.cv !== c){ drag = null; return; }
+    if(!drag){ return; }
+    var dx = ev.clientX - drag.x;
+    if(Math.abs(dx) < 1){ return; }
+    drag.moved += Math.abs(dx); drag.x = ev.clientX;
+    panBy(dx);
+  });
+  window.addEventListener('mouseup', function(ev){
+    if(!FC || FC.cv !== c){ drag = null; return; }
+    if(drag && drag.moved < 5){ fcShowDay(idxAt(ev.clientX)); }
+    drag = null;
+  });
+
+  c.addEventListener('touchstart', function(ev){
+    if(ev.touches.length === 2){
+      pinch = {d:Math.abs(ev.touches[0].clientX - ev.touches[1].clientX) || 1, span:FC.span,
+               a:idxAt((ev.touches[0].clientX + ev.touches[1].clientX)/2)};
+      drag = null;
+    } else if(ev.touches.length === 1){
+      drag = {x:ev.touches[0].clientX, y:ev.touches[0].clientY, moved:0, t:Date.now()};
+      pinch = null;
     }
+  }, {passive:true});
+
+  c.addEventListener('touchmove', function(ev){
+    if(pinch && ev.touches.length === 2){
+      ev.preventDefault();
+      var nd = Math.abs(ev.touches[0].clientX - ev.touches[1].clientX) || 1;
+      var rel = (pinch.a - FC.i0)/FC.span;
+      FC.span = pinch.span * (pinch.d / nd);
+      FC.i0 = pinch.a - rel * FC.span;
+      fcClamp(); fcPaint();
+      return;
+    }
+    if(drag && ev.touches.length === 1){
+      var dx = ev.touches[0].clientX - drag.x;
+      var dy = ev.touches[0].clientY - drag.y;
+      if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 3){
+        ev.preventDefault();
+        drag.moved += Math.abs(dx);
+        drag.x = ev.touches[0].clientX; drag.y = ev.touches[0].clientY;
+        panBy(dx);
+      }
+    }
+  }, {passive:false});
+
+  c.addEventListener('touchend', function(ev){
+    if(drag && drag.moved < 6 && (Date.now() - drag.t) < 500){
+      var t = ev.changedTouches[0];
+      fcShowDay(idxAt(t.clientX));
+    }
+    drag = null; pinch = null;
+  }, {passive:true});
+
+  fcPaint();
+}
+
+function fcPaint(){
+  if(!FC){ return; }
+  var f = FC.f, c = FC.cv;
+  var W = c.clientWidth || 300, H = 230;
+  c.width = W*2; c.height = H*2;
+  c.style.height = H+'px';
+  var ctx = c.getContext('2d');
+  ctx.setTransform(2,0,0,2,0,0);
+  ctx.clearRect(0,0,W,H);
+  var PL = 46, PR = 10, PT = 22, PB = 30;
+  var pw = W - PL - PR, ph = H - PT - PB;
+  FC.plot = {W:W, PL:PL, pw:pw};
+
+  var lo = Math.max(0, Math.floor(FC.i0)), hi = Math.min(f.flow.length-1, Math.ceil(FC.i0 + FC.span));
+  var rawMn = Infinity, rawMx = -Infinity;
+  for(var i=lo;i<=hi;i++){
+    var b = f.flow[i].balance;
+    if(b < rawMn){ rawMn = b; } if(b > rawMx){ rawMx = b; }
+  }
+  var mn = Math.min(0, rawMn), mx = Math.max(0, rawMx);
+  var pad = (mx - mn) * 0.12 || 1000;
+  mn -= pad; mx += pad;
+  var rng = (mx - mn) || 1;
+  function Y(v){ return PT + (1 - (v - mn)/rng) * ph; }
+  function X(i){ return PL + (i - FC.i0)/FC.span * pw; }
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(PL, PT-14, pw, ph+14); ctx.clip();
+
+  if(rawMn < 0){
+    ctx.fillStyle = 'rgba(255,69,58,.09)';
+    ctx.fillRect(PL, Y(0), pw, (H - PB) - Y(0));
+  }
+  ctx.restore();
+
+  // сетка сумм
+  var step = Math.pow(10, Math.floor(Math.log(rng/3.2)/Math.LN10));
+  while(rng/step > 5){ step *= 2; }
+  while(rng/step < 2.5){ step /= 2; }
+  ctx.font = '600 9px Manrope'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for(var gv = Math.ceil(mn/step)*step; gv <= mx; gv += step){
+    var gy = Y(gv);
+    if(gy < PT - 2 || gy > H - PB + 2){ continue; }
+    var isZero = Math.abs(gv) < step/100;
+    ctx.strokeStyle = isZero ? 'rgba(255,69,58,.55)' : 'rgba(255,255,255,.07)';
+    ctx.lineWidth = isZero ? 1.5 : 1;
+    ctx.setLineDash(isZero ? [] : [2,4]);
+    ctx.beginPath(); ctx.moveTo(PL, gy); ctx.lineTo(W - PR, gy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = isZero ? 'rgba(255,105,97,.95)' : 'rgba(255,255,255,.38)';
+    ctx.fillText(isZero ? '0' : fcShortRub(gv), PL - 6, gy);
+  }
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(PL, PT-14, pw, ph+16); ctx.clip();
+
+  // заливка
+  var zeroY = Math.min(H - PB, Math.max(PT, Y(0)));
+  var grad = ctx.createLinearGradient(0, PT, 0, H - PB);
+  grad.addColorStop(0, 'rgba(100,210,255,.28)');
+  grad.addColorStop(1, 'rgba(100,210,255,.02)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.moveTo(X(lo), zeroY);
+  for(i=lo;i<=hi;i++){ ctx.lineTo(X(i), Y(f.flow[i].balance)); }
+  ctx.lineTo(X(hi), zeroY); ctx.closePath(); ctx.fill();
+
+  // даты
+  var stepD = Math.max(1, Math.round(FC.span/6));
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for(var xi=lo; xi<=hi; xi++){
+    if((xi - lo) % stepD !== 0){ continue; }
+    var dt = f.flow[xi].date;
+    ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X(xi), PT); ctx.lineTo(X(xi), H - PB); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.42)'; ctx.font = '600 9px Manrope';
+    ctx.fillText(xi === 0 ? 'сегодня' : dt.getDate()+'.'+String(dt.getMonth()+1).padStart(2,'0'), X(xi), H - PB + 8);
+  }
+
+  // линия
+  ctx.lineWidth = 2.4; ctx.lineJoin = 'round';
+  for(var s=lo;s<hi;s++){
+    var v1 = f.flow[s].balance, v2 = f.flow[s+1].balance;
+    ctx.strokeStyle = (v1 < 0 || v2 < 0) ? '#ff453a' : '#64d2ff';
+    ctx.beginPath(); ctx.moveTo(X(s), Y(v1)); ctx.lineTo(X(s+1), Y(v2)); ctx.stroke();
+  }
+
+  // события
+  var labelled = [];
+  var bigLimit = FC.span > 45 ? 10000 : 3000;
+  for(var e=0;e<f.events.length;e++){
+    var dayIdx = Math.round((f.events[e].date - f.flow[0].date)/864e5);
+    if(dayIdx < lo || dayIdx > hi){ continue; }
+    var amt = f.events[e].amt;
+    if(Math.abs(amt) < bigLimit){ continue; }
+    var ex = X(dayIdx), ey = Y(f.flow[dayIdx].balance);
+    ctx.fillStyle = amt > 0 ? '#30d158' : '#ff9f0a';
+    ctx.beginPath();
+    if(amt > 0){ ctx.moveTo(ex, ey-9); ctx.lineTo(ex-4, ey-3); ctx.lineTo(ex+4, ey-3); }
+    else { ctx.moveTo(ex, ey+9); ctx.lineTo(ex-4, ey+3); ctx.lineTo(ex+4, ey+3); }
+    ctx.closePath(); ctx.fill();
+    var tag = amt > 0 ? 'ЗП' : (FC.span <= 45 ? f.events[e].n.split(':')[1] : '');
+    if(tag){ tag = tag.trim(); }
+    if(!tag){ continue; }
+    var free = true;
+    for(var l=0;l<labelled.length;l++){ if(Math.abs(labelled[l] - ex) < 40){ free = false; break; } }
+    if(!free){ continue; }
+    labelled.push(ex);
+    ctx.font = '700 9px Manrope'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = amt > 0 ? '#30d158' : '#ff9f0a';
+    ctx.fillText(tag, ex, amt > 0 ? Math.max(PT+9, ey-11) : Math.min(H-PB-2, ey+22));
+  }
+
+  // «сейчас»
+  if(lo === 0){
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(X(0), Y(f.flow[0].balance), 3.5, 0, 6.28); ctx.fill();
+    ctx.font = '700 9px Manrope'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    ctx.fillText('сейчас ' + fcShortRub(f.flow[0].balance), X(0) + 6, Math.max(PT + 8, Y(f.flow[0].balance) - 7));
+  }
+
+  // дно видимого участка
+  var minI = lo;
+  for(var m2=lo;m2<=hi;m2++){ if(f.flow[m2].balance < f.flow[minI].balance){ minI = m2; } }
+  var mVal = f.flow[minI].balance, mX = X(minI), mY = Y(mVal);
+  ctx.strokeStyle = mVal < 0 ? '#ff453a' : '#30d158';
+  ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(mX, mY); ctx.lineTo(mX, H - PB); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = mVal < 0 ? '#ff453a' : '#30d158';
+  ctx.beginPath(); ctx.arc(mX, mY, 5, 0, 6.28); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+  var mDt = f.flow[minI].date;
+  var mTxt = 'дно ' + fmt(mVal) + ' · ' + mDt.getDate() + '.' + String(mDt.getMonth()+1).padStart(2,'0');
+  ctx.font = '700 10px Manrope'; ctx.textBaseline = 'middle';
+  var tw = ctx.measureText(mTxt).width + 10;
+  var bx = Math.max(PL + 2, Math.min(W - PR - tw, mX - tw/2));
+  var by = Math.max(PT - 12, mY - 20);
+  ctx.fillStyle = 'rgba(20,22,28,.92)';
+  ctx.beginPath(); ctx.rect(bx, by - 8, tw, 17); ctx.fill();
+  ctx.strokeStyle = mVal < 0 ? 'rgba(255,69,58,.7)' : 'rgba(48,209,88,.7)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = mVal < 0 ? '#ff8a80' : '#7ee2a0';
+  ctx.textAlign = 'left'; ctx.fillText(mTxt, bx + 5, by + 1);
+  ctx.restore();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+  var rEl = $('fcRange');
+  if(rEl){
+    var d1 = f.flow[lo].date, d2 = f.flow[hi].date;
+    rEl.textContent = 'видно ' + d1.getDate()+'.'+String(d1.getMonth()+1).padStart(2,'0')
+      + ' — ' + d2.getDate()+'.'+String(d2.getMonth()+1).padStart(2,'0')
+      + ' · ' + (hi - lo + 1) + ' дн';
   }
 }
-// точка «сейчас»
-ctx.fillStyle = '#fff';
-ctx.beginPath(); ctx.arc(X(0), Y(vals[0]), 3.5, 0, 6.28); ctx.fill();
-ctx.font = '700 9px Manrope'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-ctx.fillStyle = 'rgba(255,255,255,.75)';
-ctx.fillText('сейчас ' + shortRub(vals[0]), X(0) + 6, Math.max(PT + 8, Y(vals[0]) - 7));
-// минимум
-var minI = 0; for(var m2=1;m2<vals.length;m2++){ if(vals[m2] < vals[minI]){ minI = m2; } }
-var mX = X(minI), mY = Y(vals[minI]);
-ctx.strokeStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
-ctx.lineWidth = 1; ctx.setLineDash([2,3]);
-ctx.beginPath(); ctx.moveTo(mX, mY); ctx.lineTo(mX, H - PB); ctx.stroke();
-ctx.setLineDash([]);
-ctx.fillStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
-ctx.beginPath(); ctx.arc(mX, mY, 5, 0, 6.28); ctx.fill();
-ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
-var mDt = f.flow[minI].date;
-var mTxt = 'дно ' + fmt(vals[minI]) + ' · ' + mDt.getDate() + '.' + String(mDt.getMonth()+1).padStart(2,'0');
-ctx.font = '700 10px Manrope'; ctx.textBaseline = 'middle';
-var tw = ctx.measureText(mTxt).width + 10;
-var bx = Math.max(PL + 2, Math.min(W - PR - tw, mX - tw/2));
-var by = Math.max(PT - 12, mY - 20);
-ctx.fillStyle = 'rgba(20,22,28,.92)';
-ctx.beginPath(); ctx.rect(bx, by - 8, tw, 17); ctx.fill();
-ctx.strokeStyle = vals[minI] < 0 ? 'rgba(255,69,58,.7)' : 'rgba(48,209,88,.7)'; ctx.lineWidth = 1; ctx.stroke();
-ctx.fillStyle = vals[minI] < 0 ? '#ff8a80' : '#7ee2a0';
-ctx.textAlign = 'left'; ctx.fillText(mTxt, bx + 5, by + 1);
-ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-// тап по графику — детализация дня
-c.addEventListener('click', function(ev){
-var rect = c.getBoundingClientRect();
-var rel = (ev.clientX - rect.left)/rect.width*W;
-var idx = Math.round((rel - PL)/(W - PL - PR)*(vals.length-1));
-if(idx < 0){ idx = 0; } if(idx >= vals.length){ idx = vals.length-1; }
-var d = f.flow[idx].date;
-var evTxt = '';
-for(var e2=0;e2<f.flow[idx].events.length;e2++){ evTxt += '<br>' + f.flow[idx].events[e2].n + ' ' + (f.flow[idx].events[e2].amt>0?'+':'−') + fmt(Math.abs(f.flow[idx].events[e2].amt)); }
-var dayN = Math.round((d - f.flow[0].date)/864e5);
-var info = $('fcInfo');
-if(info){ info.innerHTML = '<b>' + d.getDate() + '.' + String(d.getMonth()+1).padStart(2,'0') + '</b> (через ' + dayN + ' дн) — на счету останется <b style="color:' + (vals[idx]<0?'var(--red)':'var(--grn)') + '">' + fmt(vals[idx]) + '</b>' + (evTxt ? evTxt : '<br>в этот день событий нет, только повседневные траты'); }
-});
+
+// Карточка дня: что это, как получилось, что делать
+function fcShowDay(idx){
+  var el = $('fcInfo'); if(!el || !FC){ return; }
+  var f = FC.f, pt = f.flow[idx], d = pt.date, bal = pt.balance;
+  var mName = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  var wName = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+  var h = '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">'
+    + '<b style="font-size:14px">' + d.getDate() + ' ' + mName[d.getMonth()] + ', ' + wName[d.getDay()] + '</b>'
+    + '<span style="font-size:11px;color:var(--mut)">' + (idx === 0 ? 'сегодня' : 'через ' + idx + ' дн') + '</span></div>';
+  h += '<div style="font-size:13px;margin-bottom:8px">На счету останется <b style="color:'
+    + (bal < 0 ? 'var(--red)' : (bal < f.flexPerDay*7 ? 'var(--org)' : 'var(--grn)')) + '">' + fmt(bal) + '</b></div>';
+
+  // события дня
+  if(pt.events.length){
+    h += '<div style="font-size:12px;color:var(--mut);margin-bottom:3px">В этот день:</div>';
+    for(var e=0;e<pt.events.length;e++){
+      var ev = pt.events[e];
+      h += '<div style="font-size:12px;display:flex;justify-content:space-between;padding:2px 0">'
+        + '<span>' + ev.n + '</span><b style="color:' + (ev.amt > 0 ? 'var(--grn)' : 'var(--org)') + '">'
+        + (ev.amt > 0 ? '+' : '−') + fmt(Math.abs(ev.amt)) + '</b></div>';
+    }
+  } else {
+    h += '<div style="font-size:12px;color:var(--mut)">Платежей в этот день нет — только повседневные траты.</div>';
+  }
+
+  // как получилась цифра
+  var prevBal = idx > 0 ? f.flow[idx-1].balance : bal;
+  var inSum = 0, outSum = 0;
+  for(var j=0;j<=idx;j++){
+    for(var k=0;k<f.flow[j].events.length;k++){
+      var a = f.flow[j].events[k].amt;
+      if(a > 0){ inSum += a; } else { outSum += -a; }
+    }
+  }
+  var flexTotal = Math.round(f.flexPerDay * idx);
+  h += '<div style="font-size:12px;color:var(--mut);margin:8px 0 3px">Как получилась эта цифра:</div>'
+    + '<div style="font-size:12px;line-height:1.6">'
+    + 'сейчас ' + fmt(f.flow[0].balance)
+    + (inSum ? '<br>плюс поступления за ' + idx + ' дн: <span style="color:var(--grn)">+' + fmt(inSum) + '</span>' : '')
+    + (outSum ? '<br>минус платежи за ' + idx + ' дн: <span style="color:var(--org)">−' + fmt(outSum) + '</span>' : '')
+    + (flexTotal ? '<br>минус повседневные траты (' + fmt(f.flexPerDay) + '/день × ' + idx + '): <span style="color:var(--org)">−' + fmt(flexTotal) + '</span>' : '')
+    + '<br><b>итого ' + fmt(bal) + '</b></div>';
+
+  // совет
+  var advice = '', acol = 'var(--grn)';
+  var minAhead = bal, minIdx = idx;
+  for(var q=idx;q<f.flow.length;q++){ if(f.flow[q].balance < minAhead){ minAhead = f.flow[q].balance; minIdx = q; } }
+  var mDt2 = f.flow[minIdx].date;
+  var mDtS = mDt2.getDate() + '.' + String(mDt2.getMonth()+1).padStart(2,'0');
+  if(bal < 0){
+    acol = 'var(--red)';
+    var need = -bal;
+    var cutPerDay = Math.ceil(need/Math.max(1, idx));
+    advice = 'Это провал: в этот день не хватит ' + fmt(need) + '. Чтобы дожить до него в плюсе, урезай повседневные траты на '
+      + fmt(cutPerDay) + '/день начиная с сегодня — темп станет ' + fmt(Math.max(0, f.flexPerDay - cutPerDay)) + '/день вместо ' + fmt(f.flexPerDay) + '. '
+      + 'Альтернатива — перенести крупный платёж этого периода на после зарплаты или закрыть разрыв подработкой на ' + fmt(need) + '.';
+  } else if(minAhead < 0){
+    acol = 'var(--red)';
+    var need2 = -minAhead;
+    var cut2 = Math.ceil(need2/Math.max(1, minIdx));
+    advice = 'Сегодня запас есть, но дальше провал: ' + mDtS + ' баланс уйдёт в минус на ' + fmt(need2)
+      + '. Чтобы этого не случилось, начиная с сегодня трать на ' + fmt(cut2) + '/день меньше (темп '
+      + fmt(Math.max(0, f.flexPerDay - cut2)) + '/день вместо ' + fmt(f.flexPerDay) + '), либо отложи ' + fmt(need2) + ' прямо сейчас и не трогай.';
+  } else if(bal < f.flexPerDay * 7){
+    acol = 'var(--org)';
+    advice = 'Впритык: остатка хватит примерно на ' + Math.floor(bal/Math.max(1, f.flexPerDay))
+      + ' дн жизни текущим темпом. Крупные покупки до этой даты лучше отложить, а в резерве держать хотя бы '
+      + fmt(Math.round(f.flexPerDay*14)) + ' — это две недели трат.';
+  } else {
+    var safe = Math.max(0, minAhead - Math.round(f.flexPerDay*7));
+    advice = 'Запас нормальный. Самая низкая точка впереди — ' + fmt(minAhead) + ' (' + mDtS + '), так что сверх плана без риска можно потратить до '
+      + fmt(safe) + ', оставив неделю трат в резерве.';
+  }
+  h += '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.04);border-left:3px solid '
+    + acol + ';font-size:12px;line-height:1.5">' + advice + '</div>';
+  el.innerHTML = h;
 }
 
 function explainForecast(f){
