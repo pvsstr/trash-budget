@@ -2618,7 +2618,7 @@ function openDebtPlan(){
   h += '<div class="cap" style="margin:14px 4px 6px">Минимум на жизнь</div>'
     + '<div class="dig-item"><span>Оставляю себе в месяц</span><span class="row-actions"><b>'+fmt(typeof D.lifeMin === 'number' ? D.lifeMin : 50000)+'</b>'
     + '<button class="mini-btn" data-act="life-min"><svg class="ic"><use href="#i-pen"/></svg></button></span></div>';
-  h += tipHtml(('Сначала гаси самый маленький долг полностью — это даёт психологическую победу и мотивацию на следующий.');
+  h += tipHtml('Сначала гаси самый маленький долг полностью — это даёт психологическую победу и мотивацию на следующий.');
   $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
