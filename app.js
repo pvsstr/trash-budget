@@ -579,9 +579,15 @@ function openSheet(t, i){
       + rowHtml('Минимум за 90 дней', fmt(minB3.val)+' · через '+minB3.daysFromNow+' дн')
       + rowHtml('Дневной темп гибких', fmt(f.flexPerDay)+'/день')
       + '<div class="cap" style="margin:10px 4px 6px">График прогноза</div>'
-      + '<div style="position:relative;background:rgba(255,255,255,.03);border-radius:12px;padding:8px;margin-bottom:10px"><canvas id="forecastChart" width="600" height="180" style="width:100%;height:180px;display:block"></canvas>'
-+ '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:4px"><span>сегодня</span><span>+30 дн</span><span>+60 дн</span><span>+90 дн</span></div></div>'
-+ '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по графику — баланс и события дня. Зелёные точки — зарплата, оранжевые — платежи, красная — минимум.</div>'
+      + '<div class="sh-tip" style="margin-bottom:8px">Линия показывает, сколько денег останется на счету в каждый день. Вверх — пришла зарплата, вниз — уходят платежи и повседневные траты. Красная зона внизу — деньги кончились и ты в долгу.</div>'
+      + '<div style="position:relative;background:rgba(255,255,255,.03);border-radius:12px;padding:8px;margin-bottom:6px"><canvas id="forecastChart" style="width:100%;display:block"></canvas></div>'
++ '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:10px;color:var(--mut);margin-bottom:8px">'
++ '<span><i style="display:inline-block;width:12px;height:3px;background:#64d2ff;border-radius:2px;vertical-align:middle"></i> деньги на счету</span>'
++ '<span><i style="display:inline-block;width:12px;height:3px;background:#ff453a;border-radius:2px;vertical-align:middle"></i> уход в минус</span>'
++ '<span style="color:#30d158">ЗП — приход зарплаты</span>'
++ '<span style="color:#ff9f0a">стрелка вниз — крупное списание</span>'
++ '<span>дно — самый бедный день</span></div>'
++ '<div id="fcInfo" class="sh-tip" style="margin-top:6px">Тапни по любому дню на графике — покажу, сколько останется и что списывается в этот день.</div>'
 + '<div class="cap" style="margin:10px 4px 6px">Что произойдёт в ближайшие 30 дней</div>'
 + '<div id="fcExplain"></div>'
 + '<div class="cap" style="margin:10px 4px 6px">Ближайшие события</div>';
@@ -3834,47 +3840,140 @@ function forecastCashFlow(daysAhead, fromDate){
 
 function drawForecastChart(f){
 var c = $('forecastChart'); if(!c){ return; }
-var W = c.clientWidth || 300, H = 180;
+var W = c.clientWidth || 300, H = 230;
 c.width = W*2; c.height = H*2;
+c.style.height = H+'px';
 var ctx = c.getContext('2d');
 ctx.setTransform(2,0,0,2,0,0);
-var vals = []; for(var i=0;i<f.flow.length;i++){ vals.push(f.flow[i].balance); }
-var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
-var rng = (mx - mn) || 1;
-function Y(v){ return H - 24 - ((v - mn)/rng)*(H - 48); }
-function X(i){ return 4 + i/(vals.length-1)*(W-8); }
 ctx.clearRect(0,0,W,H);
-if(mn < 0){
-ctx.strokeStyle = 'rgba(255,69,58,.35)';
-ctx.setLineDash([3,3]);
-ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.stroke();
-ctx.setLineDash([]);
-ctx.fillStyle = 'rgba(255,69,58,.7)'; ctx.font = '600 9px Manrope';
-ctx.fillText('НОЛЬ', 4, Y(0)-3);
+var PL = 46, PR = 10, PT = 22, PB = 30;
+var vals = []; for(var i=0;i<f.flow.length;i++){ vals.push(f.flow[i].balance); }
+var rawMn = Math.min.apply(null, vals), rawMx = Math.max.apply(null, vals);
+var mn = Math.min(0, rawMn), mx = Math.max(0, rawMx);
+var pad = (mx - mn) * 0.12 || 1000;
+mn = mn - pad; mx = mx + pad;
+var rng = (mx - mn) || 1;
+function Y(v){ return PT + (1 - (v - mn)/rng) * (H - PT - PB); }
+function X(i){ return PL + i/(vals.length-1) * (W - PL - PR); }
+function shortRub(v){
+  var a = Math.abs(v), s = v < 0 ? '−' : '';
+  if(a >= 1000){ return s + Math.round(a/1000) + 'к'; }
+  return s + Math.round(a);
 }
-ctx.beginPath();
-for(var i=0;i<vals.length;i++){ var px=X(i), py=Y(vals[i]); if(i===0){ ctx.moveTo(px,py); } else { ctx.lineTo(px,py); } }
-ctx.strokeStyle = '#64d2ff'; ctx.lineWidth = 2; ctx.stroke();
+// зона минуса
+if(rawMn < 0){
+  ctx.fillStyle = 'rgba(255,69,58,.09)';
+  ctx.fillRect(PL, Y(0), W - PL - PR, (H - PB) - Y(0));
+}
+// горизонтальная сетка с подписями сумм
+var step = Math.pow(10, Math.floor(Math.log(rng/3.2)/Math.LN10));
+while(rng/step > 5){ step *= 2; }
+while(rng/step < 2.5){ step /= 2; }
+var gv = Math.ceil(mn/step)*step;
+ctx.font = '600 9px Manrope'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+for(; gv <= mx; gv += step){
+  var gy = Y(gv);
+  if(gy < PT - 2 || gy > H - PB + 2){ continue; }
+  var isZero = Math.abs(gv) < step/100;
+  ctx.strokeStyle = isZero ? 'rgba(255,69,58,.55)' : 'rgba(255,255,255,.07)';
+  ctx.lineWidth = isZero ? 1.5 : 1;
+  ctx.setLineDash(isZero ? [] : [2,4]);
+  ctx.beginPath(); ctx.moveTo(PL, gy); ctx.lineTo(W - PR, gy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = isZero ? 'rgba(255,105,97,.95)' : 'rgba(255,255,255,.38)';
+  ctx.fillText(isZero ? '0' : shortRub(gv), PL - 6, gy);
+}
+// заливка под линией до нуля
+var zeroY = Math.min(H - PB, Math.max(PT, Y(0)));
+var grad = ctx.createLinearGradient(0, PT, 0, H - PB);
+grad.addColorStop(0, 'rgba(100,210,255,.28)');
+grad.addColorStop(1, 'rgba(100,210,255,.02)');
+ctx.fillStyle = grad;
+ctx.beginPath(); ctx.moveTo(X(0), zeroY);
+for(var i=0;i<vals.length;i++){ ctx.lineTo(X(i), Y(vals[i])); }
+ctx.lineTo(X(vals.length-1), zeroY); ctx.closePath(); ctx.fill();
+// вертикальные метки дат
+ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+var stepD = vals.length > 70 ? 15 : 7;
+for(var xi=0; xi<vals.length; xi+=stepD){
+  var dt = f.flow[xi].date;
+  ctx.strokeStyle = 'rgba(255,255,255,.05)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(X(xi), PT); ctx.lineTo(X(xi), H - PB); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.42)'; ctx.font = '600 9px Manrope';
+  ctx.fillText(xi === 0 ? 'сегодня' : dt.getDate()+'.'+String(dt.getMonth()+1).padStart(2,'0'), X(xi), H - PB + 8);
+}
+// линия баланса: синяя в плюсе, красная в минусе
+ctx.lineWidth = 2.4; ctx.lineJoin = 'round';
+for(var s=0;s<vals.length-1;s++){
+  ctx.strokeStyle = (vals[s] < 0 || vals[s+1] < 0) ? '#ff453a' : '#64d2ff';
+  ctx.beginPath(); ctx.moveTo(X(s), Y(vals[s])); ctx.lineTo(X(s+1), Y(vals[s+1])); ctx.stroke();
+}
+// события: зарплата — зелёная стрелка вверх, крупные списания — оранжевая вниз
+var labelled = [];
 for(var e=0;e<f.events.length;e++){
-var dayIdx = Math.round((f.events[e].date - f.flow[0].date)/864e5);
-if(dayIdx < 0 || dayIdx >= vals.length){ continue; }
-ctx.fillStyle = f.events[e].amt > 0 ? '#30d158' : '#ff9f0a';
-ctx.beginPath(); ctx.arc(X(dayIdx), Y(vals[dayIdx]), 3, 0, 6.28); ctx.fill();
+  var dayIdx = Math.round((f.events[e].date - f.flow[0].date)/864e5);
+  if(dayIdx < 0 || dayIdx >= vals.length){ continue; }
+  var amt = f.events[e].amt;
+  var big = Math.abs(amt) >= 10000;
+  if(!big){ continue; }
+  var ex = X(dayIdx), ey = Y(vals[dayIdx]);
+  ctx.fillStyle = amt > 0 ? '#30d158' : '#ff9f0a';
+  ctx.beginPath();
+  if(amt > 0){ ctx.moveTo(ex, ey-9); ctx.lineTo(ex-4, ey-3); ctx.lineTo(ex+4, ey-3); }
+  else { ctx.moveTo(ex, ey+9); ctx.lineTo(ex-4, ey+3); ctx.lineTo(ex+4, ey+3); }
+  ctx.closePath(); ctx.fill();
+  if(amt > 0){
+    var free = true;
+    for(var l=0;l<labelled.length;l++){ if(Math.abs(labelled[l] - ex) < 30){ free = false; break; } }
+    if(free){
+      labelled.push(ex);
+      ctx.font = '700 9px Manrope'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillStyle = '#30d158';
+      ctx.fillText('ЗП', Math.max(PL+10, Math.min(W-PR-10, ex)), Math.max(PT+9, ey-11));
+    }
+  }
 }
+// точка «сейчас»
+ctx.fillStyle = '#fff';
+ctx.beginPath(); ctx.arc(X(0), Y(vals[0]), 3.5, 0, 6.28); ctx.fill();
+ctx.font = '700 9px Manrope'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+ctx.fillStyle = 'rgba(255,255,255,.75)';
+ctx.fillText('сейчас ' + shortRub(vals[0]), X(0) + 6, Math.max(PT + 8, Y(vals[0]) - 7));
+// минимум
 var minI = 0; for(var m2=1;m2<vals.length;m2++){ if(vals[m2] < vals[minI]){ minI = m2; } }
+var mX = X(minI), mY = Y(vals[minI]);
+ctx.strokeStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
+ctx.lineWidth = 1; ctx.setLineDash([2,3]);
+ctx.beginPath(); ctx.moveTo(mX, mY); ctx.lineTo(mX, H - PB); ctx.stroke();
+ctx.setLineDash([]);
 ctx.fillStyle = vals[minI] < 0 ? '#ff453a' : '#30d158';
-ctx.beginPath(); ctx.arc(X(minI), Y(vals[minI]), 5, 0, 6.28); ctx.fill();
-ctx.fillStyle = '#fff'; ctx.font = 'bold 10px Manrope';
-ctx.fillText('мин '+fmt(vals[minI]), Math.min(W-90, X(minI)+8), Math.max(10, Y(vals[minI])-8));
+ctx.beginPath(); ctx.arc(mX, mY, 5, 0, 6.28); ctx.fill();
+ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+var mDt = f.flow[minI].date;
+var mTxt = 'дно ' + fmt(vals[minI]) + ' · ' + mDt.getDate() + '.' + String(mDt.getMonth()+1).padStart(2,'0');
+ctx.font = '700 10px Manrope'; ctx.textBaseline = 'middle';
+var tw = ctx.measureText(mTxt).width + 10;
+var bx = Math.max(PL + 2, Math.min(W - PR - tw, mX - tw/2));
+var by = Math.max(PT - 12, mY - 20);
+ctx.fillStyle = 'rgba(20,22,28,.92)';
+ctx.beginPath(); ctx.rect(bx, by - 8, tw, 17); ctx.fill();
+ctx.strokeStyle = vals[minI] < 0 ? 'rgba(255,69,58,.7)' : 'rgba(48,209,88,.7)'; ctx.lineWidth = 1; ctx.stroke();
+ctx.fillStyle = vals[minI] < 0 ? '#ff8a80' : '#7ee2a0';
+ctx.textAlign = 'left'; ctx.fillText(mTxt, bx + 5, by + 1);
+ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+// тап по графику — детализация дня
 c.addEventListener('click', function(ev){
 var rect = c.getBoundingClientRect();
-var idx = Math.round((ev.clientX - rect.left)/rect.width*(vals.length-1));
-if(idx < 0 || idx >= vals.length){ return; }
+var rel = (ev.clientX - rect.left)/rect.width*W;
+var idx = Math.round((rel - PL)/(W - PL - PR)*(vals.length-1));
+if(idx < 0){ idx = 0; } if(idx >= vals.length){ idx = vals.length-1; }
 var d = f.flow[idx].date;
 var evTxt = '';
-for(var e2=0;e2<f.flow[idx].events.length;e2++){ evTxt += ' · '+f.flow[idx].events[e2].n+' '+(f.flow[idx].events[e2].amt>0?'+':'−')+fmt(Math.abs(f.flow[idx].events[e2].amt)); }
+for(var e2=0;e2<f.flow[idx].events.length;e2++){ evTxt += '<br>' + f.flow[idx].events[e2].n + ' ' + (f.flow[idx].events[e2].amt>0?'+':'−') + fmt(Math.abs(f.flow[idx].events[e2].amt)); }
+var dayN = Math.round((d - f.flow[0].date)/864e5);
 var info = $('fcInfo');
-if(info){ info.innerHTML = '<b>'+d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'</b> · баланс '+fmt(vals[idx])+evTxt; }
+if(info){ info.innerHTML = '<b>' + d.getDate() + '.' + String(d.getMonth()+1).padStart(2,'0') + '</b> (через ' + dayN + ' дн) — на счету останется <b style="color:' + (vals[idx]<0?'var(--red)':'var(--grn)') + '">' + fmt(vals[idx]) + '</b>' + (evTxt ? evTxt : '<br>в этот день событий нет, только повседневные траты'); }
 });
 }
 
