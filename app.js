@@ -2012,6 +2012,50 @@ function renderDashboardNew() {
     wb.innerHTML = '<div class="subs-audit glass hov" data-act="sheet" data-t="daily" style="margin-bottom:14px;flex-direction:column;align-items:stretch;gap:8px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:12.5px">Цель недели · потрачено '+fmt(wSpent)+' из '+fmt(wLimit)+'</b><span style="font-size:11px;color:var(--mut)">'+wPct+'%</span></div>'
       + '<div class="limit-status-bar"><i style="width:'+wPct+'%;background:'+wCol+'"></i></div></div>';
+      // План на месяц
+  var planBox = $('monthPlanBox');
+  if(!planBox){
+    planBox = document.createElement('div');
+    planBox.id = 'monthPlanBox';
+    planBox.className = 'subs-audit glass hov';
+    planBox.style.cssText = 'margin-bottom:14px;flex-direction:column;align-items:stretch;gap:6px;cursor:pointer';
+    planBox.setAttribute('data-act','sheet');
+    planBox.setAttribute('data-t','fixed');
+    var dashContainer = document.querySelector('.dash-grid');
+    if(dashContainer){ dashContainer.insertBefore(planBox, dashContainer.firstChild); }
+  }
+  
+  var plan = calcMonthlyPlan();
+  var topCats = [];
+  for(var cat in plan){
+    if(cat === '_saveTarget' || cat === '_available' || cat === '_fixedCosts') continue;
+    topCats.push({cat:cat, limit:plan[cat]});
+  }
+  topCats.sort(function(a,b){ return b.limit - a.limit; });
+  topCats = topCats.slice(0,3);
+  
+  var planHtml = '<div style="display:flex;justify-content:space-between;align-items:center">' +
+    '<b style="font-size:12.5px">План на месяц</b>' +
+    '<span style="font-size:11px;color:var(--mut)">'+fmt(plan._available)+' после обязательных</span>' +
+    '</div>';
+  
+  for(var i=0;i<topCats.length;i++){
+    var pc = topCats[i];
+    var pct = plan._available > 0 ? Math.round(pc.limit / plan._available * 100) : 0;
+    planHtml += '<div style="display:flex;justify-content:space-between;font-size:11px">' +
+      '<span>'+catById(pc.cat).n+'</span>' +
+      '<b>'+fmt(pc.limit)+'</b>' +
+      '</div>' +
+      '<div class="limit-status-bar"><i style="width:'+Math.min(100,pct)+'%;background:var(--blu)"></i></div>';
+  }
+  
+  planHtml += '<div style="display:flex;justify-content:space-between;font-size:11px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.05)">' +
+    '<span style="color:var(--grn)">Отложить</span>' +
+    '<b style="color:var(--grn)">'+fmt(plan._saveTarget)+'</b>' +
+    '</div>' +
+    '<div style="font-size:10px;color:var(--mut);text-align:center;margin-top:4px">Нажми, чтобы настроить лимиты</div>';
+  
+  planBox.innerHTML = planHtml;
   }
 }
 
@@ -3419,7 +3463,9 @@ save(); render(); toast('Память применена: обновлено о�
   else if(act === 'goal-uncomplete'){ goalUncomplete(parseInt(el.getAttribute('data-i'),10)); }
   else if(act === 'her-set'){ herSet(el.getAttribute('data-d'), el.getAttribute('data-v')); }
   else if(act === 'her-fill'){ herFill(el.getAttribute('data-d')); }
-  else if(act === 'chip'){ ask(el.getAttribute('data-q')); }
+   else if(act === 'chip' || act === 'chat-chip'){
+    ask(el.getAttribute('data-q'));
+  }
   else if(act === 'send'){ ask(); }
    else if(act === 'i-mode'){ iMode = el.getAttribute('data-v'); iCycOff = 0; renderIncome(); }
   else if(act === 'i-prev'){
@@ -3661,6 +3707,19 @@ onAuthStateChanged(auth, function(u){
       if($('q')){ $('q').addEventListener('input', function(){ renderTx(); }); }
       if($('q2')){ $('q2').addEventListener('input', function(){ renderTx('2'); }); }
       if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
+            // Чипы быстрых сценариев в чате
+      var chatContainer = $('chatLog');
+      if(chatContainer){
+        var chipContainer = document.createElement('div');
+        chipContainer.id = 'chatChips';
+        chipContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;margin-bottom:8px';
+        chipContainer.innerHTML = 
+          '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу кафе на 30%?">Урезать кафе на 30%</button>' +
+          '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу самокаты на 50%?">Самокаты -50%</button>' +
+          '<button class="chip" data-act="chat-chip" data-q="Что важно сейчас?">Что важно сейчас?</button>' +
+          '<button class="chip" data-act="chat-chip" data-q="Как мне сэкономить 10000 в этом месяце?">Сэкономить 10 000</button>';
+        chatContainer.parentNode.insertBefore(chipContainer, chatContainer);
+      }
       if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
       if($('spNote')){ $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } }); }
       render();
@@ -3736,6 +3795,55 @@ function deployCheck(){
     });
 }
 
+// ========== ПЛАН НА МЕСЯЦ ==========
+// Автоматически рассчитывает рекомендуемые лимиты по категориям
+function calcMonthlyPlan() {
+  var now = new Date();
+  var from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  var to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  var allSp = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
+  
+  var totals = {};
+  var counts = {};
+  for(var i=0;i<allSp.length;i++){
+    var cat = allSp[i].cat || 'other';
+    totals[cat] = (totals[cat]||0) + allSp[i].s;
+    counts[cat] = (counts[cat]||0) + 1;
+  }
+  
+  var plan = {};
+  var totalPlan = 0;
+  var income = D.income || 0;
+  var fixedCosts = calcMonthlyFixedPay();
+  var available = Math.max(0, income - fixedCosts);
+  var targetSave = available * 0.15; // 15% откладываем
+  
+  for(var cat in totals){
+    // Среднее за 3 месяца
+    var avg = totals[cat] / 3;
+    // Рекомендуемый лимит = среднее × 0.9 (постепенное ужатие)
+    var recommended = Math.round(avg * 0.9);
+    // Корректируем, чтобы сумма не превышала доступные деньги минус накопления
+    plan[cat] = recommended;
+    totalPlan += recommended;
+  }
+  
+  // Если план превышает доступные деньги, пропорционально ужимаем
+  if(totalPlan > available - targetSave){
+    var ratio = (available - targetSave) / totalPlan;
+    for(var cat2 in plan){
+      plan[cat2] = Math.round(plan[cat2] * ratio);
+    }
+  }
+  
+  // Добавляем цель сбережений
+  plan._saveTarget = Math.round(targetSave);
+  plan._available = available;
+  plan._fixedCosts = fixedCosts;
+  
+  return plan;
+}
+
 // ========== МОЗГ ПРИЛОЖЕНИЯ v2 ==========
 
 // Прогнозный движок: строит баланс на каждый день вперёд
@@ -3746,7 +3854,7 @@ function forecastCashFlow(daysAhead, fromDate){
   fromDate = fromDate || new Date();
   fromDate = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
   
-  // 1. Определяем дневной темп гибких трат (исключая обязательные)
+   // 1. Определяем дневной темп гибких трат (исключая обязательные)
   var lookback = 30;
   var fromLook = new Date(fromDate.getTime() - lookback*864e5);
   var allSp = allSpends();
@@ -3764,6 +3872,25 @@ function forecastCashFlow(daysAhead, fromDate){
   }
   flexDays = Math.max(1, Math.round((fromDate - fromLook)/864e5));
   var flexPerDay = flexDays > 0 ? flexSum / flexDays : 0;
+  
+  // 2. Поведенческие коэффициенты: после зарплаты тратим больше, перед зарплатой — меньше
+  var nextSalary = salaryDate(fromDate.getFullYear(), fromDate.getMonth() + 1);
+  var daysToSalary = Math.max(1, Math.round((nextSalary - fromDate) / 864e5));
+  var totalCycle = 30; // примерно
+  var daysFromSalary = totalCycle - daysToSalary;
+  
+  function getBehaviorCoeff(dayFromStart) {
+    // dayFromStart — сколько дней прошло с начала прогноза
+    var currentDate = new Date(fromDate.getTime() + dayFromStart * 864e5);
+    var daysSinceSalary = Math.round((currentDate - cycleStart(currentDate)) / 864e5);
+    var cycleLen = Math.round((cycleEnd(cycleStart(currentDate)) - cycleStart(currentDate)) / 864e5);
+    var phase = daysSinceSalary / cycleLen; // 0..1
+    
+    if (phase < 0.15) return 1.3;  // первые 15% цикла — тратим на 30% больше
+    if (phase < 0.45) return 1.0;  // средняя часть — норма
+    if (phase < 0.75) return 0.85; // предпоследняя треть — на 15% меньше
+    return 0.7;                   // последняя четверть — на 30% меньше
+  }
   
   // 2. Собираем все будущие известные списания и поступления
   var events = [];
@@ -3808,15 +3935,19 @@ function forecastCashFlow(daysAhead, fromDate){
   var curBal = realBal();
   var curDate = new Date(fromDate);
   
-  for(var day=0; day<=daysAhead; day++){
+    for(var day=0; day<=daysAhead; day++){
     // применяем все события этого дня
     for(var ei=0; ei<events.length; ei++){
       if(iso(events[ei].date) === iso(curDate)){
         curBal += events[ei].amt;
       }
     }
-    // вычитаем дневной темп гибких трат
-    if(day > 0){ curBal -= flexPerDay; }
+    // вычитаем дневной темп гибких трат с поведенческим коэффициентом
+    if(day > 0){
+      var coeff = getBehaviorCoeff(day);
+      var dailySpend = flexPerDay * coeff;
+      curBal -= dailySpend;
+    }
     
     flow.push({
       date: new Date(curDate),
@@ -4581,6 +4712,34 @@ function agentParse(query){
     return {type:'savings', data:{goals:D.goals||[]}};
   }
   
+   // Сигналы – что важно прямо сейчас
+  if(/сигнал|важно|срочн|проблем|внимани/i.test(q)){
+    var sigs = getSignals();
+    return {type:'signals', data:sigs.slice(0,5)};
+  }
+  
+  // Сценарии – что если урежу/увеличу
+  if(/если|уреж|сократ|увелич|сценари/i.test(q)){
+    var numMatch2 = q.match(/(\d[\d\s]*)/);
+    var amount2 = numMatch2 ? parseInt(numMatch2[1].replace(/\s/g,'')) : 0;
+    var catMatch = q.match(/(кафе|продукт|самокат|такси|подписк|развлечен|личн)/i);
+    var catId = catMatch ? catMatch[1].toLowerCase() : 'cafe';
+    // маппинг названий на ID категорий
+    var catMap = {'кафе':'cafe','продукт':'grocery','самокат':'scooters','такси':'taxi','подписк':'subs','развлечен':'fun','личн':'personal'};
+    catId = catMap[catId] || 'cafe';
+    var catSum = 0;
+    var mNow2 = new Date(); mNow2 = new Date(mNow2.getFullYear(), mNow2.getMonth(), 1);
+    var allSp2 = allSpends();
+    for(var i=0;i<allSp2.length;i++){
+      if(allSp2[i].d >= mNow2 && (allSp2[i].cat||'other') === catId){
+        catSum += allSp2[i].s;
+      }
+    }
+    if(amount2 === 0){ amount2 = Math.round(catSum * 0.3); }
+    var sim = whatIf(amount2);
+    return {type:'scenario', data:{cat:catId, catName:catById(catId).n, amount:amount2, catSum:catSum, sim:sim}};
+  }
+  
   // По умолчанию — топ-3 сигнала
   var sigs = getSignals().slice(0,3);
   return {type:'signals', data:sigs};
@@ -4606,10 +4765,24 @@ function agentAnswer(query){
   } else if(r.type === 'savings'){
     if(r.data.months){ ans = 'Чтобы накопить '+fmt(r.data.target)+', откладывай '+fmt(r.data.monthly)+'/мес — накопишь за '+r.data.months+' мес.'; }
     else { ans = 'Активных целей: '+(r.data.goals||[]).filter(function(g){return !g.done;}).length; }
-  } else if(r.type === 'signals'){
+   } else if(r.type === 'signals'){
     ans = '<b>Что важно сейчас:</b><br>';
     for(var i=0;i<r.data.length;i++){
-      ans += '• '+r.data[i].title+'<br>';
+      var s = r.data[i];
+      var actTxt = '';
+      if(s.act && s.act.t){ actTxt = ' (нажми, чтобы открыть)'; }
+      ans += '• <b style="color:'+(s.sev>=8?'var(--red)':s.sev>=5?'var(--org)':'var(--blu)')+'">'+s.title+'</b> — '+s.desc+(s.benefit?' · выгода '+fmt(s.benefit)+'/мес':'')+actTxt+'<br>';
+    }
+    if(!r.data.length){ ans = 'Сейчас всё спокойно. Так держать!'; }
+  } else if(r.type === 'scenario'){
+    var d = r.data;
+    ans = '<b>Сценарий: урезать "'+d.catName+'" на '+fmt(d.amount)+'</b><br>';
+    ans += 'Сейчас по этой категории: '+fmt(d.catSum)+' за месяц.<br>';
+    ans += '<b>Эффект:</b> минимум за 90 дней станет <b style="color:'+(d.sim.diff>0?'var(--grn)':'var(--red)')+'">'+fmt(d.sim.newMin)+'</b> (было '+fmt(d.sim.originalMin)+', '+ (d.sim.diff>0?'+':'')+fmt(d.sim.diff)+')<br>';
+    if(d.sim.diff > 0){
+      ans += 'Это добавит тебе '+fmt(d.sim.diff)+' к минимальному балансу. Отличный шаг!';
+    } else {
+      ans += 'Это ухудшит ситуацию на '+fmt(Math.abs(d.sim.diff))+'. Лучше урежь другую категорию.';
     }
   }
   return ans;
