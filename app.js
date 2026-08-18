@@ -104,28 +104,15 @@ var LESSONS = [
 {id:7,t:'Обязательное и гибкое',x:'Аренда и подписки урезать трудно. Кафе, самокаты, такси — гибкие траты.'},
 {id:8,t:'Рассрочка без ловушек',x:'Рассрочка безопасна, только если платёж уже вписан в бюджет.'}];
 
-var DEMO = {demo:true, income:114493, salaryDay:20, baseBalance:50000,
-goals:{cushion:0, cushionT:100000, vacation:0, vacationT:200000},
+var DEMO = {demo:true, income:0, salaryDay:null, baseBalance:0,
+goals:{},
 spends:[], incomes:[],
-envs:[
-{n:'Аренда + КУ', ic:'i-home', k:'c-pur', lim:65000},
-{n:'Электричка экспресс', ic:'i-train', k:'c-blu', lim:8100},
-{n:'Продукты', ic:'i-cart', k:'c-grn', lim:18000},
-{n:'Кафе и рестораны', ic:'i-coffee', k:'c-red', lim:3000},
-{n:'Самокаты и каршеринг', ic:'i-scoot', k:'c-red', lim:2500},
-{n:'Такси', ic:'i-taxi', k:'c-blu', lim:1500},
-{n:'Тройка и транспорт', ic:'i-train', k:'c-blu', lim:1500},
-{n:'Личное и прочее', ic:'i-gift', k:'c-pur', lim:3000},
-{n:'Погашение кредитки Альфа', ic:'i-shield', k:'c-grn', lim:6000},
-{n:'Микро-подушка', ic:'i-target', k:'c-pur', lim:2000}],
-pays:[
-{d:20, n:'Аренда + КУ', s:63500},
-{d:21, n:'Симка своя', s:300},
-{d:22, n:'Симка жены', s:300},
-{d:23, n:'Интернет', s:610}],
-subs:[{n:'Telegram Premium', s:299, off:0},{n:'Яндекс Плюс', s:449, off:0},{n:'Getcontact', s:299, off:1},{n:'ivi.ru', s:99, off:1},{n:'Привилегии M', s:399, off:1}],
+envs:[],
+pays:[],
+subs:[],
 leaks:[],
-tx:[]};
+tx:[],
+credits:[], insts:[], learned:[], removedAuto:[], events:[], her:{}, cancelled:[], leakFixed:{}, paid:{}, merchRules:{}, lifeMin:50000};
 var D = DEMO;
 
 var TIPS = [
@@ -199,23 +186,15 @@ function normalize(){
   for(i=0;i<D.envs.length;i++){ D.envs[i].id=D.envs[i].id||i+1; }
   for(i=0;i<D.leaks.length;i++){ D.leaks[i].id=D.leaks[i].id||i+1; D.leaks[i].fixed=D.leaks[i].fixed||0; }
   D.pays = D.pays.filter(function(x){ return x.n.indexOf('Рассрочка')===-1; });
-  if(!D.credits){
-    D.credits=[{id:1,n:'Кредитка Т-Банк',total:105766,cur:(D.debts&&D.debts.b)||105766},{id:2,n:'Кредитка Альфа',total:18200,cur:(D.debts&&D.debts.a)||18200}];
-  }
-  if(!D.insts){
-    D.insts=[{id:1,n:'Рассрочка',d:'2026-08-23',s:5000},{id:2,n:'Рассрочка',d:'2026-09-23',s:12000},{id:3,n:'Рассрочка',d:'2026-10-23',s:12000},{id:4,n:'Рассрочка',d:'2026-11-23',s:12000},{id:5,n:'Рассрочка',d:'2026-12-23',s:12000},{id:6,n:'Рассрочка (финал)',d:'2027-01-23',s:4624}];
-  }
+  if(!D.credits) D.credits=[];
+if(!D.insts) D.insts=[];
   D.learned=D.learned||[];
   D.removedAuto=D.removedAuto||[];
   D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{}; D.paid=D.paid||{};  D.merchRules = D.merchRules || {};
   if(typeof D.lifeMin !== 'number'){ D.lifeMin = 50000; }
-  if(D.goals && !Array.isArray(D.goals)){
-    D.goals = [
-      {id:1, n:'Подушка безопасности', cur:D.goals.cushion||0, target:D.goals.cushionT||100000, done:false},
-      {id:2, n:'Отпуск', cur:D.goals.vacation||0, target:D.goals.vacationT||200000, done:false}
-    ];
-  }
-  D.goals = D.goals || [];
+  // Цели теперь инициализируются только из Firebase, без демо-значений
+    D.goals = D.goals || [];
+  calcLifeMin();
 }
 
 function allSpends(){
@@ -3106,9 +3085,15 @@ return;
     var a2 = parseFloat($('incAmt').value);
     if(isNaN(a2) || a2 <= 0){ dAlert('Введите сумму поступления.', 'Поступление'); return; }
     var k2b = $('incKind') ? $('incKind').value : 'other';
-    D.incomes.push({id:Date.now(), d: $('incDate').value || iso(new Date()), n: $('incNote').value.trim() || kindById(k2b)[1], s:a2, k:k2b});
+    var dateVal = $('incDate').value || iso(new Date());
+    D.incomes.push({id:Date.now(), d: dateVal, n: $('incNote').value.trim() || kindById(k2b)[1], s:a2, k:k2b});
+    // Если это зарплата и день зарплаты ещё не задан, запоминаем день месяца
+    if (k2b === 'salary' && !D.salaryDay) {
+        var d = new Date(dateVal);
+        D.salaryDay = d.getDate();
+    }
     save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
-  }
+}
 
   else if(act === 'del-income'){
     var idD = el.getAttribute('data-id');
@@ -4299,6 +4284,55 @@ function debtSnowball(){
     months: months,
     monthlyExtra: monthlyExtra
   };
+}
+
+// Вычисляет «минимум на жизнь» – средние обязательные траты за последние 3 месяца + 10% запаса.
+function calcLifeMin() {
+    if (!D) return 50000;
+    var now = new Date();
+    var threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    var total = 0, count = 0;
+    // Платежи
+    if (D.pays && D.pays.length) {
+        for (var i = 0; i < D.pays.length; i++) {
+            var p = D.pays[i];
+            if (p.s) { total += parseFloat(p.s) || 0; count++; }
+        }
+    }
+    // Подписки
+    if (D.subs && D.subs.length) {
+        for (var j = 0; j < D.subs.length; j++) {
+            var s = D.subs[j];
+            if (s.s && !s.off) { total += parseFloat(s.s) || 0; count++; }
+        }
+    }
+    // Кредиты – примерно total/12
+    if (D.credits && D.credits.length) {
+        for (var k = 0; k < D.credits.length; k++) {
+            var c = D.credits[k];
+            if (c.total && c.total > 0) { total += parseFloat(c.total) / 12; count++; }
+        }
+    }
+    // Рассрочки – только ближайшие (в пределах 3 месяцев)
+    if (D.insts && D.insts.length) {
+        for (var l = 0; l < D.insts.length; l++) {
+            var inst = D.insts[l];
+            if (inst.s && inst.d) {
+                var instDate = new Date(inst.d);
+                if (instDate >= threeMonthsAgo) { total += parseFloat(inst.s) || 0; count++; }
+            }
+        }
+    }
+    if (count === 0) {
+        D.lifeMin = 50000;
+    } else {
+        var avg = total / count;
+        D.lifeMin = Math.round(avg * 1.1); // +10% запаса
+    }
+    // Ограничиваем разумными пределами
+    if (D.lifeMin < 30000) D.lifeMin = 30000;
+    if (D.lifeMin > 100000) D.lifeMin = 100000;
+    return D.lifeMin;
 }
 
 // Движок сигналов — 10 типов, каждый даёт ₽/мес выгоды
