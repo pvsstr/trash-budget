@@ -36,12 +36,67 @@ function salaryDate(y, m){
   if(wd === 0){ return new Date(y, m, day + 1); }
   return new Date(y, m, day);
 }
-function cycleStart(dt){
-  var cur = salaryDate(dt.getFullYear(), dt.getMonth());
-  if(dt >= cur){ return cur; }
-  return salaryDate(dt.getFullYear(), dt.getMonth() - 1);
+// Находит последнюю дату зарплаты (фактическую) до указанной даты
+function getLastSalaryDate(dt) {
+  dt = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  // Проверяем до 12 месяцев назад
+  for (var i = 0; i < 12; i++) {
+    var curDate = new Date(dt.getFullYear(), dt.getMonth() - i, 1);
+    var sd = salaryDate(curDate.getFullYear(), curDate.getMonth());
+    if (sd <= dt) {
+      return sd;
+    }
+  }
+  // fallback – возвращаем 1-е число текущего месяца
+  return new Date(dt.getFullYear(), dt.getMonth(), 1);
 }
-function cycleEnd(cs){ return salaryDate(cs.getFullYear(), cs.getMonth() + 1); }
+
+// Находит следующую дату зарплаты (фактическую) после указанной даты
+function getNextSalaryDate(dt) {
+  dt = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  // Проверяем до 12 месяцев вперёд
+  for (var i = 0; i < 12; i++) {
+    var curDate = new Date(dt.getFullYear(), dt.getMonth() + i, 1);
+    var sd = salaryDate(curDate.getFullYear(), curDate.getMonth());
+    if (sd > dt) {
+      return sd;
+    }
+  }
+  // fallback – возвращаем 1-е число следующего месяца
+  return new Date(dt.getFullYear(), dt.getMonth() + 1, 1);
+}
+
+// Начало зарплатного цикла (по умолчанию – от фактической даты зарплаты)
+function cycleStart(dt) {
+  if (D.cycleMode === 'calendar') {
+    // Календарный режим – начало месяца
+    return new Date(dt.getFullYear(), dt.getMonth(), 1);
+  }
+  // Зарплатный режим – последняя зарплата до этой даты
+  return getLastSalaryDate(dt);
+}
+
+// Конец зарплатного цикла
+function cycleEnd(cs) {
+  if (D.cycleMode === 'calendar') {
+    // Календарный режим – конец месяца
+    return new Date(cs.getFullYear(), cs.getMonth() + 1, 1);
+  }
+  // Зарплатный режим – следующая зарплата после начала цикла
+  return getNextSalaryDate(cs);
+}
+
+// Человекочитаемая метка зарплатного цикла
+function cycleLabel(cs) {
+  if (D.cycleMode === 'calendar') {
+    return MONTHS[cs.getMonth()] + ' ' + cs.getFullYear();
+  }
+  var ce = cycleEnd(cs);
+  var ce2 = new Date(ce.getTime() - 864e5);
+  var startStr = cs.getDate() + '.' + String(cs.getMonth()+1).padStart(2,'0');
+  var endStr = ce2.getDate() + '.' + String(ce2.getMonth()+1).padStart(2,'0');
+  return startStr + ' – ' + endStr;
+}
 var WEEKDAYS = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
 function payDateStr(d){
   return d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()+' ('+WEEKDAYS[d.getDay()]+')';
@@ -198,7 +253,8 @@ if(!D.insts) D.insts=[];
     D.decisions = D.decisions || [];
   if(typeof D.lifeMin !== 'number'){ D.lifeMin = 50000; }
   // Цели теперь инициализируются только из Firebase, без демо-значений
-    D.goals = D.goals || [];
+     D.goals = D.goals || [];
+  if (typeof D.cycleMode !== 'string') D.cycleMode = 'salary';
   calcLifeMin();
 }
 
@@ -3779,6 +3835,13 @@ save(); render(); toast('Память применена: обновлено о�
   else if(act === 'backup-export'){ exportBackup(); }
   else if(act === 'backup-import'){ importBackupFromFile(el); }
   else if(act === 'reset-all'){ resetAllData(); }
+      else if(act === 'cycle-toggle'){
+    var newMode = D.cycleMode === 'salary' ? 'calendar' : 'salary';
+    D.cycleMode = newMode;
+    save();
+    render();
+    toast('Цикл переключён на ' + (newMode === 'salary' ? 'зарплатный' : 'календарный'));
+  }
   else if(act === 'exit'){ signOut(auth); }
 });
 
