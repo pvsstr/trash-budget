@@ -2148,6 +2148,12 @@ function renderDashboardNew() {
     '<div style="font-size:10px;color:var(--mut);text-align:center;margin-top:4px">Нажми, чтобы настроить лимиты</div>';
   
   planBox.innerHTML = planHtml;
+      // Кнопка перераспределения (если есть перерасход)
+  var rebalance = rebalanceBudget();
+  if(rebalance && rebalance.suggestions.length){
+    var btnHtml = '<button class="sh-btn" style="margin-top:8px;width:100%;background:rgba(255,159,10,.15);color:var(--org)" data-act="rebalance-show">Перераспределить бюджет ('+fmt(rebalance.totalOver)+' перерасход)</button>';
+    planBox.insertAdjacentHTML('beforeend', btnHtml);
+  }
   }
 }
 
@@ -3168,6 +3174,37 @@ return;
 }
   if(act === 'nav'){ go(el.getAttribute('data-p')); }
   else if(act === 'sheet'){ window._sheetM = parseInt(el.getAttribute('data-m')||'0',10); openSheet(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
+      else if(act === 'rebalance-show'){
+    var rebalance = rebalanceBudget();
+    if(!rebalance || !rebalance.suggestions.length){
+      toast('Перерасхода нет — бюджет сбалансирован');
+      return;
+    }
+    
+    var h = sheetHead('i-chev','c-org','Перераспределение бюджета','автоматическая коррекция');
+    h += '<div class="sh-tip" style="margin-bottom:10px">Общий перерасход: <b style="color:var(--red)">'+fmt(rebalance.totalOver)+'</b></div>';
+    h += '<div class="cap" style="margin:10px 4px 6px">Предлагаю перенести:</div>';
+    
+    for(var i=0;i<rebalance.suggestions.length;i++){
+      var s = rebalance.suggestions[i];
+      var fromName = catById(s.from).n || s.from;
+      var toName = catById(s.to).n || s.to;
+      h += '<div class="dig-item"><span>Из "'+fromName+'" → в "'+toName+'"</span><b>'+fmt(s.amount)+'</b></div>';
+    }
+    
+    if(rebalance.remaining > 0){
+      h += '<div class="sh-tip" style="border-left:3px solid var(--org)">Остаток перерасхода: <b>'+fmt(rebalance.remaining)+'</b> — рекомендуем урезать гибкие траты.</div>';
+    }
+    
+    h += '<div class="dlg-btns" style="margin-top:14px">' +
+      '<button class="sh-btn" style="margin:0;flex:1" data-act="rebalance-apply">Применить</button>' +
+      '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="close">Отмена</button>' +
+      '</div>';
+    
+    $('sheetBody').innerHTML = h;
+    $('sheet').classList.add('on');
+    $('shb').classList.add('on');
+  }
   else if(act === 'env'){ openEnv(parseInt(el.getAttribute('data-i'), 10)); }
   else if(act === 'edit'){ openEdit(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
   else if(act === 'add'){ openEdit(el.getAttribute('data-t'), 0); }
@@ -3187,6 +3224,22 @@ return;
   else if(act === 'leak-prev'){ leakOff--; openSheet('leaks'); }
   else if(act === 'leak-next'){ if(leakOff < 0){ leakOff++; openSheet('leaks'); } }
   else if(act === 'close'){ closeSheet(); }
+      else if(act === 'rebalance-apply'){
+    var rebalance = rebalanceBudget();
+    if(!rebalance || !rebalance.suggestions.length){
+      toast('Нет предложений для перераспределения');
+      closeSheet();
+      return;
+    }
+    var updated = applyRebalance(rebalance.suggestions);
+    closeSheet();
+    if(updated > 0){
+      toast('Бюджет перераспределён: обновлено '+updated+' конвертов');
+    } else {
+      toast('Не удалось обновить конверты — проверьте лимиты');
+    }
+    render();
+  }
   else if(act === 'nexttip'){ var tl = smartTips(); window._tipIdx = ((window._tipIdx != null ? window._tipIdx : new Date().getDate()) + 1) % tl.length; $('tipText').textContent = tl[window._tipIdx]; closeSheet(); }
   else if(act === 'balance-edit'){
     dPrompt('Текущая сумма на всех картах, ₽:', 'Базовый баланс', 'Например: 150000').then(function(v){
@@ -3947,7 +4000,109 @@ function calcMonthlyPlan() {
   return plan;
 }
 
-
+// Автокоррекция бюджета – перераспределение между категориями при перерасходе
+function rebalanceBudget() {
+  var now = new Date();
+  var from = new Date(now.getFullYear(), now.getMonth(), 1);
+  var to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  var allSp = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
+  
+  // Текущие траты по категориям
+  var spent = {};
+  for(var i=0;i<allSp.length;i++){
+    var cat = allSp[i].cat || 'other';
+    spent[cat] = (spent[cat]||0) + allSp[i].s;
+  }
+  
+  // План на месяц
+  var plan = calcMonthlyPlan();
+  var overSpent = {};
+  var underSpent = {};
+  
+  // Находим перерасход и недорасход
+  for(var cat in plan){
+    if(cat === '_saveTarget' || cat === '_available' || cat === '_fixedCosts') continue;
+    var current = spent[cat] || 0;
+    var limit = plan[cat] || 0;
+    var diff = current - limit;
+    if(diff > 0){
+      overSpent[cat] = diff;
+    } else if(diff < 0 && Math.abs(diff) > 100){
+      underSpent[cat] = Math.abs(diff);
+    }
+  }
+  
+  // Если нет перерасхода – ничего не делаем
+  var totalOver = 0;
+  for(var oc in overSpent){ totalOver += overSpent[oc]; }
+  if(totalOver < 100) return null;
+  
+  // Собираем предложения по переносу
+  var suggestions = [];
+  var underKeys = Object.keys(underSpent);
+  underKeys.sort(function(a,b){ return underSpent[b] - underSpent[a]; });
+  
+  var remainingOver = totalOver;
+  for(var j=0;j<underKeys.length && remainingOver > 0;j++){
+    var catFrom = underKeys[j];
+    var amount = Math.min(underSpent[catFrom], remainingOver);
+    if(amount < 50) continue;
+    // Ищем категорию с перерасходом
+    var overKeys = Object.keys(overSpent);
+    var catTo = overKeys[0];
+    if(!catTo) break;
+    suggestions.push({from: catFrom, to: catTo, amount: Math.round(amount)});
+    remainingOver -= amount;
+    overSpent[catTo] -= amount;
+    if(overSpent[catTo] < 50) delete overSpent[catTo];
+    underSpent[catFrom] -= amount;
+    if(underSpent[catFrom] < 50) delete underSpent[catFrom];
+  }
+  
+  if(!suggestions.length) return null;
+  
+  return {
+    suggestions: suggestions,
+    totalOver: totalOver,
+    remaining: remainingOver
+  };
+}
+// Применить перераспределение бюджета
+function applyRebalance(suggestions) {
+  var plan = calcMonthlyPlan();
+  for(var i=0;i<suggestions.length;i++){
+    var s = suggestions[i];
+    var from = s.from;
+    var to = s.to;
+    var amount = s.amount;
+    // Уменьшаем лимит категории-донора
+    if(plan[from]) plan[from] = Math.max(0, plan[from] - amount);
+    // Увеличиваем лимит категории-получателя
+    if(plan[to]) plan[to] = (plan[to]||0) + amount;
+  }
+  // Сохраняем новые лимиты в конверты
+  var updated = 0;
+  for(var cat in plan){
+    if(cat === '_saveTarget' || cat === '_available' || cat === '_fixedCosts') continue;
+    var envName = CAT2ENV[cat] || cat;
+    // Ищем конверт с таким названием
+    for(var j=0;j<D.envs.length;j++){
+      if(D.envs[j].n.indexOf(envName) === 0 || D.envs[j].n === cat){
+        var oldLim = D.envs[j].lim;
+        var newLim = plan[cat] || 0;
+        if(Math.abs(oldLim - newLim) > 10){
+          D.envs[j].lim = newLim;
+          updated++;
+        }
+        break;
+      }
+    }
+  }
+  save();
+  render();
+  toast('Бюджет перераспределён: обновлено '+updated+' конвертов');
+  return updated;
+}
 // ========== ИСТОРИЯ ЦЕЛЕЙ ==========
 function goalHistory(goalId){
   var history = [];
