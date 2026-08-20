@@ -5148,21 +5148,19 @@ function agentAnswer(query){
       ans += '• <b style="color:'+(s.sev>=8?'var(--red)':s.sev>=5?'var(--org)':'var(--blu)')+'">'+s.title+'</b> — '+s.desc+(s.benefit?' · выгода '+fmt(s.benefit)+'/мес':'')+actTxt+'<br>';
     }
     if(!r.data.length){ ans = 'Сейчас всё спокойно. Так держать!'; }
-  } else if(r.type === 'scenario'){
+      } else if(r.type === 'scenario'){
     var d = r.data;
     ans = '<b>Сценарий: урезать "'+d.catName+'" на '+fmt(d.amount)+'</b><br>';
     ans += 'Сейчас по этой категории: '+fmt(d.catSum)+' за месяц.<br>';
     ans += '<b>Эффект:</b> минимум за 90 дней станет <b style="color:'+(d.sim.diff>0?'var(--grn)':'var(--red)')+'">'+fmt(d.sim.newMin)+'</b> (было '+fmt(d.sim.originalMin)+', '+ (d.sim.diff>0?'+':'')+fmt(d.sim.diff)+')<br>';
     if(d.sim.diff > 0){
       ans += 'Это добавит тебе '+fmt(d.sim.diff)+' к минимальному балансу. Отличный шаг!';
+      // Логируем решение только если эффект положительный
+      logDecision('cut_spend', {cat: d.cat, amount: d.amount, expected_saving: d.sim.diff});
     } else {
       ans += 'Это ухудшит ситуацию на '+fmt(Math.abs(d.sim.diff))+'. Лучше урежь другую категорию.';
     }
   }
-      // Логируем решение, если пользователь согласился урезать
-    if(d.sim.diff > 0){
-      logDecision('cut_spend', {cat: d.cat, amount: d.amount, expected_saving: d.sim.diff});
-    }
   return ans;
 }
 
