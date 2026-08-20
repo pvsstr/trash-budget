@@ -345,6 +345,25 @@ function ensureSalary(){
 function periodRange(){
   var now = new Date(); var y = now.getFullYear(), m = now.getMonth();
   var from, to, label;
+  
+  // Если режим зарплатного цикла и период "месяц" – показываем текущий зарплатный цикл
+  if(D.cycleMode === 'salary' && pMode === 'm'){
+    var cs = cycleStart(now);
+    var ce = cycleEnd(cs);
+    from = new Date(cs.getFullYear(), cs.getMonth(), cs.getDate() + pOff * 30);
+    // Сдвигаем цикл на pOff циклов назад/вперёд
+    for(var i=0; i<Math.abs(pOff); i++){
+      if(pOff > 0){
+        from = cycleEnd(from);
+      } else {
+        from = cycleStart(new Date(from.getTime() - 864e5));
+      }
+    }
+    var to = cycleEnd(from);
+    label = cycleLabel(from);
+    return {from:from, to:to, label:label};
+  }
+  
   if(pMode === 'm'){ from = new Date(y, m+pOff, 1); to = new Date(y, m+pOff+1, 1); label = MONTHS[from.getMonth()]+' '+from.getFullYear(); }
   else if(pMode === 'q'){ from = new Date(y, m+pOff-2, 1); to = new Date(y, m+pOff+1, 1); label = MONTHS_S[from.getMonth()]+' – '+MONTHS_S[(to.getMonth()+11)%12]+' '+to.getFullYear(); }
   else if(pMode === 'y'){ var yy = y+pOff; from = new Date(yy,0,1); to = new Date(yy+1,0,1); label = ''+yy; }
@@ -479,7 +498,7 @@ function openSheet(t, i){
     var daily = calcDailyLimit();
     var curPay = salaryDate(now.getFullYear(), now.getMonth());
     var nextPayDate = now < curPay ? curPay : cycleEnd(curPay);
-    h = sheetHead('i-cal','c-pur','Цикл зарплаты', cycLabel(cs))
+        h = sheetHead('i-cal','c-pur','Цикл зарплаты', cycleLabel(cs))
       + rowHtml('Ближайшая зарплата', payDateStr(nextPayDate))
       + rowHtml('Дней до зарплаты', daily.daysLeft + ' дн.')
       + rowHtml('Дневной лимит', fmt(daily.perDay))
@@ -778,7 +797,8 @@ function renderBudSummary(){
   var pct = Math.min(100, Math.round(used/inc*100));
   var col = pct > 100 ? 'var(--red)' : (pct > 85 ? 'var(--org)' : 'var(--grn)');
   var free = calcSafeBalance();
-  el.innerHTML = '<div class="cap-title"><span>Бюджет месяца</span><b style="color:'+col+'">занято '+pct+'% дохода</b></div>'
+    var label = D.cycleMode === 'salary' ? 'Бюджет цикла' : 'Бюджет месяца';
+  el.innerHTML = '<div class="cap-title"><span>'+label+'</span><b style="color:'+col+'">занято '+pct+'% дохода</b></div>'
     + '<div class="bar-large" style="height:8px;margin:8px 0"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
     + '<div class="hist-sum" style="margin:0"><span>Обязательные: <b>'+fmt(fixed)+'</b></span><span>Конверты: <b>'+fmt(envSum)+'</b></span><span>Свободно: <b style="color:var(--grn)">'+fmt(free)+'</b></span></div>';
 }
@@ -1813,9 +1833,19 @@ function renderLearn(){
 
 function renderSpend(){
   if(!$('spList')){ return; }
-  var cur = cycleStart(new Date());
-  var cs = addM(cur, viewOff);
-  $('spLabel').textContent = cycLabel(cs);
+    var cur = cycleStart(new Date());
+  var cs = addM(cur, viewOff * 30);
+  if (D.cycleMode === 'salary') {
+    // Сдвигаем на viewOff зарплатных циклов
+    for (var i = 0; i < Math.abs(viewOff); i++) {
+      if (viewOff > 0) {
+        cs = cycleEnd(cs);
+      } else {
+        cs = cycleStart(new Date(cs.getTime() - 864e5));
+      }
+    }
+  }
+  $('spLabel').textContent = cycleLabel(cs);
   var list = allSpends().filter(function(x){ return inCycle(x.d, cs) && x.manual; }).sort(function(a,b){ return b.d - a.d; });
   var all = allSpends().filter(function(x){ return inCycle(x.d, cs); });
   var total = 0;
@@ -1997,10 +2027,10 @@ function renderDashboardNew() {
     var stS = 0;
     for(var ds2=0; ds2<365; ds2++){ var dxx = new Date(); dxx.setDate(dxx.getDate()-ds2); if(!scootD2[iso(dxx)]){ stS++; } else { break; } }
     $('todayLine').textContent = 'Можно '+fmt(daily.perDay)+'/день · сегодня платежей: '+fmt(tp2)+' · вчера −'+fmt(ySpent)+' · без самокатов: '+stS+' дн.';
-  }  var cs = cycleStart(now);
+  }    var cs = cycleStart(now);
   var ce = cycleEnd(cs);
-  var totalDaysInCycle = Math.round((ce - cs) / 864e5);
-  var daysPassed = Math.round((now - cs) / 864e5);
+  var totalDaysInCycle = Math.max(1, Math.round((ce - cs) / 864e5));
+  var daysPassed = Math.max(0, Math.round((now - cs) / 864e5));
   var cyclePct = Math.min(100, Math.max(0, Math.round((daysPassed / totalDaysInCycle) * 100)));
   if ($('cycleProgressBar')) $('cycleProgressBar').style.width = cyclePct + '%';
   if ($('cycleDaysLeft')) $('cycleDaysLeft').textContent = 'Осталось ' + daily.daysLeft + ' дн.';
@@ -2922,11 +2952,26 @@ function openSplitSheet(src, i){
 }
 
 function openMonthReport(){
-  var now = new Date();
-  var y = now.getMonth() === 0 ? now.getFullYear()-1 : now.getFullYear();
-  var m = now.getMonth() === 0 ? 11 : now.getMonth()-1;
-  var from = new Date(y, m, 1), to = new Date(y, m+1, 1);
-  var pf = new Date(y, m-1, 1);
+    var now = new Date();
+  var from, to, pf;
+  if (D.cycleMode === 'salary') {
+    // Отчёт за прошедший зарплатный цикл
+    var cs = cycleStart(now);
+    var ce = cycleEnd(cs);
+    // Берём предыдущий цикл
+    var prevStart = cycleStart(new Date(cs.getTime() - 864e5));
+    var prevEnd = cycleEnd(prevStart);
+    from = prevStart;
+    to = prevEnd;
+    pf = cycleStart(new Date(prevStart.getTime() - 864e5));
+  } else {
+    // Календарный режим – предыдущий месяц
+    var y = now.getMonth() === 0 ? now.getFullYear()-1 : now.getFullYear();
+    var m = now.getMonth() === 0 ? 11 : now.getMonth()-1;
+    from = new Date(y, m, 1);
+    to = new Date(y, m+1, 1);
+    pf = new Date(y, m-1, 1);
+  }
   var sp = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
   var psp = allSpends().filter(function(x){ return x.d >= pf && x.d < from; });
   var tot = 0, ptot = 0, i;
@@ -3070,6 +3115,11 @@ function render(){
     $('lastSaveTime').textContent = saveDate.toLocaleDateString('ru-RU') + ' ' + saveDate.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
   }
   if ($('demoTag')) $('demoTag').classList.toggle('hidden', !D.demo);
+    // Обновляем метку цикла в настройках
+  var cycleLabel = document.getElementById('cycleModeLabel');
+  if(cycleLabel) {
+    cycleLabel.textContent = D.cycleMode === 'salary' ? 'Зарплатный' : 'Календарный';
+  }
   if ($('hBal')) $('hBal').textContent = fmt(realBal());
   if ($('sInc')) $('sInc').textContent = fmt(D.income);
   if ($('sIncP')) $('sIncP').textContent = 'зарплата, '+D.salaryDay+'-го числа';
@@ -3122,6 +3172,7 @@ function render(){
     acEl.innerHTML = '<div class="cap-title"><span>Что важно сейчас</span><span class="pill '+(sigs.length?'c-org':'c-grn')+'" style="font-size:10px">'+(sigs.length?sigs.length+' сигналов':'всё спокойно')+'</span></div>'
       + (ih || '<div class="dig-item"><span>Требующих внимания задач нет — так держать</span><b>✓</b></div>');
   }
+  
   
   try { renderDashboardNew(); } catch(e) { console.error('Ошибка в renderDashboardNew:', e); }
   try { renderGoals(); } catch(e) { console.error('Ошибка в renderGoals:', e); }
