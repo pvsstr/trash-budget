@@ -102,8 +102,17 @@ function payDateStr(d){
   return d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()+' ('+WEEKDAYS[d.getDay()]+')';
 }
 function cycLabel(cs){
-  var ce = cycleEnd(cs);
+  var ce = new Date(cycleEnd(cs).getTime() - 864e5);
   return cs.getDate()+'.'+String(cs.getMonth()+1).padStart(2,'0')+' – '+ce.getDate()+'.'+String(ce.getMonth()+1).padStart(2,'0')+'.'+ce.getFullYear();
+}
+function shiftCycle(cs, n){
+  if(D.cycleMode === 'calendar'){ return addM(cs, n); }
+  var r = new Date(cs.getFullYear(), cs.getMonth(), cs.getDate());
+  for(var i = 0; i < Math.abs(n); i++){
+    if(n > 0){ r = getNextSalaryDate(r); }
+    else { r = getLastSalaryDate(new Date(r.getTime() - 864e5)); }
+  }
+  return r;
 }
 function toast(m){ var t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(function(){ t.remove(); },2500); }
 
@@ -348,17 +357,7 @@ function periodRange(){
   
   // Если режим зарплатного цикла и период "месяц" – показываем текущий зарплатный цикл
   if(D.cycleMode === 'salary' && pMode === 'm'){
-    var cs = cycleStart(now);
-    var ce = cycleEnd(cs);
-    from = new Date(cs.getFullYear(), cs.getMonth(), cs.getDate() + pOff * 30);
-    // Сдвигаем цикл на pOff циклов назад/вперёд
-    for(var i=0; i<Math.abs(pOff); i++){
-      if(pOff > 0){
-        from = cycleEnd(from);
-      } else {
-        from = cycleStart(new Date(from.getTime() - 864e5));
-      }
-    }
+    var from = shiftCycle(cycleStart(now), pOff);
     var to = cycleEnd(from);
     label = cycleLabel(from);
     return {from:from, to:to, label:label};
@@ -1462,7 +1461,7 @@ function incomeKind(x){
   return 'other';
 }
 function incRange(){
-  if(iMode === 'cyc'){ var now = new Date(); var cs = cycleStart(addM(now, iCycOff)); return {from:cs, to:cycleEnd(cs)}; }
+  if(iMode === 'cyc'){ var now = new Date(); var cs = shiftCycle(cycleStart(now), iCycOff); return {from:cs, to:cycleEnd(cs)}; }
   if(iFrom && iTo && iTo > iFrom){ return {from:iFrom, to:iTo}; }
   var n = new Date();
   return {from:new Date(n.getFullYear(), n.getMonth(), 1), to:new Date(n.getFullYear(), n.getMonth()+1, 1)};
@@ -1471,8 +1470,7 @@ function incRange(){
 
 function histRange2(){
   if(hMode2 === 'cyc'){
-    var now = new Date();
-    var cs = cycleStart(addM(now, cycOff2));
+    var cs = shiftCycle(cycleStart(new Date()), cycOff2);
     return {from: cs, to: cycleEnd(cs)};
   }
   return histRange();
@@ -1833,18 +1831,8 @@ function renderLearn(){
 
 function renderSpend(){
   if(!$('spList')){ return; }
-    var cur = cycleStart(new Date());
-  var cs = addM(cur, viewOff * 30);
-  if (D.cycleMode === 'salary') {
-    // Сдвигаем на viewOff зарплатных циклов
-    for (var i = 0; i < Math.abs(viewOff); i++) {
-      if (viewOff > 0) {
-        cs = cycleEnd(cs);
-      } else {
-        cs = cycleStart(new Date(cs.getTime() - 864e5));
-      }
-    }
-  }
+  var cur = cycleStart(new Date());
+  var cs = shiftCycle(cur, viewOff);
   $('spLabel').textContent = cycleLabel(cs);
   var list = allSpends().filter(function(x){ return inCycle(x.d, cs) && x.manual; }).sort(function(a,b){ return b.d - a.d; });
   var all = allSpends().filter(function(x){ return inCycle(x.d, cs); });
@@ -2892,9 +2880,9 @@ function openDupSheet(){
 }
 function openCycCompareSheet(){
   var now = new Date();
-  var cs1 = cycleStart(addM(now, cycOff2));
+  var cs1 = shiftCycle(cycleStart(now), cycOff2);
   var ce1 = cycleEnd(cs1);
-  var cs0 = cycleStart(addM(now, cycOff2-1));
+  var cs0 = shiftCycle(cycleStart(now), cycOff2 - 1);
   var ce0 = cycleEnd(cs0);
   function aggR(from, to){
     var m = {}; var t = 0;
