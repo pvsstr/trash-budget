@@ -271,7 +271,7 @@ function allSpends(){
   var arr = []; var i;
   for(i=0;i<(D.spends||[]).length;i++){
     var sp = D.spends[i];
-    arr.push({d:parseD(sp.d), s:sp.s, n:sp.n, cat:sp.cat, id:sp.id, manual:1, src:'sp', sid:sp.id});
+    arr.push({d:parseD(sp.d), s:sp.s, n:sp.n, cat:sp.cat, id:sp.id, manual:1, src:'sp', sid:sp.id, tag:sp.tag||'normal'});
   }
   for(i=0;i<(D.tx||[]).length;i++){
     var t = D.tx[i];
@@ -339,6 +339,7 @@ function calcHealthScore() {
 }
 
 function ensureSalary(){
+  if(!D.income){ return; }
   if(!D.incomes){ D.incomes = []; }
   var cs = cycleStart(new Date());
   var ck = cs.getFullYear()+'-'+cs.getMonth();
@@ -470,7 +471,7 @@ function fixPostpone(t, i){
     if(!v){ return; }
     var key = t==='pay' ? 'pays' : 'subs';
     var arr = D[key];
-    for(var k=0;k<arr.length;k++){ if(arr[k].id===i){ arr[k].postponed = v; break; } }
+    for(var k=0;k<arr.length;k++){ if(arr[k].id===i){ arr[k].postponed = v; logDecision('postpone_pay', {name:arr[k].n, amount:arr[k].s, until:v}); break; } }
     save(); render(); openSheet('fixed'); toast('Платёж отложен до '+v);
   });
 }
@@ -568,8 +569,10 @@ function openSheet(t, i){
   
   } else if(t === 'health'){
     var safeH = calcSafeBalance();
-    var cush = (D.goals && D.goals.cushion) || 0;
-    var cushT = (D.goals && D.goals.cushionT) || 100000;
+    var cushH = null;
+    for(var gh=0;gh<(D.goals||[]).length;gh++){ if(/подушк/i.test(D.goals[gh].n) && !D.goals[gh].done){ cushH = D.goals[gh]; break; } }
+    var cush = cushH ? (cushH.cur||0) : 0;
+    var cushT = cushH ? cushH.target : 100000;
     var actL = activeLeaks().length;
     var pCush = Math.min(30, Math.round((cush / cushT) * 30));
     var pSafe = safeH > 0 ? 20 : 0;
@@ -1839,9 +1842,10 @@ function renderSpend(){
   var total = 0;
   for(var i=0;i<all.length;i++){ total += all[i].s; }
   var agg = catAgg(cs);
+  var spElapsed = Math.max(1, Math.round((new Date() - cs)/864e5));
   $('spSum').innerHTML = '<div class="cap" style="margin:0 0 8px">Итог периода (все операции)</div>'
     + rowHtml('Потрачено', fmt(total))
-    + rowHtml('В день', fmt(total / 30))
+    + rowHtml('В день', fmt(total / spElapsed))
     + rowHtml('Топ-категория', agg.length ? agg[0].n+' · '+fmt(agg[0].s) : '—');
   var h = '';
   for(var j=0;j<list.length;j++){
@@ -2046,6 +2050,17 @@ function renderDashboardNew() {
   var elp2 = Math.max(1, Math.round((now - csP)/864e5));
   var pace2 = cycSp / elp2;
   var left2 = Math.round(realBal() - pace2 * dtp);
+  if ($('rhythmTxt')){
+    var rCol = '';
+    if(cycSp <= 0){ $('rhythmTxt').textContent = 'Ритм трат: —'; $('rhythmTxt').style.color = ''; }
+    else {
+      var rk = pace2 / Math.max(1, daily.perDay);
+      if(rk > 1.15){ $('rhythmTxt').textContent = 'Ритм трат: выше темпа'; rCol = 'var(--red)'; }
+      else if(rk >= 0.85){ $('rhythmTxt').textContent = 'Ритм трат: норма'; rCol = ''; }
+      else { $('rhythmTxt').textContent = 'Ритм трат: экономия'; rCol = 'var(--grn)'; }
+      $('rhythmTxt').style.color = rCol;
+    }
+  }
   var rwNow = cashRunway();
   var minB = minBalance(90);
   var paydayDays = calcDailyLimit().daysLeft;
@@ -2534,6 +2549,7 @@ function goalFund(id){
     g.cur = (g.cur||0) + amt;
 if(g.cur >= g.target && g.target > 0){ g.done = true; toast('Цель «'+g.n+'» выполнена!'); }
     else { toast('Пополнение цели «'+g.n+'» на '+fmt(amt)); }
+    logDecision('save_money', {amount:amt, goal:g.n});
     save(); render();
   });
 }
@@ -2939,27 +2955,38 @@ function openSplitSheet(src, i){
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
 
+function leaksForRange(from, to){
+  var list = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
+  var out = [];
+  for(var i=0;i<D.envs.length;i++){
+    var e = D.envs[i];
+    if(e.lim <= 0){ continue; }
+    var f = 0, cnt = 0;
+    for(var a=0;a<list.length;a++){ if(envMatch(e, list[a])){ f += list[a].s; cnt++; } }
+    if(f > e.lim){ out.push({id:e.id, n:e.n, s:f, lim:e.lim, over:f-e.lim, tx:cnt, ic:e.ic, k:e.k}); }
+  }
+  out.sort(function(a,b){ return b.over - a.over; });
+  return out;
+}
+
 function openMonthReport(){
     var now = new Date();
   var from, to, pf;
   if (D.cycleMode === 'salary') {
     // Отчёт за прошедший зарплатный цикл
-    var cs = cycleStart(now);
-    var ce = cycleEnd(cs);
-    // Берём предыдущий цикл
-    var prevStart = cycleStart(new Date(cs.getTime() - 864e5));
-    var prevEnd = cycleEnd(prevStart);
-    from = prevStart;
-    to = prevEnd;
-    pf = cycleStart(new Date(prevStart.getTime() - 864e5));
+    var cs0 = cycleStart(now);
+    from = shiftCycle(cs0, -1);
+    to = cycleEnd(from);
+    pf = shiftCycle(from, -1);
   } else {
     // Календарный режим – предыдущий месяц
-    var y = now.getMonth() === 0 ? now.getFullYear()-1 : now.getFullYear();
-    var m = now.getMonth() === 0 ? 11 : now.getMonth()-1;
-    from = new Date(y, m, 1);
-    to = new Date(y, m+1, 1);
-    pf = new Date(y, m-1, 1);
+    var y0 = now.getMonth() === 0 ? now.getFullYear()-1 : now.getFullYear();
+    var m0 = now.getMonth() === 0 ? 11 : now.getMonth()-1;
+    from = new Date(y0, m0, 1);
+    to = new Date(y0, m0+1, 1);
+    pf = new Date(y0, m0-1, 1);
   }
+  var y = from.getFullYear(), m = from.getMonth();
   var sp = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
   var psp = allSpends().filter(function(x){ return x.d >= pf && x.d < from; });
   var tot = 0, ptot = 0, i;
@@ -2976,7 +3003,7 @@ function openMonthReport(){
   arr.sort(function(a,b){ return b.s-a.s; });
   var maxOp = null;
   for(i=0;i<sp.length;i++){ if(!maxOp || sp[i].s > maxOp.s){ maxOp = sp[i]; } }
-  var leaks = leaksFor(y, m);
+  var leaks = leaksForRange(from, to);
   var leakSum = 0; for(i=0;i<leaks.length;i++){ leakSum += leaks[i].over; }
   var delta = tot - ptot;
   var h = sheetHead('i-grid','c-blu','Отчёт · '+MONTHS[m]+' '+y, sp.length+' операций')
@@ -3190,6 +3217,9 @@ function go(p){
   var btns = document.querySelectorAll('[data-act="nav"]');
   for(var j=0;j<btns.length;j++){ btns[j].classList.toggle('on', btns[j].getAttribute('data-p') === p); }
     if(p === 'dash'){ setTimeout(function(){ try{ renderAnalytics(); }catch(e){} }, 60); }
+  if(p === 'chat' && $('chatLog') && !$('chatLog').children.length){
+    addMsg('bot', 'Привет! Я твой финансовый копилот — считаю только по твоим цифрам.<br>Спроси: «сколько можно сегодня?», «могу купить X?», «где утечки?», «как закрыть долги?», «что важно сейчас?»');
+  }
   closeSheet();
   window.scrollTo({top:0, behavior:'smooth'});
 }
@@ -3238,6 +3268,7 @@ if(act === 'debt-plan'){ openDebtPlan(); return; }
       var n = parseInt(String(v||'').replace(/\D/g,''), 10);
       if(!n && n !== 0){ return; }
       D.lifeMin = n;
+      D.lifeMinManual = true;
       save(); render(); toast('Минимум на жизнь: '+fmt(n));
       openDebtPlan();
     });
@@ -3488,7 +3519,6 @@ return;
     document.body.appendChild(a4); a4.click(); a4.remove();
       toast('CSV выгружен');
   }
-  else if(act === 'h-mode'){ hMode2 = el.getAttribute('data-v'); cycOff2 = 0; renderTx('2'); }
   else if(act === 'tx-edit'){ openTxEdit(el.getAttribute('data-src'), el.getAttribute('data-i')); }
    else if(act === 'tx-edit-save'){ saveTxEdit(); }
   else if(act === 'tx-apply-suggest'){ if($('teCat')){ $('teCat').value = el.getAttribute('data-c'); } saveTxEdit(); }
@@ -3839,7 +3869,9 @@ save(); render(); toast('Память применена: обновлено о�
     for(var s4=0;s4<D.subs.length;s4++){ if(D.subs[s4].id===sid3){ sIt = D.subs[s4]; break; } }
     if(sIt){
       sIt.off = sIt.off ? 0 : 1;
-      save(); render(); toast(sIt.off ? 'Подписка "'+sIt.n+'" отключена' : 'Подписка "'+sIt.n+'" включена');
+      if(sIt.off){ logDecision('cancel_sub', {name:sIt.n, amount:sIt.s}); toast('Подписка "'+sIt.n+'" отключена · '+fmt(sIt.s*12)+' в год освободится'); }
+      else { toast('Подписка "'+sIt.n+'" включена'); }
+      save(); render();
     }
   }
   else if(act === 'cred-pay'){
@@ -4861,52 +4893,33 @@ function debtSnowball(){
   };
 }
 
-// Вычисляет «минимум на жизнь» – средние обязательные траты за последние 3 месяца + 10% запаса.
+// Вычисляет «минимум на жизнь»: обязательные платежи + средние базовые траты
+// (продукты, транспорт, здоровье) за последние 3 цикла + 10% запаса.
+// Ручное значение пользователя имеет приоритет (D.lifeMinManual).
 function calcLifeMin() {
     if (!D) return 50000;
+    if(D.lifeMinManual && typeof D.lifeMin === 'number' && D.lifeMin > 0){ return D.lifeMin; }
     var now = new Date();
-    var threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    var total = 0, count = 0;
-    // Платежи
-    if (D.pays && D.pays.length) {
-        for (var i = 0; i < D.pays.length; i++) {
-            var p = D.pays[i];
-            if (p.s) { total += parseFloat(p.s) || 0; count++; }
-        }
+    var fixed = calcMonthlyFixedPay();
+    // Базовые траты: продукты, транспорт, здоровье — то, что нельзя урезать до нуля
+    var base = 0, cycles = 0;
+    for(var c=1;c<=3;c++){
+      var cs = shiftCycle(cycleStart(now), -c);
+      var ce = cycleEnd(cs);
+      var list = allSpends().filter(function(x){ return x.d >= cs && x.d < ce; });
+      var s = 0;
+      for(var i=0;i<list.length;i++){
+        var ct = list[i].cat || 'other';
+        if(ct==='grocery'||ct==='transport'||ct==='health'){ s += list[i].s; }
+      }
+      if(s > 0){ base += s; cycles++; }
     }
-    // Подписки
-    if (D.subs && D.subs.length) {
-        for (var j = 0; j < D.subs.length; j++) {
-            var s = D.subs[j];
-            if (s.s && !s.off) { total += parseFloat(s.s) || 0; count++; }
-        }
-    }
-    // Кредиты – примерно total/12
-    if (D.credits && D.credits.length) {
-        for (var k = 0; k < D.credits.length; k++) {
-            var c = D.credits[k];
-            if (c.total && c.total > 0) { total += parseFloat(c.total) / 12; count++; }
-        }
-    }
-    // Рассрочки – только ближайшие (в пределах 3 месяцев)
-    if (D.insts && D.insts.length) {
-        for (var l = 0; l < D.insts.length; l++) {
-            var inst = D.insts[l];
-            if (inst.s && inst.d) {
-                var instDate = new Date(inst.d);
-                if (instDate >= threeMonthsAgo) { total += parseFloat(inst.s) || 0; count++; }
-            }
-        }
-    }
-    if (count === 0) {
-        D.lifeMin = 50000;
-    } else {
-        var avg = total / count;
-        D.lifeMin = Math.round(avg * 1.1); // +10% запаса
-    }
-    // Ограничиваем разумными пределами
-    if (D.lifeMin < 30000) D.lifeMin = 30000;
-    if (D.lifeMin > 100000) D.lifeMin = 100000;
+    var baseAvg = cycles ? base / cycles : Math.round((D.income||0)*0.25);
+    var v = Math.round((fixed + baseAvg) * 1.1);
+    if(v < 15000){ v = 15000; }
+    if(D.income && v > D.income * 0.7){ v = Math.round(D.income * 0.7); }
+    if(v < 10000){ v = Math.min(50000, Math.max(15000, v)); }
+    D.lifeMin = v;
     return D.lifeMin;
 }
 
@@ -4937,18 +4950,19 @@ function getSignals(){
     return minDays === 999 ? 30 : minDays;
   }
   var daysToCritical = daysToDeadline();
+  function prio(sev, benefit){ return (sev * 2) + ((benefit||0) / 1000) + (1 / (daysToCritical + 1)); }
+  function isPlanned(x){ return x.tag === 'planned'; }
   
     // 1. Runway отрицательный
   var rw = cashRunway();
   var payday = calcDailyLimit().daysLeft;
   if(rw < payday){
-    var priority = (9 * 2) + (0 / 1000) + (1 / (daysToCritical + 1));
     signals.push({
       sev: 9,
       title: 'Через '+rw+' дн. денег не хватит',
       desc: 'Зарплата только через '+payday+' дн. Нужно срочно урезать гибкие траты.',
       benefit: 0,
-      priority: priority,
+      priority: prio(9, 0),
       act: {t:'daily'}
     });
   }
@@ -4958,13 +4972,12 @@ function getSignals(){
   for(var i=0;i<D.subs.length;i++){ if(!D.subs[i].off){ subsAnnual += D.subs[i].s * 12; } }
   if(subsAnnual > 5000){
     var benefit = Math.round(subsAnnual * 0.3 / 12);
-    var priority = (5 * 2) + (benefit / 1000) + (1 / (daysToCritical + 1));
     signals.push({
       sev: 5,
       title: 'Подписки = '+fmt(subsAnnual)+' в год',
       desc: 'Пересмотри автоплатежи — часть можно отключить.',
       benefit: benefit,
-      priority: priority,
+      priority: prio(5, benefit),
       act: {t:'fixed'}
     });
   }
@@ -4974,13 +4987,12 @@ function getSignals(){
   for(var d=0;d<D.credits.length;d++){ debtTotal += D.credits[d].cur || 0; }
   if(debtTotal > (D.income||0) * 0.5){
     var plan = debtSnowball();
-    var priority = (8 * 2) + (0 / 1000) + (1 / (daysToCritical + 1));
     signals.push({
       sev: 8,
       title: 'Долги = '+Math.round(debtTotal/Math.max(1,D.income||1)*100)+'% дохода',
       desc: plan ? plan.txt : 'Начни гасить с самого маленького.',
       benefit: 0,
-      priority: priority,
+      priority: prio(8, 0),
       act: {t:'fixed'}
     });
   }
@@ -4990,31 +5002,36 @@ function getSignals(){
   if(actLeak.length){
     var leakSum = 0;
     for(var l=0;l<actLeak.length;l++){ leakSum += actLeak[l].over; }
+    var lBenefit = Math.round(leakSum * 0.4);
     signals.push({
       sev: 7,
       title: actLeak.length+' конверт(а) в перерасходе',
       desc: 'Перерасход '+fmt(leakSum)+' за цикл. Сократи: '+actLeak[0].n+'.',
-      benefit: Math.round(leakSum * 0.4),
+      benefit: lBenefit,
+      priority: prio(7, lBenefit),
       act: {t:'leaks'}
     });
   }
   
   // 5. Гибкие траты > 20% дохода
-  var mNow = new Date(now.getFullYear(), now.getMonth(), 1);
+  var mNow = cycleStart(now);
   var flexSpend = 0;
   for(var i2=0;i2<allSp.length;i2++){
     if(allSp[i2].d < mNow){ continue; }
+    if(isPlanned(allSp[i2])){ continue; }
     var c = allSp[i2].cat || 'other';
     if(c!=='home' && c!=='subs' && c!=='transport' && c!=='grocery'){ flexSpend += allSp[i2].s; }
   }
   var flexPct = (D.income||0) > 0 ? flexSpend / (D.income||1) : 0;
   if(flexPct > 0.2){
     var over = flexSpend - (D.income||0)*0.2;
+    var fBenefit = Math.round(over * 0.5);
     signals.push({
       sev: 6,
       title: 'Гибкие траты = '+Math.round(flexPct*100)+'% дохода',
       desc: 'Норма — до 20%. Сверх нормы: '+fmt(over)+'. Это кафе, такси, самокаты.',
-      benefit: Math.round(over * 0.5),
+      benefit: fBenefit,
+      priority: prio(6, fBenefit),
       act: {t:'leaks'}
     });
   }
@@ -5030,6 +5047,7 @@ function getSignals(){
       title: otherN+' операций в «Прочее»',
       desc: 'Разбери их — статистика станет точнее.',
       benefit: 0,
+      priority: prio(4, 0),
       act: {act:'other-bulk'}
     });
   }
@@ -5046,6 +5064,7 @@ function getSignals(){
       title: 'Кэшбэк '+fmt(cashSum)+' без цели',
       desc: 'Закинь в копилку — пусть работает на подушку или отпуск.',
       benefit: Math.round(cashSum),
+      priority: prio(3, cashSum),
       act: {act:'cashback-add'}
     });
   }
@@ -5059,6 +5078,7 @@ function getSignals(){
       title: 'Подушка = '+Math.round((cush.cur||0)/cush.target*100)+'% от цели',
       desc: 'Нужно 3-6 месяцев расходов. Авто-перевод 10% от зарплаты поможет.',
       benefit: 0,
+      priority: prio(7, 0),
       act: {t:'goals'}
     });
   }
@@ -5071,6 +5091,7 @@ function getSignals(){
       title: 'Через 3 дня платёж '+fmt(pay3),
       desc: 'Это '+Math.round(pay3/Math.max(1,D.income||1)*100)+'% зарплаты. Убедись, что деньги в резерве.',
       benefit: 0,
+      priority: prio(5, 0),
       act: {t:'upcoming-detail'}
     });
   }
@@ -5086,42 +5107,48 @@ function getSignals(){
       title: 'Сдача '+fmt(Math.round(roundSum))+' ждёт копилки',
       desc: 'Округления трат накопились. Закинь в цель одним тапом.',
       benefit: Math.round(roundSum),
+      priority: prio(2, roundSum),
       act: {act:'round-add'}
     });
   }
   
-  // 11. Пост-зарплатный всплеск
-var daysInMonth = Math.max(1, Math.round((now - mNow)/864e5));
+  // 11. Пост-зарплатный всплеск (привязан к началу цикла, а не к календарю)
+var cycStart11 = cycleStart(now);
+var daysSince = Math.max(1, Math.round((now - cycStart11)/864e5));
 var f3sum = 0, rsum = 0;
 for(var i6=0;i6<allSp.length;i6++){
-if(allSp[i6].d < mNow){ continue; }
-var dn = Math.round((allSp[i6].d - mNow)/864e5);
+if(allSp[i6].d < cycStart11 || isPlanned(allSp[i6])){ continue; }
+var dn = Math.round((allSp[i6].d - cycStart11)/864e5);
 if(dn < 3){ f3sum += allSp[i6].s; } else { rsum += allSp[i6].s; }
 }
-var f3per = f3sum / 3;
-var rper = rsum / Math.max(1, daysInMonth - 3);
-if(f3sum > 0 && f3per > rper * 1.5){
+var f3per = f3sum / Math.min(3, daysSince);
+var rper = rsum / Math.max(1, daysSince - Math.min(3, daysSince));
+if(daysSince > 4 && f3sum > 0 && f3per > rper * 1.5){
 signals.push({
 sev: 4,
 title: 'Пост-зарплатный всплеск',
-desc: 'Первые 3 дня после зарплаты: '+fmt(Math.round(f3per))+'/день, дальше — '+fmt(Math.round(rper))+'/день. Придержи треть всплеска.',
+desc: 'Первые дни после зарплаты: '+fmt(Math.round(f3per))+'/день, дальше — '+fmt(Math.round(rper))+'/день. Придержи треть всплеска.',
 benefit: Math.round((f3per - rper) * 3),
+priority: prio(4, (f3per - rper) * 3),
 act: {t:'daily'}
 });
 }
-// 12. Дорогой день недели
+// 12. Дорогой день недели (окно 60 дней)
+var wFrom12 = new Date(now.getTime() - 60*864e5);
 var wdSum = [0,0,0,0,0,0,0];
-for(var i7=0;i7<allSp.length;i7++){ wdSum[allSp[i7].d.getDay()] += allSp[i7].s; }
+for(var i7=0;i7<allSp.length;i7++){ if(allSp[i7].d >= wFrom12 && !isPlanned(allSp[i7])){ wdSum[allSp[i7].d.getDay()] += allSp[i7].s; } }
 var maxW = 0, avgW = 0;
 for(var i8=0;i8<7;i8++){ avgW += wdSum[i8]; if(wdSum[i8] > wdSum[maxW]){ maxW = i8; } }
 avgW = avgW / 7;
 var WD_NAMES = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
 if(wdSum[maxW] > avgW * 1.6 && wdSum[maxW] > 0){
+var wdBenefit = Math.round((wdSum[maxW] - avgW) * 0.3);
 signals.push({
 sev: 3,
 title: 'Дорогой день: '+WD_NAMES[maxW],
-desc: 'По '+WD_NAMES[maxW]+' уходит '+fmt(Math.round(wdSum[maxW]))+' за период. Крупное планируй на другие дни.',
-benefit: Math.round((wdSum[maxW] - avgW) * 0.3),
+desc: 'По '+WD_NAMES[maxW]+' уходит '+fmt(Math.round(wdSum[maxW]))+' за 60 дней. Крупное планируй на другие дни.',
+benefit: wdBenefit,
+priority: prio(3, wdBenefit),
 act: {act:'an-habit', h:'wd'}
 });
 }
@@ -5171,6 +5198,18 @@ function agentParse(query){
     var d = calcDailyLimit();
     var rw2 = cashRunway();
     return {type:'payday', data:{days:d.daysLeft, runway:rw2, daily:d.perDay}};
+  }
+  // Сколько можно тратить сегодня / дневной лимит
+  if(/сегодня|лимит|потрат|тратить/i.test(q) && !amount){
+    var dly = calcDailyLimit();
+    return {type:'daily', data:{perDay:dly.perDay, days:dly.daysLeft}};
+  }
+  // Обучение
+  if(/научи|урок|обуч|финграмотн|грамот/i.test(q)){
+    var doneIds = D.learned || [];
+    var nextL = null;
+    for(var li=0;li<LESSONS.length;li++){ if(doneIds.indexOf(LESSONS[li].id) === -1){ nextL = LESSONS[li]; break; } }
+    return {type:'lesson', data:{lesson:nextL, done:doneIds.length, total:LESSONS.length}};
   }
   if(/итог|месяц|месяц/i.test(q)){
     var now2 = new Date();
@@ -5236,6 +5275,14 @@ function agentAnswer(query){
     ans = '<b>'+r.data.subs.length+' активных подписок</b>: '+fmt(r.data.monthly)+'/мес, '+fmt(r.data.annual)+'/год.';
   } else if(r.type === 'payday'){
     ans = 'Зарплата через <b>'+r.data.days+' дн</b>. Прогноз: '+r.data.runway+' дн. Дневной лимит: '+fmt(r.data.daily)+'.';
+  } else if(r.type === 'daily'){
+    ans = 'Сегодня можно потратить <b>'+fmt(r.data.perDay)+'</b> — и до зарплаты ('+r.data.days+' дн.) всё будет в плюсе. Это честная цифра: (остаток − платежи на 30 дней) ÷ дней.';
+  } else if(r.type === 'lesson'){
+    if(r.data.lesson){
+      ans = '<b>Урок: '+r.data.lesson.t+'</b><br>'+r.data.lesson.x+'<br><small>Прогресс: '+r.data.done+' из '+r.data.total+' · отметка — во вкладке «Обучение»</small>';
+    } else {
+      ans = 'Курс пройден: '+r.data.total+' из '+r.data.total+'. Теперь главное — практика: плати себе первым в день зарплаты.';
+    }
   } else if(r.type === 'month'){
     ans = 'В этом месяце: потрачено <b>'+fmt(r.data.spent)+'</b> из дохода '+fmt(r.data.income)+'. '+(r.data.saved>=0?'Сэкономлено '+fmt(r.data.saved)+'.':'Перерасход '+fmt(-r.data.saved)+'.');
   } else if(r.type === 'savings'){
@@ -5256,9 +5303,7 @@ function agentAnswer(query){
     ans += 'Сейчас по этой категории: '+fmt(d.catSum)+' за месяц.<br>';
     ans += '<b>Эффект:</b> минимум за 90 дней станет <b style="color:'+(d.sim.diff>0?'var(--grn)':'var(--red)')+'">'+fmt(d.sim.newMin)+'</b> (было '+fmt(d.sim.originalMin)+', '+ (d.sim.diff>0?'+':'')+fmt(d.sim.diff)+')<br>';
     if(d.sim.diff > 0){
-      ans += 'Это добавит тебе '+fmt(d.sim.diff)+' к минимальному балансу. Отличный шаг!';
-      // Логируем решение только если эффект положительный
-      logDecision('cut_spend', {cat: d.cat, amount: d.amount, expected_saving: d.sim.diff});
+      ans += 'Это добавит тебе '+fmt(d.sim.diff)+' к минимальному балансу. Отличный шаг! Если решишь так сделать — урежь лимит категории и решение запомнится само.';
     } else {
       ans += 'Это ухудшит ситуацию на '+fmt(Math.abs(d.sim.diff))+'. Лучше урежь другую категорию.';
     }
