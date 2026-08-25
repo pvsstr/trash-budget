@@ -549,3 +549,9 @@ html{scroll-behavior:smooth}
   .bento-stats{grid-template-columns:repeat(2,1fr)}
   #sheet{max-height:70vh}
 }
+
+/* Быстрые действия: сеткой на узких экранах, чтобы не сжимались в кашу */
+@media (max-width:520px){
+  .quick-actions{flex-wrap:wrap;gap:8px}
+  .qa-btn{flex:1 1 calc(33% - 8px);min-width:calc(33% - 8px);padding:12px 6px;font-size:12px}
+}

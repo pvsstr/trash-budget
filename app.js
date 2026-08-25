@@ -2140,7 +2140,7 @@ function renderDashboardNew() {
       var dC = ((D.credits[bc].d || 1) - now.getDate() + 31) % 31;
       if(dC <= 3 && dC < nearDiff){ nearDiff = dC; nearTxt = D.credits[bc].n+' −'+fmt(D.credits[bc].pay)+(dC===0?' · сегодня':(dC===1?' · завтра':' · через '+dC+' дн.')); }
     }
-    bb.innerHTML = '<div class="glass card-padding hov" data-act="sheet" data-t="daily" style="margin:0 0 14px;border-left:3px solid '+riskCol+'">'
+    bb.innerHTML = '<div class="glass card-padding hov" data-act="sheet" data-t="daily" style="margin:0 0 14px;border-left:3px solid '+riskCol+';border-radius:18px">'
       + '<div class="cap-title"><span>Брифинг на сегодня</span><b style="color:'+riskCol+';font-size:11px">'+riskTxt+'</b></div>'
       + '<div style="display:flex;align-items:baseline;gap:8px;margin:4px 0 6px"><b style="font-size:24px">'+fmt(bLeft)+'</b><span style="font-size:11px;color:var(--mut)">осталось на сегодня из '+fmt(daily.perDay)+'</span></div>'
       + '<div class="note" style="margin:0">'+nearTxt+'</div></div>';
@@ -2166,7 +2166,7 @@ function renderDashboardNew() {
       if(!isRisk){ continue; }
       var colW = balW < 0 ? 'var(--red)' : 'var(--org)';
       var moodW = balW < 0 ? 'не хватит' : (bufW < 7 ? 'впритык' : 'узко');
-      outW += '<div class="glass hov" data-act="sheet" data-t="runway" style="margin:0 0 10px;padding:12px 16px;border-left:3px solid '+colW+';cursor:pointer">'
+      outW += '<div class="glass hov" data-act="sheet" data-t="runway" style="margin:0 0 10px;padding:12px 16px;border-left:3px solid '+colW+';border-radius:16px;cursor:pointer">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:12.5px"><b style="color:'+colW+'">Через '+dW+' дн. — '+evW.n.replace('Платёж: ','').replace('Кредит: ','кредит ')+'</b> −'+fmt(Math.abs(evW.amt))+'</span><svg class="ic chev" style="width:14px;height:14px"><use href="#i-chev"/></svg></div>'
         + '<div class="note" style="margin-top:3px">К этому дню на счету ≈ '+fmt(balW)+' — '+moodW+'. Запас: '+Math.max(0,bufW)+' дн. жизни текущим темпом.</div></div>';
       shownW++;
