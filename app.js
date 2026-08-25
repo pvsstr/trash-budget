@@ -898,13 +898,13 @@ function renderEnv(){
     var prog = Math.round(f / elapsed * totalDays);
     var paceTxt = e.lim > 0 ? (prog > e.lim ? 'темп '+fmt(prog)+' к концу цикла · перебор '+fmt(prog - e.lim) : 'вписываешься · темп '+fmt(prog)+' к концу цикла') : '';
     var paceCol = e.lim > 0 ? (prog > e.lim ? 'var(--red)' : 'var(--grn)') : 'var(--mut)';
-    h += '<div class="env glass hov" data-act="env" data-i="'+e.id+'">'
-      + '<header><div class="env-name"><div class="sic '+e.k+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#'+e.ic+'"/></svg></div>'+e.n+'</div>'
+      h += '<div class="env glass hov" data-act="env" data-i="'+e.id+'">'
+      + '<header><div class="env-name"><div class="sic '+e.k+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#'+e.ic+'"/></svg></div>'+esc(e.n)+'</div>'
       + '<b class="'+(f > e.lim ? 'over' : '')+'">'+fmt(f)+' / '+fmt(e.lim)+'</b></header>'
       + '<div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+Math.min(100,p)+'%;background:'+cls+'"></i></div>'
       + '<div class="note">'+p+'% лимита · <span style="color:'+paceCol+'">'+paceTxt+'</span></div></div>';
   }
-  $('envList').innerHTML = h;
+  $('envList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Конвертов нет. Начните с одного: например, «Продукты» с лимитом на цикл.</p>';
 }
 
 function openEnv(i){
@@ -2192,8 +2192,11 @@ function renderDashboardNew() {
   var sb2 = $('setupBox');
   if(sb2){
     if(su.ready){
+      if(window._setupWasReady === false){ toast('Настройка завершена — дальше я слежу за деньгами сам'); }
+      window._setupWasReady = true;
       sb2.innerHTML = '';
     } else {
+      window._setupWasReady = false;
       var stepDefs = [
         {k:'inc', act:'sheet', extra:' data-t="income"', t:'Доход и день зарплаты', d:'две цифры — и лимиты оживут'},
         {k:'bal', act:'sheet', extra:' data-t="balance"', t:'Текущий баланс', d:'сколько денег на всех картах сейчас'},
