@@ -162,14 +162,24 @@ function autoCat(t){
 }
 
 var LESSONS = [
-{id:1,t:'Подушка безопасности',x:'Это 3–6 месяцев обязательных трат (аренда, еда, транспорт) на отдельном счёте.'},
-{id:2,t:'Платите себе первыми',x:'В день зарплаты сразу переводите план в накопления, до любых трат.'},
-{id:3,t:'Лавина долгов',x:'Гасите сначала долг с самой высокой ставкой.'},
-{id:4,t:'Метод конвертов',x:'Разделите деньги по категориям с лимитами сразу после зарплаты.'},
-{id:5,t:'Правило 24 часов',x:'Любое незапланированное желание дороже 500 ₽ — ждите сутки.'},
-{id:6,t:'Аудит подписок',x:'Раз в месяц смотрите все автоплатежи.'},
-{id:7,t:'Обязательное и гибкое',x:'Аренда и подписки урезать трудно. Кафе, самокаты, такси — гибкие траты.'},
-{id:8,t:'Рассрочка без ловушек',x:'Рассрочка безопасна, только если платёж уже вписан в бюджет.'}];
+{id:1,g:'Основы',t:'Подушка безопасности',x:'Это 3–6 месяцев обязательных трат (аренда, еда, транспорт) на отдельном счёте.'},
+{id:2,g:'Основы',t:'Платите себе первыми',x:'В день зарплаты сразу переводите план в накопления, до любых трат.'},
+{id:3,g:'Основы',t:'Лавина долгов',x:'Гасите сначала долг с самой высокой ставкой.'},
+{id:4,g:'Основы',t:'Метод конвертов',x:'Разделите деньги по категориям с лимитами сразу после зарплаты.'},
+{id:5,g:'Основы',t:'Правило 24 часов',x:'Любое незапланированное желание дороже 500 ₽ — ждите сутки.'},
+{id:6,g:'Основы',t:'Аудит подписок',x:'Раз в месяц смотрите все автоплатежи.'},
+{id:7,g:'Основы',t:'Обязательное и гибкое',x:'Аренда и подписки урезать трудно. Кафе, самокаты, такси — гибкие траты.'},
+{id:8,g:'Основы',t:'Рассрочка без ловушек',x:'Рассрочка безопасна, только если платёж уже вписан в бюджет.'},
+{id:9,g:'Мастерская ТРЕШ',t:'Реальный и безопасный остаток',x:'Реальный остаток — сколько денег всего. Безопасный — минус все платежи ближайших 30 дней. Тратить можно только безопасный.'},
+{id:10,g:'Мастерская ТРЕШ',t:'Дневной лимит',x:'(Безопасный остаток) ÷ (дней до зарплаты). Честная цифра: если держаться её, деньги гарантированно доживут до зарплаты.'},
+{id:11,g:'Мастерская ТРЕШ',t:'Цикл зарплаты',x:'Приложение считает цикл от фактической даты прихода зарплаты, а не с 1-го числа. Если 20-е выпало на воскресенье — цикл начнётся 21-го.'},
+{id:12,g:'Мастерская ТРЕШ',t:'Прогноз на 90 дней',x:'График показывает баланс на каждый день вперёд: платежи, подписки, кредиты, зарплаты и ваш темп трат. Красная зона — уход в минус. Тапни по любому дню для разбора.'},
+{id:13,g:'Мастерская ТРЕШ',t:'Конверты в приложении',x:'Бюджет → Конверты. Лимит на цикл, темп и перерасход видны сразу. Утечка = конверт, вышедший за лимит.'},
+{id:14,g:'Мастерская ТРЕШ',t:'Подписки: аудит факта',x:'Приложение сравнивает заявленную цену подписки с реальными списаниями. Подорожала — увидите. Списаний нет 90 дней — пора отключать.'},
+{id:15,g:'Мастерская ТРЕШ',t:'Кредиты в прогнозе',x:'Укажите платёж и день списания в карточке кредита — и прогноз станет честным. План долгов покажет срок свободы от кредитов.'},
+{id:16,g:'Мастерская ТРЕШ',t:'«Могу купить?» и список желаний',x:'Перед покупкой жмите «Могу купить?» — честный вердикт по цифрам. Импульсивное желание запишите на 24 часа: утром решение будет холоднее.'},
+{id:17,g:'Мастерская ТРЕШ',t:'Выписка банка за 30 секунд',x:'Траты → Инструменты → «Вставить выписку». Вставьте текст из приложения банка — операции распознаются и разложатся по категориям автоматически.'},
+{id:18,g:'Мастерская ТРЕШ',t:'Бэкап: страховка данных',x:'Настройки → «Скачать копию данных». Делайте копию раз в месяц и перед большими изменениями. Восстановление — из того же места.'}];
 
 function lessonApply(id){
   var map = {
@@ -177,10 +187,20 @@ function lessonApply(id){
     2:'в день зарплаты жми «В копилку» и откладывай 10% до любых трат.',
     3:'открой «План выхода из долгов» — приложение посчитает срок свободы при твоём доходе.',
     4:'заведи конверты с лимитами во вкладке «Бюджет» — трата сверх лимита станет видна мгновенно.',
-    5:'захотелось крупное — запиши сумму и завтра проверь кнопкой «Могу купить?». Утром решение будет холоднее.',
+    5:'захотелось крупное — запиши в «Могу купить?» на 24 часа. Утром решение будет холоднее.',
     6:'карточка «Подписки» внизу панели: сумма в месяц и в год. Отключи то, чем не пользовался неделю.',
     7:'в аналитике смотри «Структуру трат»: если гибкая часть выше 20% дохода — там ваш запас.',
-    8:'каждый платёж рассрочки должен быть в списке «Рассрочки» — иначе прогноз будет врать.'
+    8:'каждый платёж рассрочки должен быть в списке «Рассрочки» — иначе прогноз будет врать.',
+    9:'карточка «Реальный остаток» на панели: нажми и посмотри, сколько из них безопасно.',
+    10:'следи за карточкой «Сегодня» на панели: потрачено из лимита. Вечерний перерасход = минус завтра.',
+    11:'шторка «Цикл зарплаты» на панели: даты цикла, дней осталось, дневной лимит.',
+    12:'панель → карточка прогноза: график, минимум («дно») и что делать, если оно ниже нуля.',
+    13:'Бюджет → «+ Конверт». Начни с трёх: Продукты, Кафе, Транспорт.',
+    14:'Бюджет → Подписки: у каждой карточки факт списаний против заявленной цены.',
+    15:'Бюджет → Кредиты → «Указать платёж»: два числа — и прогноз учитывает кредит сам.',
+    16:'Панель → «Могу купить?»: проверка покупки и список желаний с 24-часовой выдержкой.',
+    17:'Траты → Инструменты → «Вставить выписку». Потом «Разобрать Прочее» для точной статистики.',
+    18:'Настройки → «Скачать копию данных». Файл .json храни где угодно — восстановление из него же.'
   };
   return map[id] || 'Применяй на практике — знание без действия не экономит ни рубля.';
 }
@@ -266,6 +286,7 @@ function normalize(){
     if(!D.spends[i].tag) D.spends[i].tag = 'normal';
   }
   D.subs=D.subs||[]; D.pays=D.pays||[]; D.envs=D.envs||[]; D.leaks=D.leaks||[];
+  D.wishes=D.wishes||[];
   var i;
   for(i=0;i<D.subs.length;i++){ D.subs[i].id=D.subs[i].id||i+1; }
   for(i=0;i<D.pays.length;i++){ D.pays[i].id=D.pays[i].id||i+100; }
@@ -929,11 +950,24 @@ function renderPays(){
 }
 
 function renderSubs(){
+  var aud = subAudit();
+  var audMap = {};
+  for(var a=0;a<aud.length;a++){ audMap[aud[a].sub.id] = aud[a]; }
   var h = '';
   for(var i=0;i<D.subs.length;i++){
     var s = D.subs[i];
-    h += '<div class="env glass hov" data-act="edit" data-t="sub" data-i="'+s.id+'"><header><div class="env-name"><div class="sic '+(s.off?'':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;'+(s.off?'opacity:.4':'')+'"><svg class="ic"><use href="#i-sub"/></svg></div>'+s.n+'</div><b style="'+(s.off?'opacity:.4;text-decoration:line-through':'')+'">'+fmt(s.s)+'/мес</b></header>'
-      + '<div class="note">'+(s.off?'отключена':'активна · '+fmt(s.s*12)+' в год')+'</div>'
+    var fact = '';
+    if(!s.off && audMap[s.id]){
+      var au = audMap[s.id];
+      if(au.rose){ fact = '<span style="color:var(--org)">подорожала: было '+fmt(s.s)+', по факту '+fmt(au.lastAmt)+'</span>'; }
+      else if(!au.found){ fact = '<span style="color:var(--mut)">списаний не найдено 90+ дней</span>'; }
+      else if(au.lastAmt > 0){ fact = 'по факту '+fmt(au.lastAmt)+' · '+fmt(s.s*12)+' в год'; }
+      else { fact = 'активна · '+fmt(s.s*12)+' в год'; }
+    } else {
+      fact = s.off ? 'отключена' : 'активна · '+fmt(s.s*12)+' в год';
+    }
+    h += '<div class="env glass hov" data-act="edit" data-t="sub" data-i="'+s.id+'"><header><div class="env-name"><div class="sic '+(s.off?'':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;'+(s.off?'opacity:.4':'')+'"><svg class="ic"><use href="#i-sub"/></svg></div>'+esc(s.n)+'</div><b style="'+(s.off?'opacity:.4;text-decoration:line-through':'')+'">'+fmt(s.s)+'/мес</b></header>'
+      + '<div class="note">'+fact+'</div>'
       + '<button class="sh-btn '+(s.off?'':'ghost')+'" style="margin-top:8px" data-act="sub-toggle" data-i="'+s.id+'">'+(s.off?'Включить':'Отключить')+'</button></div>';
   }
   $('subsList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Подписок нет</p>';
@@ -1893,8 +1927,15 @@ function renderLearn(){
     + '<div class="bar-large" style="height:8px;margin-top:6px"><i style="width:'+Math.round(done/tot*100)+'%;background:linear-gradient(90deg,var(--pur),var(--pink))"></i></div>'
     + '<div class="note" style="margin-top:6px">'+(done===tot?'Курс пройден! Вы управляете деньгами, а не они вами.':'Каждый урок — 1 минута. Знания экономят тысячи рублей.')+'</div>';
   var h = '';
+  var lastG = '';
   for(var i=0;i<LESSONS.length;i++){
     var l = LESSONS[i];
+    if(l.g && l.g !== lastG){
+      lastG = l.g;
+      var gDone = 0, gTot = 0;
+      for(var gc=0;gc<LESSONS.length;gc++){ if(LESSONS[gc].g === l.g){ gTot++; if(D.learned.indexOf(LESSONS[gc].id) !== -1){ gDone++; } } }
+      h += '<div class="cap" style="margin:16px 4px 8px">'+l.g+' · '+gDone+'/'+gTot+'</div>';
+    }
     var dn = D.learned.indexOf(l.id) !== -1;
     h += '<div class="rec glass hov" data-act="sheet" data-t="learn" data-i="'+l.id+'">'
       + '<header><div class="sic '+(dn?'c-grn':'c-pur')+'"><svg class="ic"><use href="#'+(dn?'i-check':'i-book')+'"/></svg></div><div><h5>'+l.t+'</h5><span>урок '+(i+1)+' · '+(dn?'изучено':'1 минута')+'</span></div><svg class="ic chev"><use href="#i-chev"/></svg></header></div>';
@@ -1922,9 +1963,9 @@ function renderSpend(){
     var t = list[j];
     var cc = catById(t.cat || 'other');
         var tagIcon = '';
-    if(t.tag === 'impulse') tagIcon = ' ⚡';
-    else if(t.tag === 'planned') tagIcon = ' 📋';
-    else if(t.tag === 'needed') tagIcon = ' ❤️';
+    if(t.tag === 'impulse') tagIcon = '<span class="tagb tag-imp">импульс</span>';
+    else if(t.tag === 'planned') tagIcon = '<span class="tagb tag-plan">план</span>';
+    else if(t.tag === 'needed') tagIcon = '<span class="tagb tag-need">нужно</span>';
     h += '<div class="tx" data-act="edit-spend" data-id="'+t.id+'"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div>'
       + '<div class="tx-body"><b>'+esc(t.n)+tagIcon+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · '+cc.n+'</span></div>'
       + '<div class="tx-right"><b>-'+fmt(t.s)+'</b></div>'
@@ -2313,11 +2354,11 @@ function renderDashboardNew() {
       if(d.type === 'cut_spend'){
         txt = 'Урезал "'+catById(d.data.cat).n+'"';
         if(effect && effect.success){
-          txt += ' ✅ сэкономил '+fmt(effect.saved);
+          txt += ' — сэкономил '+fmt(effect.saved);
         } else if(effect && !effect.success) {
-          txt += ' ⚠️ эффекта пока нет';
+          txt += ' — эффекта пока нет';
         } else {
-          txt += ' ⏳ оценим через месяц';
+          txt += ' — оценим через месяц';
         }
       } else if(d.type === 'save_money'){
         txt = 'Отложил '+fmt(d.data.amount)+' в копилку';
@@ -3161,10 +3202,31 @@ function openMonthReport(){
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
 function openCanBuy(){
-  $('sheetBody').innerHTML = sheetHead('i-card','c-grn','Могу купить?','проверка покупки по бюджету')
-    + '<div class="form"><input class="inp" id="cbPrice" type="number" placeholder="Цена, ₽"></div>'
-    + '<button class="sh-btn" data-act="canbuy-go">Проверить</button>'
+  var ws = (D.wishes||[]).filter(function(w){ return w.st === 'wait'; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; });
+  var nowT = Date.now();
+  var h = sheetHead('i-card','c-grn','Могу купить?','честная проверка по твоим цифрам')
+    + '<div class="form"><input class="inp" id="cbName" placeholder="Что хотим? (необязательно)"><input class="inp" id="cbPrice" type="number" placeholder="Цена, ₽"></div>'
+    + '<div class="dlg-btns" style="margin-top:12px">'
+    + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="canbuy-go">Проверить сейчас</button>'
+    + '<button class="sh-btn" style="margin:0;flex:1;background:rgba(191,90,242,.2);color:var(--pur)" data-act="wish-add">Записать на 24 ч</button>'
+    + '</div>'
     + '<div id="cbVerdict"></div>';
+  if(ws.length){
+    h += '<div class="cap" style="margin:16px 4px 6px">Список желаний · правило 24 часов</div>';
+    for(var j=0;j<ws.length;j++){
+      var w = ws[j];
+      var hrs = Math.ceil(24 - (nowT - new Date(w.d).getTime())/36e5);
+      var ripe = hrs <= 0;
+      h += '<div class="dig-item" style="flex-wrap:wrap"><span style="flex:1;min-width:120px">'+esc(w.n)+' · '+fmt(w.amt)
+        + (ripe ? ' <b style="color:var(--grn)">· время вышло</b>' : ' <span style="font-size:11px">· ждать ещё '+hrs+' ч</span>') + '</span>'
+        + '<span class="row-actions">'
+        + (ripe ? '<button class="mini-btn" data-act="wish-buy" data-i="'+w.id+'" title="Решил купить"><svg class="ic"><use href="#i-check"/></svg></button>' : '')
+        + '<button class="mini-btn danger" data-act="wish-skip" data-i="'+w.id+'" title="Передумал"><svg class="ic"><use href="#i-x"/></svg></button>'
+        + '</span></div>';
+    }
+    h += '<div class="sh-tip">Желание нельзя купить раньше 24 часов — фильтр от импульсов. Когда время выйдет, появится галочка: открой прогноз, проверь вердикт и решай холодной головой.</div>';
+  }
+  $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
 
@@ -3320,7 +3382,7 @@ function render(){
     for(var si=0;si<sigs.length;si++){
       var s = sigs[si];
       var col = s.sev >= 8 ? 'var(--red)' : (s.sev >= 5 ? 'var(--org)' : 'var(--blu)');
-    var actAttr = s.act.t ? 'data-act="sheet" data-t="'+s.act.t+'"' : 'data-act="'+s.act.act+'"'+(s.act.h ? ' data-h="'+s.act.h+'"' : '');
+      var actAttr = s.act.t ? 'data-act="sheet" data-t="'+s.act.t+'"' : 'data-act="'+s.act.act+'"'+(s.act.h ? ' data-h="'+s.act.h+'"' : '')+(s.act.p ? ' data-p="'+s.act.p+'"' : '');
       ih += '<div class="dig-item" style="cursor:pointer;border-left:3px solid '+col+'" '+actAttr+'><span><b style="color:'+col+'">'+s.title+'</b> — '+s.desc+(s.benefit?' · выгода '+fmt(s.benefit)+'/мес':'')+'</span><b>›</b></div>';
     }
     acEl.innerHTML = '<div class="cap-title"><span>Что важно сейчас</span><span class="pill '+(sigs.length?'c-org':'c-grn')+'" style="font-size:10px">'+(sigs.length?sigs.length+' сигналов':'всё спокойно')+'</span></div>'
@@ -3767,6 +3829,35 @@ save(); render(); toast('Память применена: обновлено о�
 
   else if(act === 'month-report'){ openMonthReport(); }
   else if(act === 'canbuy'){ openCanBuy(); }
+  else if(act === 'wish-add'){
+    var wa = parseFloat($('cbPrice') ? $('cbPrice').value : '');
+    var wn = ($('cbName') && $('cbName').value.trim()) || 'Покупка';
+    if(isNaN(wa) || wa <= 0){ dAlert('Укажи цену.', 'Список желаний'); return; }
+    D.wishes = D.wishes || [];
+    D.wishes.push({id:Date.now(), n:wn, amt:wa, d:new Date().toISOString(), st:'wait'});
+    save(); render(); openCanBuy();
+    toast('Записано. Решение — через 24 часа.');
+  }
+  else if(act === 'wish-skip'){
+    var wsId = parseFloat(el.getAttribute('data-i'));
+    for(var wq=0;wq<(D.wishes||[]).length;wq++){ if(D.wishes[wq].id === wsId){ D.wishes[wq].st = 'skip'; break; } }
+    save(); render(); openCanBuy();
+    toast('Передумал — это тоже победа над импульсом');
+  }
+  else if(act === 'wish-buy'){
+    var wbId = parseFloat(el.getAttribute('data-i'));
+    var wItem = null;
+    for(var wr=0;wr<(D.wishes||[]).length;wr++){ if(D.wishes[wr].id === wbId){ wItem = D.wishes[wr]; break; } }
+    if(!wItem){ return; }
+    var vW = canAfford(wItem.amt);
+    dConfirm(vW.txt + '\n\nЗаписать трату ' + fmt(wItem.amt) + '?', 'Решение по «' + wItem.n + '»', vW.verdict === 'no').then(function(ok){
+      if(!ok){ return; }
+      wItem.st = 'bought';
+      D.spends.push({id:Date.now(), d:iso(new Date()), n:wItem.n, cat:autoCat(wItem.n), s:wItem.amt, tag:'planned'});
+      save(); render(); closeSheet();
+      toast(vW.verdict === 'no' ? 'Куплено вопреки прогнозу — теперь ты знаешь цену' : 'Куплено осознанно: −'+fmt(wItem.amt));
+    });
+  }
   else if(act === 'canbuy-go'){
     var price = parseFloat($('cbPrice').value);
     if(isNaN(price) || price <= 0){ dAlert('Введите цену.', 'Проверка'); return; }
@@ -5121,6 +5212,35 @@ function calcLifeMin() {
 }
 
 // Движок сигналов — 10 типов, каждый даёт ₽/мес выгоды
+// Аудит подписок по факту: сравнение заявленной цены с реальными списаниями
+function subAudit(){
+  var out = [];
+  var all = allSpends();
+  var now = new Date();
+  for(var i=0;i<(D.subs||[]).length;i++){
+    var s = D.subs[i];
+    if(s.off){ continue; }
+    var key = merchName(s.n).toLowerCase();
+    var lastAmt = 0, lastDate = null;
+    for(var j=0;j<all.length;j++){
+      var nm = String(all[j].n||'').toLowerCase();
+      if(!key || (nm.indexOf(key) === -1 && key.indexOf(nm) === -1)){ continue; }
+      if(all[j].s <= 0){ continue; }
+      if(!lastDate || all[j].d > lastDate){ lastDate = all[j].d; lastAmt = all[j].s; }
+    }
+    var daysSince = lastDate ? Math.round((now - lastDate)/864e5) : 999;
+    out.push({
+      sub:s,
+      found: !!lastDate && daysSince <= 95,
+      daysSince: daysSince,
+      lastAmt: lastAmt,
+      rose: !!lastDate && lastAmt > s.s * 1.05 && daysSince <= 45,
+      dead: !lastDate || daysSince > 95
+    });
+  }
+  return out;
+}
+
 function getSignals(){
   var signals = [];
   var now = new Date();
@@ -5179,7 +5299,39 @@ function getSignals(){
     });
   }
   
-   // 3. Долги > 50% дохода
+   // 2b. Аудит подписок по факту: подорожание или мёртвая подписка
+  var aud = subAudit();
+  var roseSubs = [], deadSubs = [];
+  for(var ia=0;ia<aud.length;ia++){
+    if(aud[ia].rose){ roseSubs.push(aud[ia]); }
+    if(aud[ia].dead){ deadSubs.push(aud[ia]); }
+  }
+  if(roseSubs.length){
+    var r0 = roseSubs[0];
+    var rBenefit = Math.max(1, Math.round((r0.lastAmt - r0.sub.s)));
+    signals.push({
+      sev: 6,
+      title: '«'+r0.sub.n+'» подорожала: '+fmt(r0.sub.s)+' → '+fmt(r0.lastAmt),
+      desc: (roseSubs.length > 1 ? 'И ещё '+(roseSubs.length-1)+' подписок выросли в цене. ' : '') + 'Проверь, нужна ли она всё ещё.',
+      benefit: rBenefit,
+      priority: prio(6, rBenefit),
+      act: {act:'nav', p:'budget'}
+    });
+  }
+  if(deadSubs.length){
+    var dB = 0;
+    for(var idd=0;idd<deadSubs.length;idd++){ dB += deadSubs[idd].sub.s; }
+    signals.push({
+      sev: 3,
+      title: deadSubs.length+' подписк(а/и) без списаний',
+      desc: '«'+deadSubs[0].sub.n+'» — списаний нет 90+ дней. Похоже, вы уже не платите — отключите и уберите из бюджета.',
+      benefit: Math.round(dB),
+      priority: prio(3, dB),
+      act: {act:'nav', p:'budget'}
+    });
+  }
+
+  // 3. Долги > 50% дохода
   var debtTotal = 0;
   for(var d=0;d<D.credits.length;d++){ debtTotal += D.credits[d].cur || 0; }
   if(debtTotal > (D.income||0) * 0.5){
@@ -5347,6 +5499,22 @@ desc: 'По '+WD_NAMES[maxW]+' уходит '+fmt(Math.round(wdSum[maxW]))+' з�
 benefit: wdBenefit,
 priority: prio(3, wdBenefit),
 act: {act:'an-habit', h:'wd'}
+});
+}
+
+// 13. Созревшие желания (правило 24 часов)
+var ripeN = 0;
+for(var i9=0;i9<(D.wishes||[]).length;i9++){
+if(D.wishes[i9].st === 'wait' && (Date.now() - new Date(D.wishes[i9].d).getTime()) >= 24*36e5){ ripeN++; }
+}
+if(ripeN > 0){
+signals.push({
+sev: 4,
+title: 'Желания дозрели: '+ripeN,
+desc: 'Прошли сутки. Проверь «Могу купить?» — и реши холодной головой.',
+benefit: 0,
+priority: prio(4, 0),
+act: {act:'canbuy'}
 });
 }
 
@@ -5621,7 +5789,7 @@ function drawGoalMiniChart(container, goal) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.fillText('⏱ ' + eta, padding, 2);
+        ctx.fillText('~ ' + eta, padding, 2);
     }
 }
 
