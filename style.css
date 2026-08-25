@@ -555,3 +555,13 @@ html{scroll-behavior:smooth}
   .quick-actions{flex-wrap:wrap;gap:8px}
   .qa-btn{flex:1 1 calc(33% - 8px);min-width:calc(33% - 8px);padding:12px 6px;font-size:12px}
 }
+
+/* Сетка категорий в шторке траты — тап вместо прокрутки select */
+.chip-grid{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+.cat-chip{background:rgba(255,255,255,.06);border:1px solid transparent;border-radius:999px;padding:10px 14px;font-size:12.5px;font-weight:700;color:var(--mut);transition:.15s}
+.cat-chip.on{background:rgba(10,132,255,.18);color:var(--teal);border-color:rgba(10,132,255,.4)}
+.cat-chip.sm{padding:8px 12px;font-size:11.5px}
+
+/* Тост с действием (отмена удаления) */
+.toast{display:flex;align-items:center;gap:14px;text-align:left}
+.undo-btn{background:rgba(10,132,255,.28);color:var(--teal);font-weight:800;font-size:12.5px;padding:9px 16px;border-radius:11px;flex:none}
