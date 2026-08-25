@@ -302,7 +302,12 @@ function normalize(){
   var i;
   for(i=0;i<D.subs.length;i++){ D.subs[i].id=D.subs[i].id||i+1; }
   for(i=0;i<D.pays.length;i++){ D.pays[i].id=D.pays[i].id||i+100; }
-  for(i=0;i<D.envs.length;i++){ D.envs[i].id=D.envs[i].id||i+1; }
+  for(i=0;i<D.envs.length;i++){
+    D.envs[i].id=D.envs[i].id||i+1;
+    if(!D.envs[i].cats){ D.envs[i].cats = envCatsFromName(D.envs[i].n); }
+    if(!D.envs[i].ic){ D.envs[i].ic='i-gift'; }
+    if(!D.envs[i].k){ D.envs[i].k='c-pur'; }
+  }
   for(i=0;i<D.leaks.length;i++){ D.leaks[i].id=D.leaks[i].id||i+1; D.leaks[i].fixed=D.leaks[i].fixed||0; }
   D.pays = D.pays.filter(function(x){ return x.n.indexOf('Рассрочка')===-1; });
   if(!D.credits) D.credits=[];
@@ -442,7 +447,27 @@ function tipHtml(t){ return '<div class="sh-tip">'+t+'</div>'; }
 function sheetHead(ic, k, t, s){
   return '<div class="sh-h"><div class="sic '+k+'"><svg class="ic"><use href="#'+ic+'"/></svg></div><div><b>'+t+'</b><span>'+s+'</span></div><button class="sh-x" data-act="close"><svg class="ic" style="width:16px;height:16px"><use href="#i-x"/></svg></button></div>';
 }
-function closeSheet(){ $('sheet').classList.remove('on'); $('shb').classList.remove('on'); }
+function closeSheetCore(){ $('sheet').classList.remove('on'); $('shb').classList.remove('on'); }
+function closeSheet(){ closeSheetCore(); }
+// Системная кнопка «Назад»: сначала закрываем шторку/диалог/меню, и только потом приложение
+function closeTopOverlay(){
+  var dlg = document.getElementById('dlgBox');
+  if(dlg && dlg.classList.contains('on')){ dlgClose(null); return true; }
+  var sh = $('sheet');
+  if(sh && sh.classList.contains('on')){ closeSheetCore(); return true; }
+  var dds = document.querySelectorAll('.dd.on');
+  if(dds.length){ for(var i=0;i<dds.length;i++){ dds[i].classList.remove('on'); } return true; }
+  return false;
+}
+try{
+  history.replaceState({tbRoot:1}, '');
+  history.pushState({tbRoot:2}, '');
+  window.addEventListener('popstate', function(){
+    if(closeTopOverlay()){
+      setTimeout(function(){ try{ history.pushState({tbRoot:2}, ''); }catch(e){} }, 0);
+    }
+  });
+}catch(e){}
 
 var dlgResolve = null;
 function dlgBuild(){
@@ -543,12 +568,32 @@ function fixPostpone(t, i){
 }
 
 function envMatch(e, x){
+  // Конверты с явным списком категорий (новые/настраиваемые)
+  if(e.cats && e.cats.length){ return e.cats.indexOf(x.cat||'other') !== -1; }
+  // Устаревшие конверты — по имени
   var isTrain = /tutu|электрич|kryukovo/i.test(x.n || '');
   if(e.n.indexOf('Электричка') === 0){ return (x.cat === 'transport') && isTrain; }
   if(e.n.indexOf('Тройка') === 0){ return (x.cat === 'transport') && !isTrain; }
   var key = CAT2ENV[x.cat] || 'Личное';
   return e.n.indexOf(key) === 0;
 }
+
+// Категории по умолчанию для конверта по его имени (для старых данных)
+function envCatsFromName(n){
+  var s = (n||'').toLowerCase();
+  if(s.indexOf('электричка') === 0){ return ['transport']; }
+  if(s.indexOf('тройка') === 0){ return ['transport']; }
+  var out = [];
+  for(var c=0;c<CATS.length;c++){
+    var base = (CAT2ENV[CATS[c].id]||'').toLowerCase();
+    if(base && s.indexOf(base) === 0){ out.push(CATS[c].id); }
+  }
+  return out.length ? out : null;
+}
+
+// Палитра и иконки для конвертов
+var ENV_COLORS = [['c-grn','Зелёный'],['c-blu','Синий'],['c-red','Красный'],['c-pur','Фиолетовый'],['c-org','Оранжевый'],['c-cyn','Голубой'],['c-pnk','Розовый'],['c-yel','Жёлтый'],['c-mnt','Мятный']];
+var ENV_ICONS = ['i-cart','i-coffee','i-scoot','i-taxi','i-train','i-home','i-med','i-shirt','i-gift','i-sub','i-card','i-beach','i-target','i-user','i-fun','i-wallet'];
 
 function openSheet(t, i){
   var h = '';
@@ -849,8 +894,15 @@ function openEdit(t, i){
   if(t==='inst'){ it = i?get(D.insts):null; title = it?'Рассрочка':'Новая рассрочка';
     h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Платёж, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="date" value="'+(it?it.d:'')+'"></div></div>';
   }
-  if(t==='env'){ it = i?get(D.envs):null; title = it?it.n:'Конверт';
-    h = '<div class="form"><input class="inp" id="in2" type="number" placeholder="Лимит в месяц, ₽" value="'+(it?it.lim:'')+'"></div>';
+  if(t==='env'){
+    it = i?get(D.envs):null;
+    if(it){
+      window._envDraft = {name:it.n, lim:it.lim, cats:(it.cats&&it.cats.length)?it.cats.slice():(envCatsFromName(it.n)||['other']), ic:it.ic||'i-gift', k:it.k||'c-pur', _save:'form-save-env', _saveTxt:'Сохранить конверт', _title:'Конверт · '+it.n, _id:it.id};
+    } else {
+      openEnvAdd(); return;
+    }
+    renderEnvForm();
+    return;
   }
   window._ef = {t:t, id:i};
   $('sheetBody').innerHTML = sheetHead('i-target','c-pur', title, 'редактирование')
@@ -882,7 +934,17 @@ function saveEdit(){
     if(f.id){ it=find(D.insts); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; it.d=g('in3')||it.d; } }
     else { D.insts.push({id:Date.now(), n:g('in1')||'Рассрочка', s:parseFloat(g('in2'))||0, d:g('in3')||iso(new Date())}); }
   }
-  if(f.t==='env'){ it=find(D.envs); if(it){ it.lim=parseFloat(g('in2'))||it.lim; } }
+  if(f.t==='env'){
+    envDraftSyncInputs();
+    var dE = window._envDraft;
+    it = find(D.envs);
+    if(it && dE){
+      if(dE.name){ it.n = dE.name; }
+      it.lim = parseFloat(dE.lim) || it.lim;
+      it.cats = dE.cats;
+      it.ic = dE.ic; it.k = dE.k;
+    }
+  }
   save(); closeSheet(); render(); toast('Сохранено');
 }
 
@@ -962,6 +1024,7 @@ function openEnv(i){
   var e = null;
   for(var k=0;k<D.envs.length;k++){ if(D.envs[k].id === i){ e = D.envs[k]; } }
   if(!e){ return; }
+  window._envOpenId = i;
   var cs = cycleStart(new Date());
   var list = allSpends().filter(function(x){ return inCycle(x.d, cs) && envMatch(e, x); });
   list.sort(function(a,b){ return b.d - a.d; });
@@ -969,16 +1032,44 @@ function openEnv(i){
   var rows = '';
   for(var r=0;r<list.length;r++){
     f += list[r].s;
-    rows += '<div class="dig-item"><span>'+list[r].d.getDate()+'.'+String(list[r].d.getMonth()+1).padStart(2,'0')+'.'+list[r].d.getFullYear()+' · '+list[r].n+'</span><b>-'+fmt(list[r].s)+'</b></div>';
+    rows += '<div class="dig-item"><span>'+list[r].d.getDate()+'.'+String(list[r].d.getMonth()+1).padStart(2,'0')+'.'+list[r].d.getFullYear()+' · '+esc(list[r].n)+'</span><b>-'+fmt(list[r].s)+'</b></div>';
   }
   if(!rows){ rows = '<div class="dig-item"><span>Трат в этом цикле нет</span><b>—</b></div>'; }
-  $('sheetBody').innerHTML = sheetHead(e.ic, e.k, e.n, 'конверт · цикл '+cycLabel(cs))
+  // Частые покупки этого конверта за 60 дней — шаблоны в один тап
+  var fromT = new Date(Date.now() - 60*864e5);
+  var tMap = {};
+  var allE = allSpends();
+  for(var te=0;te<allE.length;te++){
+    var xe = allE[te];
+    if(xe.d < fromT || !envMatch(e, xe)){ continue; }
+    var mk = merchName(xe.n).toLowerCase();
+    if(!tMap[mk]){ tMap[mk] = {n:merchName(xe.n), s:xe.s, c:0}; }
+    tMap[mk].c++; tMap[mk].s = xe.s;
+  }
+  var tArr = [];
+  for(var tk in tMap){ tArr.push(tMap[tk]); }
+  tArr.sort(function(a,b){ return b.c - a.c; });
+  var tplH = '';
+  for(var tt=0;tt<tArr.length && tt<3;tt++){
+    tplH += '<button class="chip" data-act="env-tpl" data-n="'+esc(tArr[tt].n)+'" data-s="'+tArr[tt].s+'">'+esc(tArr[tt].n)+' · '+fmt(tArr[tt].s)+'</button>';
+  }
+  $('sheetBody').innerHTML = sheetHead(e.ic, e.k, esc(e.n), 'конверт · цикл '+cycLabel(cs))
     + rowHtml('Лимит', fmt(e.lim))
     + rowHtml('Потрачено', fmt(f))
     + rowHtml('Остаток', fmt(e.lim - f))
+    + '<div class="cap" style="margin:14px 4px 6px">Добавить трату в конверт</div>'
+    + '<div class="form">'
+    + '<input class="inp" id="envQaAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽">'
+    + '<input class="inp" id="envQaNote" placeholder="Что это? Например: Пятёрочка">'
+    + '</div>'
+    + (tplH ? '<div class="h-actions" style="margin:8px 0 0">'+tplH+'</div>' : '')
+    + '<div class="dlg-btns" style="margin-top:10px">'
+    + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="env-qa-more">Сохранить и ещё</button>'
+    + '<button class="sh-btn" style="margin:0;flex:1" data-act="env-qa-add">Добавить</button>'
+    + '</div>'
     + '<div class="cap" style="margin:14px 4px 6px">Все траты конверта ('+list.length+')</div>'
-    + '<div style="max-height:300px;overflow-y:auto">'+rows+'</div>'
-    + '<button class="sh-btn" data-act="edit" data-t="env" data-i="'+e.id+'">Изменить лимит</button>';
+    + '<div style="max-height:260px;overflow-y:auto">'+rows+'</div>'
+    + '<button class="sh-btn ghost" data-act="env-edit-open" data-i="'+e.id+'">Настроить конверт — лимит, значок, цвет</button>';
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
 }
@@ -3409,15 +3500,41 @@ function openCanBuy(){
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
 
-function openEnvAdd(){
-  var types = ['Продукты','Кафе','Самокаты','Такси','Тройка','Аренда','Личное'];
-  var opts = '';
-  for(var i=0;i<types.length;i++){ opts += '<option value="'+types[i]+'">'+types[i]+'</option>'; }
-  $('sheetBody').innerHTML = sheetHead('i-target','c-pur','Новый конверт','имя определяет, какие траты попадут внутрь')
-    + '<div class="form"><select class="inp" id="envType">'+opts+'</select>'
-    + '<input class="inp" id="envLim" type="number" placeholder="Лимит в месяц, ₽"></div>'
-    + '<button class="sh-btn" data-act="env-add-save">Создать конверт</button>';
+// Редактор конверта: имя + лимит + категории + значок + цвет
+function envDraftSyncInputs(){
+  if($('enName')){ window._envDraft.name = $('enName').value; }
+  if($('enLim')){ window._envDraft.lim = $('enLim').value; }
+}
+function renderEnvForm(){
+  var d = window._envDraft;
+  var catChips = '';
+  for(var c=0;c<CATS.length;c++){
+    catChips += '<button type="button" class="cat-chip'+(d.cats.indexOf(CATS[c].id) !== -1?' on':'')+'" data-act="env-cat" data-c="'+CATS[c].id+'">'+CATS[c].n+'</button>';
+  }
+  var icBtns = '';
+  for(var g=0;g<ENV_ICONS.length;g++){
+    icBtns += '<button type="button" class="env-ic-btn'+(d.ic === ENV_ICONS[g]?' on':'')+'" data-act="env-icon" data-c="'+ENV_ICONS[g]+'"><svg class="ic"><use href="#'+ENV_ICONS[g]+'"/></svg></button>';
+  }
+  var colBtns = '';
+  for(var k=0;k<ENV_COLORS.length;k++){
+    colBtns += '<button type="button" class="env-col-btn '+(d.k === ENV_COLORS[k][0]?'on ':'')+ENV_COLORS[k][0]+'" data-act="env-col" data-c="'+ENV_COLORS[k][0]+'">'+(d.k === ENV_COLORS[k][0]?'выбран':'&nbsp;')+'</button>';
+  }
+  $('sheetBody').innerHTML = sheetHead('i-target','c-pur', d._title || 'Конверт', 'категории, значок и цвет — на ваш вкус')
+    + '<div class="form">'
+    + '<input class="inp" id="enName" placeholder="Название конверта" value="'+esc(d.name||'')+'">'
+    + '<input class="inp" id="enLim" type="number" inputmode="decimal" placeholder="Лимит на цикл, ₽" value="'+(d.lim||'')+'">'
+    + '<div class="hint">Категории, которые наполняют конверт (можно несколько):</div>'
+    + '<div class="chip-grid">'+catChips+'</div>'
+    + '<div class="hint">Значок:</div><div class="chip-grid">'+icBtns+'</div>'
+    + '<div class="hint">Цвет:</div><div class="chip-grid">'+colBtns+'</div>'
+    + '</div>'
+    + '<button class="sh-btn" data-act="'+(d._save||'env-add-save')+'">'+(d._saveTxt||'Сохранить')+'</button>'
+    + (d._id ? '<button class="sh-btn danger" data-act="form-del">Удалить конверт</button>' : '');
   $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function openEnvAdd(){
+  window._envDraft = {name:'', lim:'', cats:['grocery'], ic:'i-cart', k:'c-grn', _save:'env-add-save', _saveTxt:'Создать конверт', _title:'Новый конверт'};
+  renderEnvForm();
 }
 
 function openQuickSpend(){
@@ -3464,7 +3581,56 @@ function paintQsCats(){
   }
 }
 
+// Похоже ли название на платёж по одному из кредитов
+var BANK_ALIASES = {
+  'тбанк':['тбанк','тинькофф','tinkoff','tbank'],
+  'альфа':['альфа','альфабанк','alfa','alpha'],
+  'сбер':['сбер','сбербанк','sber'],
+  'втб':['втб','vtb'],
+  'озон':['озон','ozon']
+};
+function normKey(s){ return String(s||'').toLowerCase().replace(/[^a-zа-я0-9]/g,''); }
+function detectCreditIntent(n){
+  var key = normKey(n);
+  if(!key || key.length < 3){ return null; }
+  for(var i=0;i<(D.credits||[]).length;i++){
+    var cr = D.credits[i];
+    var nk = normKey(cr.n);
+    if(!nk || nk.length < 2){ continue; }
+    if(key.indexOf(nk) !== -1 || nk.indexOf(key) !== -1){ return {cr:cr}; }
+    var al = BANK_ALIASES[nk] || [];
+    for(var a=0;a<al.length;a++){
+      if(key.indexOf(al[a]) !== -1){ return {cr:cr}; }
+    }
+  }
+  return null;
+}
+function applyCreditPay(cr, amt, d){
+  cr.cur = Math.max(0, (cr.cur||0) - amt);
+  D.spends.push({id:Date.now(), d:d, n:'Платёж: '+cr.n, cat:'other', s:amt, tag:'planned'});
+  save(); render();
+  toast(cr.cur <= 0 ? 'Кредит «'+cr.n+'» закрыт!' : 'Платёж по «'+cr.n+'»: −'+fmt(amt));
+}
+function finishPush(o, after){
+  D.spends.push({id:Date.now(), d:o.d, n:o.n || catById(o.cat).n, cat:o.cat, s:o.amt, tag:o.tag || 'normal'});
+  save(); render(); toast('Трата добавлена: −'+fmt(o.amt));
+  if(after){ after(); }
+}
+// Умная запись: сначала проверяем, не платёж ли это по кредиту
+function pushSpendSmart(o, after){
+  var det = o.n ? detectCreditIntent(o.n) : null;
+  if(det){
+    dConfirm('«'+o.n+'» похоже на платёж по кредиту «'+det.cr.n+'».\n\nДа — долг уменьшится на '+fmt(o.amt)+' и появится запись платежа. Нет — обычная трата.', 'Это платёж по кредиту?').then(function(ok){
+      if(ok){ applyCreditPay(det.cr, o.amt, o.d); if(after){ after(); } return; }
+      finishPush(o, after);
+    });
+    return;
+  }
+  finishPush(o, after);
+}
+
 function saveQuickSpend(again){
+  if(document.activeElement && document.activeElement.blur){ document.activeElement.blur(); }
   var qa = parseFloat($('qsAmt').value);
   if(isNaN(qa) || qa <= 0){ dAlert('Введите сумму траты.', 'Трата'); return; }
   var qd = $('qsDate').value || iso(new Date());
@@ -3479,9 +3645,13 @@ function saveQuickSpend(again){
   }
   var qc = $('qsCat').value || 'other';
   var tag = $('qsTag') ? $('qsTag').value : 'normal';
-  D.spends.push({id:Date.now(), d:qd, n: qn || catById(qc).n, cat:qc, s:qa, tag:tag});
-  save();
-  // Живая проверка: аномальный чек или пробой дневного лимита
+  pushSpendSmart({amt:qa, d:qd, n:qn, cat:qc, tag:tag}, function(){
+    runSpendAlerts(qa, qc);
+    if(again){ openQuickSpend(); } else { closeSheet(); }
+  });
+}
+// Живая проверка после записи: аномальный чек или пробой дневного лимита
+function runSpendAlerts(qa, qc){
   var avgQ = 0, cntQ = 0;
   var fromQ = new Date(Date.now() - 60*864e5);
   var aQ = allSpends();
@@ -3498,9 +3668,7 @@ function saveQuickSpend(again){
   if(dlQ.perDay > 0 && qa > dlQ.perDay){
     msgsQ.push('Сумма выше дневного лимита ('+fmt(dlQ.perDay)+'). Сегодня лучше больше не тратить.');
   }
-  render(); toast('Трата добавлена: −'+fmt(qa));
   if(msgsQ.length){ dAlert(msgsQ.join('\n'), 'Проверка траты'); }
-  if(again){ openQuickSpend(); } else { closeSheet(); }
 }
 function openIncomeSheet(){
   var ko = '';
@@ -3779,6 +3947,33 @@ return;
     $('shb').classList.add('on');
   }
   else if(act === 'env'){ openEnv(parseInt(el.getAttribute('data-i'), 10)); }
+  else if(act === 'env-edit-open'){
+    var eo = parseInt(el.getAttribute('data-i'),10);
+    var eItem = null;
+    for(var ee2=0;ee2<D.envs.length;ee2++){ if(D.envs[ee2].id === eo){ eItem = D.envs[ee2]; break; } }
+    if(eItem){
+      window._envDraft = {name:eItem.n, lim:eItem.lim, cats:(eItem.cats&&eItem.cats.length)?eItem.cats.slice():(envCatsFromName(eItem.n)||['other']), ic:eItem.ic||'i-gift', k:eItem.k||'c-pur', _save:'form-save-env', _saveTxt:'Сохранить конверт', _title:'Конверт · '+eItem.n, _id:eItem.id};
+      renderEnvForm();
+    }
+  }
+  else if(act === 'env-tpl'){
+    if($('envQaAmt')){ $('envQaAmt').value = el.getAttribute('data-s'); }
+    if($('envQaNote')){ $('envQaNote').value = el.getAttribute('data-n'); }
+    toast('Подставлено — жмите «Добавить»');
+  }
+  else if(act === 'env-qa-add' || act === 'env-qa-more'){
+    var eqId = window._envOpenId;
+    var eQ = null;
+    for(var eq2=0;eq2<D.envs.length;eq2++){ if(D.envs[eq2].id === eqId){ eQ = D.envs[eq2]; break; } }
+    if(!eQ){ return; }
+    var qaE = parseFloat($('envQaAmt') ? $('envQaAmt').value : '');
+    var qnE = $('envQaNote') ? $('envQaNote').value.trim() : '';
+    if(isNaN(qaE) || qaE <= 0){ dAlert('Введите сумму.', 'Конверт'); return; }
+    var catE = (eQ.cats && eQ.cats.length) ? eQ.cats[0] : 'other';
+    pushSpendSmart({amt:qaE, d:iso(new Date()), n:qnE, cat:catE, tag:'normal'}, function(){
+      openEnv(eqId);
+    });
+  }
   else if(act === 'edit'){ openEdit(el.getAttribute('data-t'), parseInt(el.getAttribute('data-i') || '0', 10)); }
   else if(act === 'add'){ openEdit(el.getAttribute('data-t'), 0); }
   else if(act === 'form-save'){ saveEdit(); }
@@ -4356,14 +4551,39 @@ save(); render(); toast('Память применена: обновлено о�
     }
   }
   else if(act === 'env-add'){ openEnvAdd(); }
-  else if(act === 'env-add-save'){
-    var tE = $('envType').value;
-    var lE = parseFloat($('envLim').value);
-    if(isNaN(lE) || lE <= 0){ dAlert('Укажи лимит.', 'Конверт'); return; }
-    var icMap = {'Продукты':['i-cart','c-grn'],'Кафе':['i-coffee','c-red'],'Самокаты':['i-scoot','c-org'],'Такси':['i-taxi','c-blu'],'Тройка':['i-train','c-blu'],'Аренда':['i-home','c-pur'],'Личное':['i-gift','c-pur']};
-    var mm = icMap[tE] || ['i-gift','c-pur'];
-    D.envs.push({id:Date.now(), n:tE, lim:lE, ic:mm[0], k:mm[1]});
-    save(); closeSheet(); render(); toast('Конверт "'+tE+'" создан');
+  else if(act === 'env-cat' || act === 'env-icon' || act === 'env-col'){
+    envDraftSyncInputs();
+    var dEc = window._envDraft;
+    var vE = el.getAttribute('data-c');
+    if(act === 'env-cat'){
+      var ix2 = dEc.cats.indexOf(vE);
+      if(ix2 !== -1){ if(dEc.cats.length > 1){ dEc.cats.splice(ix2, 1); } }
+      else { dEc.cats.push(vE); }
+    }
+    else if(act === 'env-icon'){ dEc.ic = vE; }
+    else { dEc.k = vE; }
+    renderEnvForm();
+  }
+  else if(act === 'env-add-save' || act === 'form-save-env'){
+    envDraftSyncInputs();
+    var dEs = window._envDraft;
+    if(!dEs){ return; }
+    var nmE = (dEs.name||'').trim();
+    var lE = parseFloat(dEs.lim);
+    if(!nmE){ dAlert('Дайте конверту название.', 'Конверт'); return; }
+    if(isNaN(lE) || lE <= 0){ dAlert('Укажи лимит на цикл.', 'Конверт'); return; }
+    if(act === 'env-add-save'){
+      D.envs.push({id:Date.now(), n:nmE, lim:lE, cats:dEs.cats.slice(), ic:dEs.ic, k:dEs.k});
+      toast('Конверт «'+nmE+'» создан');
+    } else {
+      var itSv = null;
+      for(var sv=0;sv<D.envs.length;sv++){ if(D.envs[sv].id === dEs._id){ itSv = D.envs[sv]; break; } }
+      if(itSv){
+        itSv.n = nmE; itSv.lim = lE; itSv.cats = dEs.cats.slice(); itSv.ic = dEs.ic; itSv.k = dEs.k;
+        toast('Конверт обновлён');
+      }
+    }
+    save(); closeSheet(); render();
   }
   else if(act === 'pay-paid'){
     var pid = parseInt(el.getAttribute('data-i'),10);

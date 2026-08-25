@@ -19,6 +19,7 @@ var svgIcons = `
   <symbol id="i-taxi" viewBox="0 0 24 24"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17h12"/><path d="M4 14l2-5h12l2 5"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
   <symbol id="i-med" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-fun" viewBox="0 0 24 24"><path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.2 6.2L12 17.2 6.4 20.2l1.2-6.2L3 9.6l6.3-.8z"/></symbol>
   <symbol id="i-shirt" viewBox="0 0 24 24"><path d="M20.38 3.46 16 2 12 6 8 2 3.62 3.46a2 2 0 0 0-1.34 2.1l.82 8.18A2 2 0 0 0 5.08 15.5L8 14v6h8v-6l2.92 1.5a2 2 0 0 0 1.98-1.76l.82-8.18a2 2 0 0 0-1.34-2.1z"/></symbol>
   <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 2.5 2.5v2.5h-2.5z"/><path d="M16.5 8a2.5 2.5 0 0 0 0-5 2.5 2.5 0 0 0-2.5 2.5v2.5h2.5z"/></symbol>
   <symbol id="i-beach" viewBox="0 0 24 24"><path d="M2 12h20"/><path d="M6 12c0-4 3-8 6-8s6 4 6 8"/><path d="M4 16c2 2 6 3 10 3s8-1 10-3"/></symbol>
