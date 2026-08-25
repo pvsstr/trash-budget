@@ -1267,6 +1267,37 @@ function openCatSheet(catId){
   $('shb').classList.add('on');
 }
 
+// Статистика «выходные vs будни» для списка трат
+function wkndStats(sp){
+  var dayTot = {}, i;
+  for(i=0;i<sp.length;i++){
+    var k = iso(sp[i].d);
+    dayTot[k] = (dayTot[k]||0) + sp[i].s;
+  }
+  var weS = 0, weDays = 0, wdS = 0, wdDays = 0;
+  var wCat = {}, worstKey = null;
+  for(var dk in dayTot){
+    var dw = parseD(dk).getDay();
+    if(dw === 6 || dw === 0){ weS += dayTot[dk]; weDays++; if(!worstKey || dayTot[dk] > dayTot[worstKey]){ worstKey = dk; } }
+    else { wdS += dayTot[dk]; wdDays++; }
+  }
+  for(i=0;i<sp.length;i++){
+    var dw2 = sp[i].d.getDay();
+    if(dw2 === 6 || dw2 === 0){ wCat[sp[i].cat||'other'] = (wCat[sp[i].cat||'other']||0) + sp[i].s; }
+  }
+  var wArr = [];
+  for(var kc in wCat){ wArr.push({id:kc, s:wCat[kc]}); }
+  wArr.sort(function(a,b){ return b.s - a.s; });
+  var wePer = weDays ? weS/weDays : 0;
+  var wdPer = wdDays ? wdS/wdDays : 0;
+  return {
+    wePer: wePer, wdPer: wdPer,
+    ratio: wdPer > 0 ? wePer/wdPer : (wePer > 0 ? 99 : 0),
+    top: wArr.slice(0,3),
+    worst: worstKey, worstSum: worstKey ? dayTot[worstKey] : 0
+  };
+}
+
 function openHabitSheet(kind){
   var r = periodRange();
   var sp = allSpends().filter(function(x){ return x.d >= r.from && x.d < r.to; });
@@ -1321,6 +1352,32 @@ function openHabitSheet(kind){
         + '<div class="bar-large" style="height:6px"><i style="width:'+p+'%;background:'+(i===maxW?'var(--org)':'var(--blu)')+'"></i></div></div>';
     }
     h += '<div class="sh-tip">По '+WD[maxW].toLowerCase()+' траты максимальные ('+fmt(wdTot[maxW])+'). Крупные покупки планируй на другие дни недели.</div>';
+  } else if(kind === 'wknd'){
+    var wst = wkndStats(sp);
+    var pctW = Math.round(wst.ratio * 100);
+    h = sheetHead('i-cal','c-red','Выходные против будней', r.label)
+      + rowHtml('Средний день выходных', fmt(Math.round(wst.wePer)))
+      + rowHtml('Средний будний день', fmt(Math.round(wst.wdPer)))
+      + '<div class="sh-row"><span>Разница</span><b style="color:'+(wst.ratio>1.15?'var(--red)':(wst.ratio<0.95?'var(--grn)':'var(--txt)'))+'">'+(wst.ratio>=1?'+':'')+pctW+'%</b></div>';
+    if(wst.top.length){
+      h += '<div class="cap" style="margin:12px 4px 6px">Куда утекают выходные</div>';
+      for(var wt2=0;wt2<wst.top.length;wt2++){
+        h += '<div class="dig-item"><span>'+catById(wst.top[wt2].id).n+'</span><b>'+fmt(wst.top[wt2].s)+'</b></div>';
+      }
+    }
+    if(wst.worst){
+      var wd3 = parseD(wst.worst);
+      h += rowHtml('Самый дорогой выходной', wd3.getDate()+'.'+String(wd3.getMonth()+1).padStart(2,'0')+' · '+fmt(wst.worstSum));
+    }
+    var advW;
+    if(wst.ratio > 1.25){
+      advW = 'Выходные дороже будней на '+pctW+'%. Введите «бюджет выходного дня» — примерно '+fmt(Math.round(wst.wePer))+' на субботу и воскресенье, и крупные покупки планируйте на будни.';
+    } else if(wst.ratio >= 0.95){
+      advW = 'Темп в выходные ровный — дисциплина на уровне. Так держать.';
+    } else {
+      advW = 'Выходные выходят даже дешевле будней. Редкий навык — не теряйте его.';
+    }
+    h += tipHtml(advW);
   }
   $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on');
@@ -1524,6 +1581,10 @@ function renderAnalytics(){
       hRow += '<div class="habit-row" data-act="an-habit" data-h="max"><div class="habit-ic c-red"><svg class="ic"><use href="#i-alert"/></svg></div><div class="habit-info"><b>Крупнейшая трата</b><span>'+maxOp.n+' · '+maxOp.d.getDate()+'.'+String(maxOp.d.getMonth()+1).padStart(2,'0')+'</span></div><b>'+fmt(maxOp.s)+' ›</b></div>';
     }
     hRow += '<div class="habit-row" data-act="an-habit" data-h="wd"><div class="habit-ic c-org"><svg class="ic"><use href="#i-cal"/></svg></div><div class="habit-info"><b>Самый дорогой день недели</b><span>всего '+fmt(wdTot[maxWd])+' за период</span></div><b>'+WD_LONG[maxWd]+' ›</b></div>';
+    var wstA = wkndStats(sp);
+    if(wstA.wdPer > 0){
+      hRow += '<div class="habit-row" data-act="an-habit" data-h="wknd"><div class="habit-ic '+(wstA.ratio>1.15?'c-red':'c-grn')+'"><svg class="ic"><use href="#i-cal"/></svg></div><div class="habit-info"><b>Выходные против будней</b><span>'+fmt(Math.round(wstA.wePer))+' против '+fmt(Math.round(wstA.wdPer))+' в день</span></div><b>'+(wstA.ratio>=1?'+':'')+Math.round(wstA.ratio*100)+'% ›</b></div>';
+    }
     if(maxDayKey){
       var md3 = parseD(maxDayKey);
       hRow += '<div class="habit-row" data-act="an-day" data-d="'+maxDayKey+'"><div class="habit-ic c-pur"><svg class="ic"><use href="#i-cal"/></svg></div><div class="habit-info"><b>Самый дорогой день</b><span>'+md3.getDate()+' '+MONTHS[md3.getMonth()]+' · '+WD_SHORT[md3.getDay()]+'</span></div><b>'+fmt(maxDayVal)+'</b></div>';
@@ -2105,15 +2166,62 @@ function renderBanner(){
   } else { box.innerHTML = ''; }
 }
 
+// Состояние первичной настройки (для новичка)
+function setupState(){
+  var st = {};
+  st.inc = (D.income||0) > 0 && !!D.salaryDay;
+  st.bal = (D.setupBal === 1) || ((D.baseBalance||0) !== 0);
+  st.pay = (D.pays||[]).length > 0 || (D.credits||[]).length > 0 || (D.insts||[]).length > 0;
+  st.env = (D.envs||[]).length > 0;
+  var n = 0, total = 0, firstMiss = '';
+  for(var k in st){
+    total++;
+    if(st[k]){ n++; } else if(!firstMiss){ firstMiss = k; }
+  }
+  return {st:st, done:n, total:total, ready:n === total, firstMiss:firstMiss};
+}
+
 function renderDashboardNew() {
   var now = new Date();
+  var su = setupState();
   var safeBal = calcSafeBalance();
   var daily = calcDailyLimit();
   var health = calcHealthScore();
 
+  // ===== ЧЕК-ЛИСТ НАСТРОЙКИ ДЛЯ НОВИЧКА =====
+  var sb2 = $('setupBox');
+  if(sb2){
+    if(su.ready){
+      sb2.innerHTML = '';
+    } else {
+      var stepDefs = [
+        {k:'inc', act:'sheet', extra:' data-t="income"', t:'Доход и день зарплаты', d:'две цифры — и лимиты оживут'},
+        {k:'bal', act:'sheet', extra:' data-t="balance"', t:'Текущий баланс', d:'сколько денег на всех картах сейчас'},
+        {k:'pay', act:'nav', extra:' data-p="budget"', t:'Обязательные платежи', d:'аренда, связь, кредиты — чтобы прогноз им верил'},
+        {k:'env', act:'nav', extra:' data-p="budget"', t:'Первый конверт', d:'лимит на еду или кафе'}
+      ];
+      var sh2 = '<div class="glass card-padding" style="margin:0 0 14px;border-left:3px solid var(--acc);border-radius:18px">'
+        + '<div class="cap-title"><span>Настройка · '+su.done+' из '+su.total+'</span><b style="font-size:11px;color:var(--mut)">2 минуты</b></div>';
+      for(var sd=0;sd<stepDefs.length;sd++){
+        var dfn = stepDefs[sd];
+        var okS = su.st[dfn.k];
+        sh2 += '<div class="dig-item hov-click" style="cursor:pointer;border-radius:10px;padding-left:6px" data-act="'+dfn.act+'"'+dfn.extra+'>'
+          + '<span><b>'+(okS?'✓ ':'')+(sd+1)+'. '+dfn.t+'</b><br><span style="font-size:11px">'+dfn.d+(okS?' · готово':'')+'</span></span>'
+          + '<b style="color:'+(okS?'var(--grn)':'var(--teal)')+'">'+(okS?'готово':'начать ›')+'</b></div>';
+      }
+      sh2 += '<div class="note" style="margin-top:8px">Быстрый старт: Траты → Инструменты → «Вставить выписку» — история заполнится сама.</div></div>';
+      sb2.innerHTML = sh2;
+    }
+  }
+
   // ===== БРИФИНГ ДНЯ =====
   var bb = $('briefBox');
   if(bb){
+    if(!su.ready){
+      bb.innerHTML = '<div class="glass card-padding" style="margin:0 0 14px;border-radius:18px">'
+        + '<div class="cap-title"><span>Брифинг на сегодня</span><b style="font-size:11px;color:var(--mut)">ждёт настройки</b></div>'
+        + '<div class="note" style="margin:0">Здесь будет ваш лимит на день и главный риск. Заполните чек-лист выше — цифры появятся сами.</div></div>';
+    } else {
     var bLeft = Math.max(0, daily.perDay - (function(){
       var sB = 0; var tk = iso(now); var aB = allSpends();
       for(var q=0;q<aB.length;q++){ if(iso(aB[q].d) === tk){ sB += aB[q].s; } }
@@ -2144,6 +2252,7 @@ function renderDashboardNew() {
       + '<div class="cap-title"><span>Брифинг на сегодня</span><b style="color:'+riskCol+';font-size:11px">'+riskTxt+'</b></div>'
       + '<div style="display:flex;align-items:baseline;gap:8px;margin:4px 0 6px"><b style="font-size:24px">'+fmt(bLeft)+'</b><span style="font-size:11px;color:var(--mut)">осталось на сегодня из '+fmt(daily.perDay)+'</span></div>'
       + '<div class="note" style="margin:0">'+nearTxt+'</div></div>';
+    }
   }
 
   // ===== ПРЕДУПРЕЖДЕНИЯ ЗАРАНЕЕ =====
@@ -2196,7 +2305,7 @@ function renderDashboardNew() {
     for(var tA=0;tA<allY.length;tA++){ if(allY[tA].cat === 'scooters'){ scootD2[iso(allY[tA].d)] = 1; } }
     var stS = 0;
     for(var ds2=0; ds2<365; ds2++){ var dxx = new Date(); dxx.setDate(dxx.getDate()-ds2); if(!scootD2[iso(dxx)]){ stS++; } else { break; } }
-    $('todayLine').textContent = 'Можно '+fmt(daily.perDay)+'/день · сегодня платежей: '+fmt(tp2)+' · вчера −'+fmt(ySpent)+' · без самокатов: '+stS+' дн.';
+    $('todayLine').textContent = su.ready ? 'Можно '+fmt(daily.perDay)+'/день · сегодня платежей: '+fmt(tp2)+' · вчера −'+fmt(ySpent)+' · без самокатов: '+stS+' дн.' : 'Заполните настройку выше — и здесь появятся живые цифры';
   }    var cs = cycleStart(now);
   var ce = cycleEnd(cs);
   var totalDaysInCycle = Math.max(1, Math.round((ce - cs) / 864e5));
@@ -3575,6 +3684,7 @@ return;
       if(isNaN(n)){ return; }
       var t = sums();
       D.baseBalance = n - (t.inc - t.spend);
+      D.setupBal = 1;
       save(); closeSheet(); render(); toast('Баланс обновлён');
     });
   }
@@ -3692,7 +3802,28 @@ return;
     if(tag === 'impulse'){
       toast('Импульсивная трата! Правило 24 часов: отложи крупные покупки на сутки.');
     }
-    save(); closeSheet(); render(); toast('Трата добавлена: -'+fmt(qa));
+    save();
+    // Живая проверка: аномальный чек или пробой дневного лимита
+    var avgQ = 0, cntQ = 0;
+    var fromQ = new Date(Date.now() - 60*864e5);
+    var aQ = allSpends();
+    var todayKey = iso(new Date());
+    for(var zq=0;zq<aQ.length;zq++){
+      if((aQ[zq].cat||'other') === qc && aQ[zq].d >= fromQ && iso(aQ[zq].d) !== todayKey){ avgQ += aQ[zq].s; cntQ++; }
+    }
+    avgQ = cntQ ? avgQ/cntQ : 0;
+    var msgsQ = [];
+    if(avgQ > 0 && qa >= avgQ*3){
+      msgsQ.push('Обычный чек по этой категории — '+fmt(Math.round(avgQ))+'. Эта трата в '+Math.round(qa/avgQ)+' раза больше.');
+    }
+    var dlQ = calcDailyLimit();
+    if(dlQ.perDay > 0 && qa > dlQ.perDay){
+      msgsQ.push('Сумма выше дневного лимита ('+fmt(dlQ.perDay)+'). Сегодня лучше больше не тратить.');
+    }
+    if(msgsQ.length){
+      dAlert(msgsQ.join('\n'), 'Проверка траты');
+    }
+    closeSheet(); render(); toast('Трата добавлена: -'+fmt(qa));
   }
   else if(act === 'qa-income'){ openIncomeSheet(); }
   else if(act === 'qa-goal'){ openQuickGoal(); }
@@ -5576,6 +5707,10 @@ function agentParse(query){
     for(var li=0;li<LESSONS.length;li++){ if(doneIds.indexOf(LESSONS[li].id) === -1){ nextL = LESSONS[li]; break; } }
     return {type:'lesson', data:{lesson:nextL, done:doneIds.length, total:LESSONS.length}};
   }
+  // Первая настройка
+  if(/настро|начать|с чего|старт|первый раз|новичок/i.test(q)){
+    return {type:'setup', data:setupState()};
+  }
   if(/итог|месяц|месяц/i.test(q)){
     var now2 = new Date();
     var from2 = new Date(now2.getFullYear(), now2.getMonth(), 1);
@@ -5647,6 +5782,15 @@ function agentAnswer(query){
       ans = '<b>Урок: '+r.data.lesson.t+'</b><br>'+r.data.lesson.x+'<br><small>Прогресс: '+r.data.done+' из '+r.data.total+' · отметка — во вкладке «Обучение»</small>';
     } else {
       ans = 'Курс пройден: '+r.data.total+' из '+r.data.total+'. Теперь главное — практика: плати себе первым в день зарплаты.';
+    }
+  } else if(r.type === 'setup'){
+    var sNames = {inc:'доход и день зарплаты', bal:'текущий баланс', pay:'обязательные платежи', env:'первый конверт'};
+    var sMiss = [];
+    for(var sk in r.data.st){ if(!r.data.st[sk]){ sMiss.push(sNames[sk]); } }
+    if(!sMiss.length){
+      ans = 'Всё настроено. Дальше просто: добавляй траты кнопкой «Трата», а я буду держать прогноз и предупреждать о рисках.';
+    } else {
+      ans = '<b>Настройка: '+r.data.done+' из '+r.data.total+'</b><br>Осталось указать: '+sMiss.join(', ')+'.<br>Чек-лист — вверху Панели, каждый шаг занимает секунды.';
     }
   } else if(r.type === 'month'){
     ans = 'В этом месяце: потрачено <b>'+fmt(r.data.spent)+'</b> из дохода '+fmt(r.data.income)+'. '+(r.data.saved>=0?'Сэкономлено '+fmt(r.data.saved)+'.':'Перерасход '+fmt(-r.data.saved)+'.');
