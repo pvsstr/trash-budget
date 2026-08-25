@@ -114,6 +114,9 @@ function shiftCycle(cs, n){
   }
   return r;
 }
+function esc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 function toast(m){ var t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(function(){ t.remove(); },2500); }
 
 var CATS = [
@@ -168,6 +171,20 @@ var LESSONS = [
 {id:7,t:'Обязательное и гибкое',x:'Аренда и подписки урезать трудно. Кафе, самокаты, такси — гибкие траты.'},
 {id:8,t:'Рассрочка без ловушек',x:'Рассрочка безопасна, только если платёж уже вписан в бюджет.'}];
 
+function lessonApply(id){
+  var map = {
+    1:'создай цель «Подушка» на 3× обязательных трат — панель «Цели и копилки». Прогноз покажет срок.',
+    2:'в день зарплаты жми «В копилку» и откладывай 10% до любых трат.',
+    3:'открой «План выхода из долгов» — приложение посчитает срок свободы при твоём доходе.',
+    4:'заведи конверты с лимитами во вкладке «Бюджет» — трата сверх лимита станет видна мгновенно.',
+    5:'захотелось крупное — запиши сумму и завтра проверь кнопкой «Могу купить?». Утром решение будет холоднее.',
+    6:'карточка «Подписки» внизу панели: сумма в месяц и в год. Отключи то, чем не пользовался неделю.',
+    7:'в аналитике смотри «Структуру трат»: если гибкая часть выше 20% дохода — там ваш запас.',
+    8:'каждый платёж рассрочки должен быть в списке «Рассрочки» — иначе прогноз будет врать.'
+  };
+  return map[id] || 'Применяй на практике — знание без действия не экономит ни рубля.';
+}
+
 var DEMO = {demo:true, income:0, salaryDay:null, baseBalance:0,
 goals:{},
 spends:[], incomes:[],
@@ -187,7 +204,7 @@ var TIPS = [
 'Кредитка выгодна только при полном погашении в грейс-период.',
 'Конверт пуст — трата стоп. Правило работает без силы воли.'];
 
-function save(){ if(uid){ D.lastSave = new Date().getTime(); setDoc(doc(db,'users',uid), {data:D}, {merge:true}); } }
+function save(){ if(uid){ D.lastSave = new Date().getTime(); _allSpendsCache = null; setDoc(doc(db,'users',uid), {data:D}, {merge:true}); } }
 
 function exportBackup(){
   var json = JSON.stringify(D, null, 2);
@@ -232,8 +249,9 @@ function resetAllData(){
     D = {
       spends:[], incomes:[], tx:[], envs:[], pays:[], subs:[], credits:[], insts:[], goals:[], events:[], her:{},
             learned:[], leaks:[], merchRules:{}, paid:{}, removedAuto:[], cancelled:[], leakFixed:{},
-      baseBalance:0, income:0, salaryDay:10, demo:false
+      baseBalance:0, income:0, salaryDay:null, demo:false, cycleMode:'salary', decisions:[]
     };
+    normalize();
     save();
     render();
     toast('Все данные сброшены');
@@ -267,7 +285,9 @@ if(!D.insts) D.insts=[];
   calcLifeMin();
 }
 
+var _allSpendsCache = null;
 function allSpends(){
+  if(_allSpendsCache){ return _allSpendsCache; }
   var arr = []; var i;
   for(i=0;i<(D.spends||[]).length;i++){
     var sp = D.spends[i];
@@ -277,6 +297,7 @@ function allSpends(){
     var t = D.tx[i];
     if(t.s < 0 || t.refund){ arr.push({d:parseD(t.d), s:-t.s, n:t.n, cat:TX2CAT[t.c]||t.c||'other', src:'tx', sid:i}); }
   }
+  _allSpendsCache = arr;
   return arr;
 }
 function sums(){
@@ -578,7 +599,17 @@ function openSheet(t, i){
     h = sheetHead('i-cap','c-pur','Умный совет','на основе твоих данных')
       + '<p style="font-size:14px">'+tl2[(window._tipIdx != null ? window._tipIdx : new Date().getDate()) % tl2.length]+'</p>'
       + '<button class="sh-btn" data-act="nexttip">Еще совет</button>';
-  
+
+  } else if(t === 'learn'){
+    var les = null;
+    for(var la=0;la<LESSONS.length;la++){ if(LESSONS[la].id === i){ les = LESSONS[la]; break; } }
+    if(les){
+      var dnL = (D.learned||[]).indexOf(les.id) !== -1;
+      h = sheetHead('i-book', dnL?'c-grn':'c-pur', les.t, dnL?'урок изучён':'урок · 1 минута')
+        + '<p style="font-size:14px;line-height:1.6;margin:4px 0 10px">'+les.x+'</p>'
+        + '<div class="sh-tip"><b>Как применить сегодня:</b><br>'+lessonApply(les.id)+'</div>'
+        + (dnL ? '' : '<button class="sh-btn" style="margin-top:12px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="learn-done" data-i="'+les.id+'">Изучено</button>');
+    }
   } else if(t === 'health'){
     var safeH = calcSafeBalance();
     var cushH = null;
@@ -816,9 +847,19 @@ function renderBudSummary(){
   var col = pct > 100 ? 'var(--red)' : (pct > 85 ? 'var(--org)' : 'var(--grn)');
   var free = calcSafeBalance();
     var label = D.cycleMode === 'salary' ? 'Бюджет цикла' : 'Бюджет месяца';
+  var unalloc = (D.income||0) - fixed - envSum;
+  var unallocHtml = '';
+  if((D.income||0) > 0){
+    if(unalloc < 0){
+      unallocHtml = '<span style="color:var(--red)">Перебор: <b style="color:var(--red)">'+fmt(-unalloc)+'</b></span>';
+    } else {
+      unallocHtml = '<span>Не распределено: <b style="color:var(--grn)">'+fmt(unalloc)+'</b></span>';
+    }
+  }
   el.innerHTML = '<div class="cap-title"><span>'+label+'</span><b style="color:'+col+'">занято '+pct+'% дохода</b></div>'
     + '<div class="bar-large" style="height:8px;margin:8px 0"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
-    + '<div class="hist-sum" style="margin:0"><span>Обязательные: <b>'+fmt(fixed)+'</b></span><span>Конверты: <b>'+fmt(envSum)+'</b></span><span>Свободно: <b style="color:var(--grn)">'+fmt(free)+'</b></span></div>';
+    + '<div class="hist-sum" style="margin:0"><span>Обязательные: <b>'+fmt(fixed)+'</b></span><span>Конверты: <b>'+fmt(envSum)+'</b></span><span>Свободно: <b style="color:var(--grn)">'+fmt(free)+'</b></span>'+unallocHtml+'</div>'
+    + (unalloc > 0 && (D.income||0) > 0 ? '<div class="note" style="margin-top:6px">Эти деньги не получили задачу. Направь их в цель — «В копилку» на панели, иначе они растворятся в мелких тратах.</div>' : (unalloc < 0 ? '<div class="note" style="margin-top:6px;color:var(--red)">План тратит больше дохода — сократи конверты или обязательные.</div>' : ''));
 }
 function renderEnv(){
   var now = new Date();
@@ -903,7 +944,20 @@ function renderCredits(){
   for(var i=0;i<D.credits.length;i++){
     var c = D.credits[i];
     var paid = Math.max(0, Math.round((1 - c.cur / Math.max(1,c.total)) * 100));
-    h += '<div class="env glass hov" data-act="edit" data-t="cred" data-i="'+c.id+'"><header><div class="env-name"><div class="sic c-red" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-card"/></svg></div>'+c.n+'</div><b>'+fmt(c.cur)+'</b></header><div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+paid+'%;background:var(--grn)"></i></div><div class="note">погашено '+paid+'% · тап по карточке — изменить долг</div><button class="sh-btn" style="margin-top:8px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="cred-pay" data-i="'+c.id+'">Внести платёж</button></div>';  }
+    var noteC;
+    if((c.pay||0) > 0){
+      var mLeft = Math.ceil(c.cur / c.pay);
+      noteC = 'платёж '+fmt(c.pay)+' · '+(c.d||1)+'-го · закроете за ~'+mLeft+' мес · погашено '+paid+'%';
+    } else {
+      noteC = 'платёж не задан — прогноз его не учитывает';
+    }
+    h += '<div class="env glass hov" data-act="edit" data-t="cred" data-i="'+c.id+'"><header><div class="env-name"><div class="sic c-red" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-card"/></svg></div>'+c.n+'</div><b>'+fmt(c.cur)+'</b></header><div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+paid+'%;background:var(--grn)"></i></div>'
+      + '<div class="note">'+noteC+'</div>'
+      + ((c.pay||0) > 0
+        ? '<button class="sh-btn" style="margin-top:8px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="cred-pay" data-i="'+c.id+'">Внести платёж</button>'
+        : '<div class="dlg-btns" style="margin-top:8px"><button class="sh-btn" style="margin:0;flex:1;background:rgba(255,159,10,.15);color:var(--org)" data-act="cred-setpay" data-i="'+c.id+'">Указать платёж</button></div>')
+      + '</div>';
+  }
   $('credList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Кредитов нет — отлично!</p>';
 }
 
@@ -1522,7 +1576,7 @@ function txRowHtml(t){
   var fix = (t.cat||'other')==='other' ? '<span class="tx-fix"></span>' : '';
   var ca = (window._catAvg && window._catAvg[t.cat||'other']) || 0;
   var anom = (ca > 0 && t.s > 3*ca) ? '<span class="tx-anom"></span>' : '';
-  return '<div class="tx" data-act="tx-edit" data-src="'+(t.src||'sp')+'" data-i="'+(t.sid!=null?t.sid:'')+'" style="cursor:pointer"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · '+cc.n+'</span></div><div class="tx-right">'+anom+fix+'<b>-'+fmt(t.s)+'</b></div></div>';
+  return '<div class="tx" data-act="tx-edit" data-src="'+(t.src||'sp')+'" data-i="'+(t.sid!=null?t.sid:'')+'" style="cursor:pointer"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+esc(t.n)+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · '+cc.n+'</span></div><div class="tx-right">'+anom+fix+'<b>-'+fmt(t.s)+'</b></div></div>';
 }
 function renderTx(suffix){
   var sfx = suffix || '';
@@ -1872,7 +1926,7 @@ function renderSpend(){
     else if(t.tag === 'planned') tagIcon = ' 📋';
     else if(t.tag === 'needed') tagIcon = ' ❤️';
     h += '<div class="tx" data-act="edit-spend" data-id="'+t.id+'"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div>'
-      + '<div class="tx-body"><b>'+t.n+tagIcon+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · '+cc.n+'</span></div>'
+      + '<div class="tx-body"><b>'+esc(t.n)+tagIcon+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · '+cc.n+'</span></div>'
       + '<div class="tx-right"><b>-'+fmt(t.s)+'</b></div>'
       + '<button class="del" data-act="del-spend" data-id="'+t.id+'"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></button></div>';
   }
@@ -2000,10 +2054,13 @@ function renderDigest(){
 function renderBanner(){
   var box = $('bannerBox');
   if(!box){ return; }
+  // Баннер отчёта — первые 5 дней НОВОГО ЦИКЛА (отчёт за предыдущий)
   var nowB = new Date();
-  if(nowB.getDate() <= 5){
-    var rm = nowB.getMonth() === 0 ? 11 : nowB.getMonth()-1;
-    box.innerHTML = '<div class="glass card-padding hov" data-act="month-report" style="margin:0 0 14px;background:linear-gradient(135deg, rgba(10,132,255,.18), rgba(191,90,242,.18));border:1px solid rgba(10,132,255,.35);cursor:pointer"><b style="font-size:13px">Отчёт за '+MONTHS[rm]+' готов</b><p style="font-size:11.5px;color:var(--mut);margin:4px 0 0">Траты, доходы, топ-категории и утечки — открой сводку месяца</p></div>';
+  var csB = cycleStart(nowB);
+  var daysInto = Math.round((nowB - csB)/864e5);
+  if(daysInto <= 5){
+    var prevCs = shiftCycle(csB, -1);
+    box.innerHTML = '<div class="glass card-padding hov" data-act="month-report" style="margin:0 0 14px;background:linear-gradient(135deg, rgba(10,132,255,.18), rgba(191,90,242,.18));border:1px solid rgba(10,132,255,.35);cursor:pointer"><b style="font-size:13px">Отчёт за цикл '+cycleLabel(prevCs)+' готов</b><p style="font-size:11.5px;color:var(--mut);margin:4px 0 0">Траты, доходы, топ-категории и утечки — открой сводку</p></div>';
   } else { box.innerHTML = ''; }
 }
 
@@ -3201,6 +3258,8 @@ function openQuickGoal(){
 }
 
 function render(){
+  _allSpendsCache = null;
+  _fcCache = null;
   var now = new Date();
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
   if ($('appVersion')) $('appVersion').textContent = '1.0.0';
@@ -3329,7 +3388,7 @@ function ask(q){
   var t = q || $('chatIn').value.trim();
   if(!t){ return; }
   $('chatIn').value = '';
-  addMsg('me', t);
+  addMsg('me', esc(t));
   setTimeout(function(){ addMsg('bot', answer(t)); }, 400);
 }
 
@@ -3993,6 +4052,32 @@ save(); render(); toast('Память применена: обновлено о�
     render();
     toast('Цикл переключён на ' + (newMode === 'salary' ? 'зарплатный' : 'календарный'));
   }
+  else if(act === 'learn-done'){
+    var li8 = parseInt(el.getAttribute('data-i'),10);
+    if((D.learned||[]).indexOf(li8) === -1){
+      D.learned.push(li8);
+      save(); render();
+      toast('Урок изучен · прогресс '+D.learned.length+'/'+LESSONS.length);
+    }
+    closeSheet();
+  }
+  else if(act === 'cred-setpay'){
+    var cpId = parseInt(el.getAttribute('data-i'),10);
+    var cpC = null;
+    for(var cc7=0;cc7<(D.credits||[]).length;cc7++){ if(D.credits[cc7].id === cpId){ cpC = D.credits[cc7]; break; } }
+    if(!cpC){ return; }
+    dPrompt('Ежемесячный платёж по «'+cpC.n+'», ₽:', 'Платёж по кредиту', '5000').then(function(vA){
+      var aC = parseFloat(vA);
+      if(isNaN(aC) || aC <= 0){ return; }
+      dPrompt('В какой день списывается? (1–31)', 'День списания', '20').then(function(vD){
+        var dC2 = parseInt(String(vD||'').replace(/\D/g,''),10);
+        if(!dC2 || dC2 < 1 || dC2 > 31){ dC2 = 1; }
+        cpC.pay = aC; cpC.d = dC2;
+        save(); render(); closeSheet();
+        toast('Прогноз учтёт '+fmt(aC)+' ежемесячно');
+      });
+    });
+  }
   else if(act === 'exit'){ signOut(auth); }
 });
 
@@ -4102,6 +4187,7 @@ onAuthStateChanged(auth, function(u){
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
 
 var watchBaseSuccess = null;
+var deployPolls = 0;
 function deployPaint(color, txt){
   var el = $('buildInfo');
   if(!el){ return; }
@@ -4138,7 +4224,8 @@ function deployCheck(){
       var st = run.status;
       var con = run.conclusion;
       var num = '#' + run.run_number;
-      var delay = 60000;
+      deployPolls++;
+      var delay = deployPolls > 15 ? 300000 : 60000;
       if(st !== 'completed'){
         deployPaint('#ff9f0a', 'деплоится… · ' + num);
       } else if(con === 'success'){
@@ -4169,16 +4256,25 @@ function deployCheck(){
 // Автоматически рассчитывает рекомендуемые лимиты по категориям
 function calcMonthlyPlan() {
   var now = new Date();
-  var from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-  var to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  var allSp = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
-  
+  // Среднее по последним 3 завершённым циклам (или месяцам в календарном режиме)
   var totals = {};
-  var counts = {};
-  for(var i=0;i<allSp.length;i++){
-    var cat = allSp[i].cat || 'other';
-    totals[cat] = (totals[cat]||0) + allSp[i].s;
-    counts[cat] = (counts[cat]||0) + 1;
+  var cyclesN = 0;
+  for(var c=1;c<=3;c++){
+    var from, to;
+    if(D.cycleMode === 'calendar'){
+      var f0 = new Date(now.getFullYear(), now.getMonth()-c, 1);
+      from = f0; to = new Date(f0.getFullYear(), f0.getMonth()+1, 1);
+    } else {
+      from = shiftCycle(cycleStart(now), -c);
+      to = cycleEnd(from);
+    }
+    var cycSp = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
+    if(!cycSp.length){ continue; }
+    cyclesN++;
+    for(var i=0;i<cycSp.length;i++){
+      var cat = cycSp[i].cat || 'other';
+      totals[cat] = (totals[cat]||0) + cycSp[i].s;
+    }
   }
   
   var plan = {};
@@ -4188,21 +4284,20 @@ function calcMonthlyPlan() {
   var available = Math.max(0, income - fixedCosts);
   var targetSave = available * 0.15; // 15% откладываем
   
-  for(var cat in totals){
-    // Среднее за 3 месяца
-    var avg = totals[cat] / 3;
+  for(var cat2 in totals){
+    // Среднее за 3 цикла
+    var avg = totals[cat2] / Math.max(1, cyclesN);
     // Рекомендуемый лимит = среднее × 0.9 (постепенное ужатие)
     var recommended = Math.round(avg * 0.9);
-    // Корректируем, чтобы сумма не превышала доступные деньги минус накопления
-    plan[cat] = recommended;
+    plan[cat2] = recommended;
     totalPlan += recommended;
   }
   
   // Если план превышает доступные деньги, пропорционально ужимаем
-  if(totalPlan > available - targetSave){
+  if(totalPlan > available - targetSave && totalPlan > 0){
     var ratio = (available - targetSave) / totalPlan;
-    for(var cat2 in plan){
-      plan[cat2] = Math.round(plan[cat2] * ratio);
+    for(var cat3 in plan){
+      plan[cat3] = Math.round(plan[cat3] * ratio);
     }
   }
   
@@ -4217,8 +4312,14 @@ function calcMonthlyPlan() {
 // Автокоррекция бюджета – перераспределение между категориями при перерасходе
 function rebalanceBudget() {
   var now = new Date();
-  var from = new Date(now.getFullYear(), now.getMonth(), 1);
-  var to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  var from, to;
+  if(D.cycleMode === 'calendar'){
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  } else {
+    from = cycleStart(now);
+    to = cycleEnd(from);
+  }
   var allSp = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
   
   // Текущие траты по категориям
@@ -4405,9 +4506,12 @@ function getRecentDecisions(){
 // Прогнозный движок: строит баланс на каждый день вперёд
 // Учитывает: текущий остаток, средний дневной темп гибких трат,
 //            все будущие платежи, подписки, рассрочки, зарплату
+var _fcCache = null;
 function forecastCashFlow(daysAhead, fromDate){
+  var useDefault = (fromDate == null);
   daysAhead = daysAhead || 90;
   fromDate = fromDate || new Date();
+  if(useDefault && daysAhead === 90 && _fcCache){ return _fcCache; }
   fromDate = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
   
    // 1. Определяем дневной темп гибких трат (исключая обязательные)
@@ -4525,7 +4629,9 @@ function forecastCashFlow(daysAhead, fromDate){
     curDate = new Date(curDate.getTime() + 864e5);
   }
   
-  return {flow:flow, flexPerDay:Math.round(flexPerDay), events:events};
+  var res = {flow:flow, flexPerDay:Math.round(flexPerDay), events:events};
+  if(useDefault && daysAhead === 90){ _fcCache = res; }
+  return res;
 }
 
 var FC = null;
@@ -5250,17 +5356,17 @@ signals.sort(function(a,b){ return (b.priority||0) - (a.priority||0); });
 return signals.slice(0, 5);
 }
 
-// What-if симулятор
+// What-if симулятор (не мутирует кэш прогноза)
 function whatIf(perMonth){
-var f2 = forecastCashFlow(90);
-var perDay = perMonth / 30;
-for(var i=0;i<f2.flow.length;i++){ f2.flow[i].balance += Math.round(perDay * i); }
-var newMin = {val:Infinity, date:null};
-for(var j=0;j<f2.flow.length;j++){
-if(f2.flow[j].balance < newMin.val){ newMin.val = f2.flow[j].balance; newMin.date = f2.flow[j].date; }
-}
-var orig = minBalance(90);
-return {originalMin: orig.val, newMin: newMin.val, diff: newMin.val - orig.val};
+  var f2 = forecastCashFlow(90);
+  var perDay = perMonth / 30;
+  var newMin = Infinity;
+  for(var j=0;j<f2.flow.length;j++){
+    var vAdj = f2.flow[j].balance + Math.round(perDay * j);
+    if(vAdj < newMin){ newMin = vAdj; }
+  }
+  var orig = minBalance(90);
+  return {originalMin: orig.val, newMin: newMin, diff: newMin - orig.val};
 }
 
 // Парсер намерений для копилота
