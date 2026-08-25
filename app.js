@@ -286,7 +286,7 @@ function normalize(){
     if(!D.spends[i].tag) D.spends[i].tag = 'normal';
   }
   D.subs=D.subs||[]; D.pays=D.pays||[]; D.envs=D.envs||[]; D.leaks=D.leaks||[];
-  D.wishes=D.wishes||[];
+  D.wishes=D.wishes||[]; D.transfers=D.transfers||[];
   var i;
   for(i=0;i<D.subs.length;i++){ D.subs[i].id=D.subs[i].id||i+1; }
   for(i=0;i<D.pays.length;i++){ D.pays[i].id=D.pays[i].id||i+100; }
@@ -857,6 +857,11 @@ function cycleKey(){ var cs = cycleStart(new Date()); return cs.getFullYear()+'-
 function renderBudSummary(){
   var el = $('budSummary');
   if(!el){ return; }
+  if(!(D.income > 0)){
+    el.innerHTML = '<div class="cap-title"><span>Бюджет цикла</span><b style="font-size:11px;color:var(--mut)">ждёт дохода</b></div>'
+      + '<div class="note" style="margin:0">Укажите доход в карточке «Доход в месяц» на Панели — и здесь появится план: сколько занимают обязательные платежи, конверты и что остаётся.</div>';
+    return;
+  }
   var paysSum = 0, subsSum = 0, envSum = 0, i;
   for(i=0;i<D.pays.length;i++){ paysSum += D.pays[i].s; }
   for(i=0;i<D.subs.length;i++){ if(!D.subs[i].off){ subsSum += D.subs[i].s; } }
@@ -1664,6 +1669,9 @@ function openPeriodSheet(){
   $('shb').classList.add('on');
 }
 function txRowHtml(t){
+  if(t.xfer){
+    return '<div class="tx" style="opacity:.75" data-act="xfer-del" data-i="'+(t.id!=null?t.id:'')+'"><div class="tx-ic" style="background:rgba(255,255,255,.08);color:var(--mut)"><svg class="ic"><use href="#i-in"/></svg></div><div class="tx-body"><b>'+esc(t.n)+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · перевод себе · тап — удалить запись</span></div><div class="tx-right"><b style="color:var(--mut)">±'+fmt(t.s)+'</b></div></div>';
+  }
   if(t.inc){
     return '<div class="tx"><div class="tx-ic c-grn"><svg class="ic"><use href="#i-in"/></svg></div><div class="tx-body"><b>'+t.n+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · поступление</span></div><div class="tx-right"><b class="pos">+'+fmt(t.s)+'</b></div></div>';
   }
@@ -1688,6 +1696,7 @@ function renderTx(suffix){
   var q = E('q') ? (E('q').value || '').toLowerCase() : '';
   var spends = allSpends().filter(function(x){ return x.d >= r.from && x.d < r.to; });
   var incs = (D.incomes||[]).map(function(x){ return {d:parseD(x.d), s:x.s, n:x.n, inc:1}; }).filter(function(x){ return x.d >= r.from && x.d < r.to; });
+  var xfers = (D.transfers||[]).map(function(x){ return {d:parseD(x.d), s:x.s, n:x.n, xfer:1, id:x.id}; }).filter(function(x){ return x.d >= r.from && x.d < r.to; });
   var fSp = spends.filter(function(x){ return (hCat==='all' || (x.cat||'other')===hCat) && x.n.toLowerCase().indexOf(q)!==-1; });
   var fIn = incs.filter(function(x){ return hCat==='all' && x.n.toLowerCase().indexOf(q)!==-1; });
   var totSp = 0, totIn = 0, i;
@@ -1714,20 +1723,21 @@ function renderTx(suffix){
   for(i=0;i<spends.length;i++){ var c2 = spends[i].cat||'other'; ct2[c2]=(ct2[c2]||0)+spends[i].s; cn2[c2]=(cn2[c2]||0)+1; }
   for(var k2 in ct2){ catAvg[k2] = ct2[k2]/cn2[k2]; }
   window._catAvg = catAvg;
-  var all = fSp.concat(fIn).sort(function(a,b){ return b.d - a.d; });
+  var all = fSp.concat(fIn).concat(xfers.filter(function(x){ return hCat==='all' && x.n.toLowerCase().indexOf(q)!==-1; })).sort(function(a,b){ return b.d - a.d; });
   var h = '';
   if(sfx==='2' && hGroup !== 'day'){
     var groups = {}; var gOrder = [];
     for(i=0;i<all.length;i++){
       var t = all[i];
-      var gk = t.inc ? 'Поступления' : (hGroup==='cat' ? catById(t.cat||'other').n : merchName(t.n));
+      var gk = t.xfer ? 'Переводы себе' : (t.inc ? 'Поступления' : (hGroup==='cat' ? catById(t.cat||'other').n : merchName(t.n)));
       if(!groups[gk]){ groups[gk] = {n:gk, s:0, c:0, inc:!!t.inc}; gOrder.push(gk); }
-      groups[gk].s += t.s; groups[gk].c++;
+      if(!t.xfer){ groups[gk].s += t.s; }
+      groups[gk].c++;
     }
     gOrder.sort(function(a,b){ return (groups[b].inc?1:0)-(groups[a].inc?1:0) || groups[b].s - groups[a].s; });
     for(i=0;i<gOrder.length;i++){
       var g = groups[gOrder[i]];
-      h += '<div class="hist-day" style="display:flex;justify-content:space-between;align-items:center"><span>'+g.n+'</span><b>'+g.c+' шт. · '+(g.inc?'+':'-')+fmt(g.s)+'</b></div>';
+      h += '<div class="hist-day" style="display:flex;justify-content:space-between;align-items:center"><span>'+esc(g.n)+'</span><b>'+g.c+' шт.'+(g.n==='Переводы себе'?'':' · '+(g.inc?'+':'-')+fmt(g.s))+'</b></div>';
       for(var gi=0;gi<all.length;gi++){
         var t2 = all[gi];
         var gk2 = t2.inc ? 'Поступления' : (hGroup==='cat' ? catById(t2.cat||'other').n : merchName(t2.n));
@@ -2081,11 +2091,13 @@ function renderIncome(){
       for(i=0;i<(D.incomes||[]).length;i++){ var dd6 = parseD(D.incomes[i].d); if(dd6 >= f6 && dd6 < t6){ avg6 += D.incomes[i].s; } }
     }
     avg6 = Math.round(avg6/6);
-    var curM = 0;
-    var cf = new Date(now.getFullYear(), now.getMonth(), 1);
-    for(i=0;i<(D.incomes||[]).length;i++){ var dd2 = parseD(D.incomes[i].d); if(dd2 >= cf){ curM += D.incomes[i].s; } }
-    var tr = avg6 > 0 ? Math.round((curM-avg6)/avg6*100) : 0;
-    ab.innerHTML = '<div class="sh-tip">Средний доход за 6 мес: <b>'+fmt(avg6)+'</b> · этот месяц '+(tr>=0?'+':'')+tr+'% к среднему</div>';
+    if(avg6 > 0){
+      var curM = 0;
+      var cf = new Date(now.getFullYear(), now.getMonth(), 1);
+      for(i=0;i<(D.incomes||[]).length;i++){ var dd2 = parseD(D.incomes[i].d); if(dd2 >= cf){ curM += D.incomes[i].s; } }
+      var tr = Math.round((curM-avg6)/avg6*100);
+      ab.innerHTML = '<div class="sh-tip">Средний доход за 6 мес: <b>'+fmt(avg6)+'</b> · этот месяц '+(tr>=0?'+':'')+tr+'% к среднему</div>';
+    } else { ab.innerHTML = ''; }
   }
   var sb = $('iStructBox');
   if(sb){
@@ -2107,7 +2119,7 @@ function renderIncome(){
   }
   var tb = $('iTplBox');
   if(tb){
-    tb.innerHTML = '<button class="chip" data-act="i-tpl" data-k="salary">Зарплата · '+fmt(D.income)+'</button>'
+    tb.innerHTML = ((D.income||0) > 0 ? '<button class="chip" data-act="i-tpl" data-k="salary">Зарплата · '+fmt(D.income)+'</button>' : '')
       + '<button class="chip" data-act="i-tpl" data-k="side">Подработка</button>'
       + '<button class="chip" data-act="i-tpl" data-k="cash">Кэшбэк</button>';
   }
@@ -2286,14 +2298,14 @@ function renderDashboardNew() {
     wb2.innerHTML = outW;
   }
 
-  if ($('healthScore')) $('healthScore').textContent = health + ' / 100';
-  if ($('safeBalanceHint')) $('safeBalanceHint').textContent = 'Безопасно: ' + fmt(safeBal);
+  if ($('healthScore')) $('healthScore').textContent = su.ready ? health + ' / 100' : '—';
+  if ($('safeBalanceHint')) $('safeBalanceHint').textContent = su.ready ? 'Безопасно: ' + fmt(safeBal) : 'Заполните настройку';
     var spentToday = 0; var tkNow = iso(now); var allNow = allSpends();
   for(var st2=0; st2<allNow.length; st2++){ if(iso(allNow[st2].d) === tkNow){ spentToday += allNow[st2].s; } }
-  if ($('dailyLimitVal')) $('dailyLimitVal').textContent = fmt(spentToday) + ' из ' + fmt(daily.perDay) + ' ₽';
+  if ($('dailyLimitVal')) $('dailyLimitVal').textContent = su.ready ? (fmt(spentToday) + ' из ' + fmt(daily.perDay)) : '—';
   if ($('dailyLimitProgress')) {
     var pT = Math.min(100, Math.round(spentToday / Math.max(1, daily.perDay) * 100));
-    $('dailyLimitProgress').style.width = pT + '%';
+    $('dailyLimitProgress').style.width = (su.ready ? pT : 0) + '%';
     $('dailyLimitProgress').style.background = (spentToday > daily.perDay) ? 'var(--red)' : 'var(--grn)';
   }
   if ($('todayLine')){
@@ -2355,12 +2367,19 @@ function renderDashboardNew() {
   var minB = minBalance(90);
   var paydayDays = calcDailyLimit().daysLeft;
   if($('runwayVal')){
-    if(rwNow >= 90){ $('runwayVal').textContent = '90+ дн'; $('runwayVal').style.color = 'var(--grn)'; }
+    if(!su.ready){
+      $('runwayVal').textContent = '—';
+      $('runwayVal').style.color = '';
+    }
+    else if(rwNow >= 90){ $('runwayVal').textContent = '90+ дн'; $('runwayVal').style.color = 'var(--grn)'; }
     else { $('runwayVal').textContent = rwNow + ' дн'; $('runwayVal').style.color = rwNow >= paydayDays ? 'var(--grn)' : (rwNow > 7 ? 'var(--org)' : 'var(--red)'); }
   }
-  if($('runwayLbl')){ $('runwayLbl').textContent = rwNow < paydayDays ? 'Денег хватит на' : 'Прогноз баланса'; }
+  if($('runwayLbl')){ $('runwayLbl').textContent = (!su.ready) ? 'Прогноз' : (rwNow < paydayDays ? 'Денег хватит на' : 'Прогноз баланса'); }
   if($('runwayHint')){
-    if(minB.val < 0){
+    if(!su.ready){
+      $('runwayHint').textContent = 'появится после настройки';
+      $('runwayHint').style.color = 'var(--mut)';
+    } else if(minB.val < 0){
       $('runwayHint').textContent = 'мин. баланс '+fmt(minB.val)+' через '+minB.daysFromNow+' дн';
       $('runwayHint').style.color = 'var(--red)';
     } else {
@@ -2427,7 +2446,9 @@ function renderDashboardNew() {
     var wLimit = daily.perDay * 7;
     var wPct = Math.min(100, Math.round(wSpent/Math.max(1,wLimit)*100));
     var wCol = wPct > 100 ? 'var(--red)' : (wPct > 85 ? 'var(--org)' : 'var(--grn)');
-    wb.innerHTML = '<div class="subs-audit glass hov" data-act="sheet" data-t="daily" style="margin-bottom:14px;flex-direction:column;align-items:stretch;gap:8px">'
+    wb.innerHTML = !su.ready
+      ? '<div class="subs-audit glass" style="margin-bottom:14px"><div class="note">Цель недели появится после настройки</div></div>'
+      : '<div class="subs-audit glass hov" data-act="sheet" data-t="daily" style="margin-bottom:14px;flex-direction:column;align-items:stretch;gap:8px">'
       + '<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:12.5px">Цель недели · потрачено '+fmt(wSpent)+' из '+fmt(wLimit)+'</b><span style="font-size:11px;color:var(--mut)">'+wPct+'%</span></div>'
       + '<div class="limit-status-bar"><i style="width:'+wPct+'%;background:'+wCol+'"></i></div></div>';
       // План на месяц
@@ -3357,7 +3378,10 @@ function openQuickSpend(){
   var opts = '';
   for(var i=0;i<CATS.length;i++){ opts += '<option value="'+CATS[i].id+'">'+CATS[i].n+'</option>'; }
 $('sheetBody').innerHTML = sheetHead('i-out','c-red','Быстрая трата','сумма уменьшит реальный остаток')
-    + '<div class="form"><input class="inp" id="qsAmt" type="number" placeholder="Сумма, ₽">'
+    + '<div class="form"><div class="row2"><select class="inp" id="qsType">'
+    + '<option value="spend">Трата</option>'
+    + '<option value="xfer">Перевод себе</option>'
+    + '</select><input class="inp" id="qsAmt" type="number" placeholder="Сумма, ₽"></div>'
     + '<select class="inp" id="qsCat">'+opts+'</select>'
     + '<select class="inp" id="qsTag">'
     + '<option value="normal">Обычная</option>'
@@ -3367,7 +3391,8 @@ $('sheetBody').innerHTML = sheetHead('i-out','c-red','Быстрая трата'
     + '</select>'
     + '<input class="inp" id="qsNote" placeholder="Комментарий (необязательно)">'
     + '<input class="inp" id="qsDate" type="date" value="'+iso(new Date())+'"></div>'
-    + '<button class="sh-btn" data-act="qa-spend-save">Сохранить</button>';
+    + '<button class="sh-btn" data-act="qa-spend-save">Сохранить</button>'
+    + '<div class="hint">«Перевод себе» — перекидывание денег между своими счетами: записывается в историю, но баланс и статистику не трогает.</div>';
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
 function openIncomeSheet(){
@@ -3450,7 +3475,9 @@ function render(){
   }
   if ($('hBal')) $('hBal').textContent = fmt(realBal());
   if ($('sInc')) $('sInc').textContent = fmt(D.income);
-  if ($('sIncP')) $('sIncP').textContent = 'зарплата, '+D.salaryDay+'-го числа';
+  if ($('sIncP')) $('sIncP').textContent = D.salaryDay ? 'зарплата, '+D.salaryDay+'-го числа' : 'доход не задан';
+  var suMain = setupState();
+  if ($('healthScore')) $('healthScore').textContent = suMain.ready ? health + ' / 100' : '—';
   var act = activeLeaks();
   var leakSum = 0;
   for(var j=0;j<act.length;j++){ leakSum += act[j].over; }
@@ -3693,7 +3720,8 @@ return;
   }
   else if(act === 'income-edit'){
     D.income = parseFloat($('in1').value) || D.income;
-    D.salaryDay = parseInt($('in2').value) || D.salaryDay;
+    var sdIn = parseInt($('in2').value, 10);
+    if(sdIn >= 1 && sdIn <= 31){ D.salaryDay = sdIn; }
     save(); closeSheet(); render(); toast('Доход обновлён');
   }
   else if(act === 'spend-add'){
@@ -3796,6 +3824,15 @@ return;
   else if(act === 'qa-spend-save'){
     var qa = parseFloat($('qsAmt').value);
     if(isNaN(qa) || qa <= 0){ dAlert('Введите сумму траты.', 'Трата'); return; }
+    var qd = $('qsDate').value || iso(new Date());
+    var qn = $('qsNote').value.trim();
+    // Внутренний перевод: в историю, но без влияния на баланс и статистику
+    if($('qsType') && $('qsType').value === 'xfer'){
+      D.transfers.push({id:Date.now(), d:qd, n: qn || 'Перевод себе', s:qa});
+      save(); closeSheet(); render();
+      toast('Перевод записан · на баланс не влияет');
+      return;
+    }
     var qc = $('qsCat').value || 'other';
     var qn = $('qsNote').value.trim();
     var qd = $('qsDate').value || iso(new Date());
@@ -3962,6 +3999,14 @@ save(); render(); toast('Память применена: обновлено о�
   }
 
   else if(act === 'month-report'){ openMonthReport(); }
+  else if(act === 'xfer-del'){
+    var xdId = parseFloat(el.getAttribute('data-i'));
+    dConfirm('Удалить запись о переводе?', 'Перевод', true).then(function(ok){
+      if(!ok){ return; }
+      D.transfers = (D.transfers||[]).filter(function(x){ return x.id !== xdId; });
+      save(); closeSheet(); render(); toast('Запись удалена');
+    });
+  }
   else if(act === 'canbuy'){ openCanBuy(); }
   else if(act === 'wish-add'){
     var wa = parseFloat($('cbPrice') ? $('cbPrice').value : '');
