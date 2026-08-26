@@ -4004,8 +4004,6 @@ function render(){
   if ($('hBal')) $('hBal').textContent = fmt(realBal());
   if ($('sInc')) $('sInc').textContent = fmt(D.income);
   if ($('sIncP')) $('sIncP').textContent = D.salaryDay ? 'зарплата, '+D.salaryDay+'-го числа' : 'доход не задан';
-  var suMain = setupState();
-  if ($('healthScore')) $('healthScore').textContent = suMain.ready ? health + ' / 100' : '—';
   var act = activeLeaks();
   var leakSum = 0;
   for(var j=0;j<act.length;j++){ leakSum += act[j].over; }
@@ -5067,10 +5065,21 @@ if(gbtn){
   gbtn.addEventListener('click', function(){
     gbtn.textContent = 'Подключаюсь...';
     signInWithPopup(auth, prov).catch(function(err){
+      var c = (err && err.code) || '';
+      if(c.indexOf('popup-closed-by-user') !== -1 || c.indexOf('cancelled-popup') !== -1){
+        gbtn.textContent = 'Войти через Google';
+        return null;
+      }
+      if(c.indexOf('popup-blocked') !== -1 || c.indexOf('operation-not-supported') !== -1 || c.indexOf('cancelled-popup') !== -1){
+        return signInWithRedirect(auth, prov);
+      }
+      dAlert('Код: ' + c + '. Переключаюсь на резервный вход…', 'Google');
       return signInWithRedirect(auth, prov);
+    }).then(function(res){
+      if(res === null){ return; }
     }).catch(function(err2){
       gbtn.textContent = 'Войти через Google';
-      dAlert('Не удалось войти: ' + ((err2 && err2.code) || err2), 'Ошибка входа');
+      dAlert('Не удалось войти через Google. Код: ' + ((err2 && err2.code) || err2) + '. Если это unauthorized-domain — домен pvsstr.github.io должен быть в Firebase Console → Authentication → Settings → Authorized domains.', 'Ошибка входа');
     });
   });
 }
@@ -5277,8 +5286,8 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
 try{
   getRedirectResult(auth).catch(function(e){
     var c = (e && e.code) || '';
-    if(c.indexOf('unauthorized-domain') !== -1){
-      dAlert('Домен не добавлен в Firebase Console → Authentication → Settings → Authorized domains.', 'Вход через Google');
+    if(c && c.indexOf('no-auth-event') === -1){
+      dAlert('Google: ' + c + (c.indexOf('unauthorized-domain') !== -1 ? ' — добавьте домен pvsstr.github.io в Firebase Console → Authentication → Authorized domains.' : ''), 'Вход через Google');
     }
   });
 }catch(e){}
