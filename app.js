@@ -520,6 +520,12 @@ function dlgBuild(){
   document.body.appendChild(b);
   document.body.appendChild(box);
   var inp = $('dlgInp');
+  // Свайп вниз по диалогу закрывает его
+  var dlgSy = null;
+  box.addEventListener('touchstart', function(e){ dlgSy = e.touches[0].clientY; }, {passive:true});
+  box.addEventListener('touchmove', function(e){
+    if(dlgSy !== null && (e.touches[0].clientY - dlgSy) > 80){ dlgSy = null; vib(8); dlgClose(null); }
+  }, {passive:true});
   $('dlgb').addEventListener('click', function(){ dlgClose(null); });
   $('dlgNo').addEventListener('click', function(){ dlgClose(null); });
   $('dlgYes').addEventListener('click', function(){
@@ -1118,7 +1124,7 @@ function renderPays(){
     var p = D.pays[i];
     var paid = marks[p.id];
     h += '<div class="env glass hov" data-act="edit" data-t="pay" data-i="'+p.id+'" style="'+(paid?'opacity:.65':'')+'">'
-      + '<header><div class="env-name"><div class="sic '+(paid?'c-grn':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#'+(paid?'i-check':'i-cal')+'"/></svg></div>'+p.n+(paid?' · оплачено':'')+'</div><b>'+fmt(p.s)+' · '+p.d+'-го</b></header>'
+      + '<header><div class="env-name"><div class="sic '+(paid?'c-grn':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#'+(paid?'i-check':'i-cal')+'"/></svg></div>'+esc(p.n)+(paid?' · оплачено':'')+'</div><b>'+fmt(p.s)+' · '+p.d+'-го</b></header>'
       + '<div class="note">ежемесячно · тап по карточке — изменить</div>'
       + (paid ? '<button class="sh-btn ghost" style="margin-top:8px" data-act="pay-unpaid" data-i="'+p.id+'">Снять отметку</button>' : '<button class="sh-btn" style="margin-top:8px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="pay-paid" data-i="'+p.id+'">Отметить оплаченным</button>')
       + '</div>';
@@ -1162,7 +1168,7 @@ function renderCredits(){
     } else {
       noteC = 'платёж не задан — прогноз его не учитывает';
     }
-    h += '<div class="env glass hov" data-act="edit" data-t="cred" data-i="'+c.id+'"><header><div class="env-name"><div class="sic c-red" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-card"/></svg></div>'+c.n+'</div><b>'+fmt(c.cur)+'</b></header><div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+paid+'%;background:var(--grn)"></i></div>'
+    h += '<div class="env glass hov" data-act="edit" data-t="cred" data-i="'+c.id+'"><header><div class="env-name"><div class="sic c-red" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-card"/></svg></div>'+esc(c.n)+'</div><b>'+fmt(c.cur)+'</b></header><div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+paid+'%;background:var(--grn)"></i></div>'
       + '<div class="note">'+noteC+'</div>'
       + ((c.pay||0) > 0
         ? '<button class="sh-btn" style="margin-top:8px;background:rgba(48,209,88,.15);color:var(--grn)" data-act="cred-pay" data-i="'+c.id+'">Внести платёж</button>'
@@ -2090,7 +2096,7 @@ function renderRec(){
   for(var i=0;i<act.length;i++){
     var l = act[i];
     h += '<div class="rec glass hov" data-act="sheet" data-t="leak" data-i="'+l.id+'" data-m="0">'
-      + '<header><div class="sic c-red"><svg class="ic"><use href="#i-shield"/></svg></div><div><h5>'+l.n+'</h5><span>'+l.tx+' транзакций за месяц</span></div><svg class="ic chev"><use href="#i-chev"/></svg></header>'
+      + '<header><div class="sic c-red"><svg class="ic"><use href="#i-shield"/></svg></div><div><h5>'+esc(l.n)+'</h5><span>'+l.tx+' транзакций за месяц</span></div><svg class="ic chev"><use href="#i-chev"/></svg></header>'
       + '<p>Перерасход '+fmt(l.over)+' при лимите '+fmt(l.lim)+'. Нажми, чтобы увидеть транзакции.</p>'
       + '<footer><span>Потрачено в этом месяце</span><b>'+fmt(l.s)+'</b><button class="chip" style="background:rgba(48,209,88,.15);color:var(--grn)" data-act="leak-fix" data-i="'+l.id+'" data-m="0">Устранено</button></footer></div>';
   }
@@ -2131,7 +2137,7 @@ var dl = g.deadline ? ' · до '+parseD(g.deadline).toLocaleDateString('ru-RU',
 var eta = goalEta(g);
 if(eta){ dl += ' · при темпе — '+eta; }
       h += '<div class="env glass hov" style="margin-bottom:12px">'
-        + '<header><div class="env-name"><div class="sic c-pur" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-target"/></svg></div>'+g.n+'</div><b>'+fmt(g.cur||0)+' / '+fmt(g.target)+'</b></header>'
+        + '<header><div class="env-name"><div class="sic c-pur" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-target"/></svg></div>'+esc(g.n)+'</div><b>'+fmt(g.cur||0)+' / '+fmt(g.target)+'</b></header>'
         + '<div class="bar-large" style="height:6px;margin-top:8px"><i style="width:'+p+'%;background:linear-gradient(90deg,var(--pur),var(--pink))"></i></div>'
         + '<div class="note">'+p+'%'+dl+'</div>'
         + '<div class="row-actions" style="margin-top:8px;gap:6px">'
@@ -2144,8 +2150,8 @@ if(eta){ dl += ' · при темпе — '+eta; }
       h += '<div class="cap" style="margin:16px 4px 8px;color:var(--grn)">✓ Выполненные цели</div>';
       for(var j=0;j<done.length;j++){
         var g2 = done[j];
-        h += '<div class="env glass hov" style="margin-bottom:8px;opacity:.85">'
-          + '<header><div class="env-name"><div class="sic c-grn" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-check"/></svg></div>'+g2.n+'</div><b>'+fmt(g2.cur||0)+' / '+fmt(g2.target)+'</b></header>'
+          h += '<div class="env glass hov" style="margin-bottom:8px;opacity:.85">'
+          + '<header><div class="env-name"><div class="sic c-grn" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center"><svg class="ic"><use href="#i-check"/></svg></div>'+esc(g2.n)+'</div><b>'+fmt(g2.cur||0)+' / '+fmt(g2.target)+'</b></header>'
           + '<div class="row-actions" style="margin-top:8px;gap:6px">'
           + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="goal-uncomplete" data-i="'+g2.id+'">Вернуть в активные</button>'
           + '<button class="mini-btn" data-act="goal-edit" data-i="'+g2.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
@@ -2329,7 +2335,7 @@ function renderDigest(){
   if(r.items.length === 0){ h = '<div class="dig-item"><span>Ближайших платежей нет</span><b>—</b></div>'; }
   for(var j=0;j<r.items.length;j++){
     var when = r.items[j].diff === 0 ? 'сегодня' : (r.items[j].diff === 1 ? 'завтра' : 'через '+r.items[j].diff+' дн.');
-    h += '<div class="dig-item"><span>'+r.items[j].n+' · '+when+'</span><b class="'+(r.items[j].diff<=1?'soon':'')+'">'+fmt(r.items[j].s)+'</b></div>';
+    h += '<div class="dig-item"><span>'+esc(r.items[j].n)+' · '+when+'</span><b class="'+(r.items[j].diff<=1?'soon':'')+'">'+fmt(r.items[j].s)+'</b></div>';
   }
   $('digList').innerHTML = h;
   $('digSum').textContent = fmt(r.sum);
@@ -2668,9 +2674,9 @@ function renderDashboardNew() {
       } else if(d.type === 'save_money'){
         txt = 'Отложил '+fmt(d.data.amount)+' в копилку';
       } else if(d.type === 'cancel_sub'){
-        txt = 'Отключил подписку "'+d.data.name+'"';
+        txt = 'Отключил подписку "'+esc(d.data.name)+'"';
       } else if(d.type === 'postpone_pay'){
-        txt = 'Отложил платёж "'+d.data.name+'"';
+        txt = 'Отложил платёж "'+esc(d.data.name)+'"';
       }
       var dateLabel = new Date(d.date).toLocaleDateString('ru-RU', {day:'numeric', month:'short'});
       decHtml += '<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">' +
@@ -3500,11 +3506,41 @@ function openMonthReport(){
     var dd = arr[i].s - pd;
     h += '<div class="dig-item"><span>'+catById(arr[i].id).n+'</span><b>'+fmt(arr[i].s)+' <span style="color:'+(dd>0?'var(--red)':'var(--grn)')+'">'+(dd>0?'+':'−')+fmt(Math.abs(dd))+'</span></b></div>';
   }
-  if(maxOp){ h += rowHtml('Крупнейшая трата', maxOp.n+' · '+fmt(maxOp.s)); }
+  if(maxOp){ h += rowHtml('Крупнейшая трата', esc(maxOp.n)+' · '+fmt(maxOp.s)); }
   h += rowHtml('Утечки', leaks.length ? leaks.length+' шт. на '+fmt(leakSum) : 'нет');
-  h += tipHtml(saved >= 0 ? 'Месяц закрыт в плюс — переведи остаток в цели кнопкой «В копилку».' : 'Месяц закрыт в минус — посмотри гибкие траты в аналитике и урежь их.');
+  // Текст для отправки/копирования
+  var rl = [];
+  rl.push('Отчёт ТРЕШ · '+cycleLabel(from));
+  rl.push('Потрачено: '+fmt(tot)+(delta ? ((delta>0?' (+':' (−')+fmt(Math.abs(delta))+')') : ''));
+  rl.push('Поступило: +'+fmt(inc));
+  rl.push((saved>=0?'Сэкономлено: +':'Перерасход: −')+fmt(Math.abs(saved))+' · норма '+rate+'%');
+  if(arr.length){
+    rl.push('Топ категории:');
+    for(i=0;i<arr.length && i<3;i++){
+      var pdR = pm[arr[i].id] || 0;
+      var ddR = arr[i].s - pdR;
+      rl.push('  '+catById(arr[i].id).n+': '+fmt(arr[i].s)+(ddR>0?' (+'+(ddR<1000&&ddR>-1000?Math.round(ddR/Math.max(1,pdR)*100)+'%':fmt(ddR))+')':''));
+    }
+  }
+  if(maxOp){ rl.push('Крупнейшая: '+maxOp.n+' — '+fmt(maxOp.s)); }
+  rl.push('Утечки: '+(leaks.length ? leaks.length+' шт., перерасход '+fmt(leakSum) : 'нет'));
+  window._reportText = rl.join('\n');
+  h += '<div class="dlg-btns" style="margin-top:14px">'
+    + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="report-copy">Скопировать</button>'
+    + '<button class="sh-btn" style="margin:0;flex:1" data-act="report-share">Поделиться</button>'
+    + '</div>'
+    + tipHtml(saved >= 0 ? 'Месяц закрыт в плюс — переведи остаток в цели кнопкой «В копилку».' : 'Месяц закрыт в минус — посмотри гибкие траты в аналитике и урежь их.');
   $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function fallbackCopy(t){
+  var ta = document.createElement('textarea');
+  ta.value = t;
+  ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try{ document.execCommand('copy'); toast('Скопировано'); }catch(e){ dAlert('Не удалось скопировать автоматически.', 'Копирование'); }
+  document.body.removeChild(ta);
 }
 function openCanBuy(){
   var ws = (D.wishes||[]).filter(function(w){ return w.st === 'wait'; }).sort(function(a,b){ return a.d < b.d ? -1 : 1; });
@@ -3820,7 +3856,7 @@ function render(){
   if(ea){
     var eh = '';
     for(var e5=0;e5<overEnvs.length;e5++){
-      eh += '<div class="sh-tip" style="background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.3);display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px" data-act="env" data-i="'+overEnvs[e5].id+'"><span style="flex:1">Конверт "'+overEnvs[e5].n+'" превышен на <b>'+fmt(overEnvs[e5].over)+'</b></span><b style="color:var(--red)">посмотреть ›</b></div>';
+      eh += '<div class="sh-tip" style="background:rgba(255,69,58,.12);border:1px solid rgba(255,69,58,.3);display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px" data-act="env" data-i="'+overEnvs[e5].id+'"><span style="flex:1">Конверт "'+esc(overEnvs[e5].n)+'" превышен на <b>'+fmt(overEnvs[e5].over)+'</b></span><b style="color:var(--red)">посмотреть ›</b></div>';
     }
     ea.innerHTML = eh;
   }
@@ -4325,6 +4361,23 @@ save(); render(); toast('Память применена: обновлено о�
     save(); closeSheet(); render(); toast('Разделено на 2 операции');
   }
 
+  else if(act === 'report-copy'){
+    var rcT = window._reportText || '';
+    if(!rcT){ toast('Отчёт ещё не открыт'); return; }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(rcT).then(function(){ vib(10); toast('Отчёт скопирован'); }, function(){ fallbackCopy(rcT); });
+    } else { fallbackCopy(rcT); }
+  }
+  else if(act === 'report-share'){
+    var rsT = window._reportText || '';
+    if(!rsT){ toast('Отчёт ещё не открыт'); return; }
+    if(navigator.share){
+      navigator.share({title:'Отчёт ТРЕШ', text:rsT}).catch(function(){});
+    } else {
+      fallbackCopy(rsT);
+      toast('Скопировано — вставьте куда нужно');
+    }
+  }
   else if(act === 'month-report'){ openMonthReport(); }
   else if(act === 'xfer-del'){
     var xdId = parseFloat(el.getAttribute('data-i'));
