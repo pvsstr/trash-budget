@@ -29,16 +29,24 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
-  // Чужие ресурсы (шрифты, Firebase, GitHub API) — сеть, при офлайне кэш
-  event.respondWith(
-    fetch(event.request).then(function(resp) {
-      if (resp && resp.ok && (resp.type === 'basic' || resp.type === 'cors')) {
-        var copy2 = resp.clone();
-        caches.open(CACHE).then(function(c) { c.put(event.request, copy2); });
-      }
-      return resp;
-    }).catch(function() {
-      return caches.match(event.request);
-    })
-  );
+  // Чужие ресурсы: кэшируем ТОЛЬКО шрифты gstatic (ответы API не храним)
+  if(url.host === 'fonts.gstatic.com' || url.host === 'fonts.googleapis.com'){
+    event.respondWith(
+      fetch(event.request).then(function(resp){
+        if(resp && resp.ok){
+          var copy2 = resp.clone();
+          caches.open(CACHE).then(function(c){ c.put(event.request, copy2); });
+        }
+        return resp;
+      }).catch(function(){
+        return caches.match(event.request);
+      })
+    );
+    return;
+  }
+
+  // Остальные внешние запросы — прямо в сеть, без кэша
+  event.respondWith(fetch(event.request).catch(function(){
+    return caches.match(event.request);
+  }));
 });

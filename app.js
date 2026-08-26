@@ -724,7 +724,7 @@ function openSheet(t, i){
     var ls2 = 0; var lr2 = '';
     for(var l2=0;l2<listLk.length;l2++){
       if(!listLk[l2].fixed){ ls2 += listLk[l2].over; }
-      lr2 += '<div class="dig-item" style="cursor:pointer" data-act="sheet" data-t="leak" data-i="'+listLk[l2].id+'" data-m="'+leakOff+'"><span>'+listLk[l2].n+(listLk[l2].fixed?' · устранено':'')+'</span><b>+'+fmt(listLk[l2].over)+' ›</b></div>';
+      lr2 += '<div class="dig-item" style="cursor:pointer" data-act="sheet" data-t="leak" data-i="'+listLk[l2].id+'" data-m="'+leakOff+'"><span>'+esc(listLk[l2].n)+(listLk[l2].fixed?' · устранено':'')+'</span><b>+'+fmt(listLk[l2].over)+' ›</b></div>';
     }
     h = sheetHead('i-shield','c-red','Утечки','перерасход '+fmt(ls2)+' за месяц')
       + '<div class="msw" style="margin:0 0 10px"><button data-act="leak-prev">‹</button><b>'+MONTHS[dL.getMonth()]+' '+dL.getFullYear()+'</b><button data-act="leak-next">›</button></div>'
@@ -741,7 +741,7 @@ function openSheet(t, i){
       var to2 = new Date(dL2.getFullYear(), dL2.getMonth()+1, 1);
       var txs = allSpends().filter(function(x){ return envMatch(env2, x) && x.d >= from2 && x.d < to2; }).sort(function(a,b){ return b.d - a.d; });
       var tot2 = 0; for(var t2=0;t2<txs.length;t2++){ tot2 += txs[t2].s; }
-      h = sheetHead('i-shield','c-red', env2.n, txs.length+' транзакций · '+MONTHS[dL2.getMonth()]+' '+dL2.getFullYear())
+      h = sheetHead('i-shield','c-red', esc(env2.n), txs.length+' транзакций · '+MONTHS[dL2.getMonth()]+' '+dL2.getFullYear())
         + rowHtml('Потрачено', fmt(tot2))
         + rowHtml('Лимит', fmt(env2.lim))
         + rowHtml('Перерасход', fmt(Math.max(0, tot2 - env2.lim)))
@@ -810,7 +810,7 @@ function openSheet(t, i){
       + '<div class="cap" style="margin:10px 4px 6px">Платежи</div>';
     for(var fp=0;fp<D.pays.length;fp++){
       var pp=D.pays[fp];
-      h += '<div class="dig-item"><span>'+pp.n+' · '+pp.d+'-го'+(pp.postponed?' · отложен до '+pp.postponed:'')+'</span><span class="row-actions"><b>'+fmt(pp.s)+'</b>'
+      h += '<div class="dig-item"><span>'+esc(pp.n)+' · '+pp.d+'-го'+(pp.postponed?' · отложен до '+pp.postponed:'')+'</span><span class="row-actions"><b>'+fmt(pp.s)+'</b>'
         + '<button class="mini-btn" data-act="edit" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
         + '<button class="mini-btn" data-act="postpone" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-cal"/></svg></button>'
         + '<button class="mini-btn danger" data-act="fix-del" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
@@ -818,7 +818,7 @@ function openSheet(t, i){
     h += '<div class="cap" style="margin:10px 4px 6px">Подписки</div>';
     for(var fs=0;fs<D.subs.length;fs++){
       var ss=D.subs[fs];
-      h += '<div class="dig-item"><span>'+ss.n+(ss.off?' · отключена':'')+'</span><span class="row-actions"><b>'+fmt(ss.s)+'/мес</b>'
+      h += '<div class="dig-item"><span>'+esc(ss.n)+(ss.off?' · отключена':'')+'</span><span class="row-actions"><b>'+fmt(ss.s)+'/мес</b>'
         + '<button class="mini-btn" data-act="edit" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
         + '<button class="mini-btn danger" data-act="fix-del" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
@@ -826,13 +826,13 @@ function openSheet(t, i){
     for(var fc=0;fc<D.credits.length;fc++){
       var cc=D.credits[fc];
       var credInfo = (cc.pay>0) ? ' · платёж '+fmt(cc.pay)+'/'+(cc.d||1)+'-го' : ' · платёж не задан';
-      h += '<div class="dig-item"><span>'+cc.n+credInfo+'</span><span class="row-actions"><b>'+fmt(cc.cur)+'</b>'
+      h += '<div class="dig-item"><span>'+esc(cc.n)+credInfo+'</span><span class="row-actions"><b>'+fmt(cc.cur)+'</b>'
         + '<button class="mini-btn" data-act="edit" data-t="cred" data-i="'+cc.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
         + '<button class="mini-btn danger" data-act="fix-del" data-t="cred" data-i="'+cc.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
     for(var fi=0;fi<D.insts.length;fi++){
       var ii=D.insts[fi];
-      h += '<div class="dig-item"><span>'+ii.n+' · '+ii.d+'</span><span class="row-actions"><b>'+fmt(ii.s)+'</b>'
+      h += '<div class="dig-item"><span>'+esc(ii.n)+' · '+ii.d+'</span><span class="row-actions"><b>'+fmt(ii.s)+'</b>'
         + '<button class="mini-btn" data-act="edit" data-t="inst" data-i="'+ii.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
         + '<button class="mini-btn danger" data-act="fix-del" data-t="inst" data-i="'+ii.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
@@ -926,19 +926,19 @@ function openEdit(t, i){
   var it = null; var h = ''; var title = '';
   function get(arr){ for(var k=0;k<arr.length;k++){ if(arr[k].id === i){ return arr[k]; } } return null; }
   if(t==='sub'){ it = i?get(D.subs):null; title = it?'Подписка':'Новая подписка';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><input class="inp" id="in2" type="number" placeholder="Сумма в месяц, ₽" value="'+(it?it.s:'')+'"></div>';
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'"><input class="inp" id="in2" type="number" placeholder="Сумма в месяц, ₽" value="'+(it?it.s:'')+'"></div>';
   }
   if(t==='pay'){ it = i?get(D.pays):null; title = it?'Платёж':'Новый платёж';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Сумма, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="number" placeholder="День (1-31)" value="'+(it?it.d:'')+'"></div></div>';
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Сумма, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="number" placeholder="День (1-31)" value="'+(it?it.d:'')+'"></div></div>';
   }
   if(t==='cred'){ it = i?get(D.credits):null; title = it?'Кредит':'Новый кредит';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'">'
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'">'
       + '<div class="row2"><input class="inp" id="in2" type="number" placeholder="Текущий долг, ₽" value="'+(it?it.cur:'')+'"><input class="inp" id="in3" type="number" placeholder="Итоговая сумма, ₽" value="'+(it?it.total:'')+'"></div>'
       + '<div class="row2"><input class="inp" id="in4" type="number" placeholder="Платёж в месяц, ₽" value="'+(it&&it.pay?it.pay:'')+'"><input class="inp" id="in5" type="number" placeholder="День списания" value="'+(it&&it.d?it.d:'')+'"></div>'
       + '<div class="hint">Платёж и день нужны, чтобы прогноз честно учитывал кредит. Останется долг — платежи прекратятся.</div></div>';
   }
   if(t==='inst'){ it = i?get(D.insts):null; title = it?'Рассрочка':'Новая рассрочка';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Платёж, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="date" value="'+(it?it.d:'')+'"></div></div>';
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Платёж, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="date" value="'+(it?it.d:'')+'"></div></div>';
   }
   if(t==='env'){
     it = i?get(D.envs):null;
@@ -1409,12 +1409,12 @@ function openDaySheet(dstr){
   for(var i2=0;i2<list.length;i2++){ tot += list[i2].s; }
   var h = sheetHead('i-cal','c-blu', d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(), (list.length+incs.length)+' операций на '+fmt(tot));
   for(var j2=0;j2<incs.length;j2++){
-    h += '<div class="dig-item"><span>'+incs[j2].n+'</span><b style="color:var(--grn)">+'+fmt(incs[j2].s)+'</b></div>';
+    h += '<div class="dig-item"><span>'+esc(incs[j2].n)+'</span><b style="color:var(--grn)">+'+fmt(incs[j2].s)+'</b></div>';
   }
   if(list.length){
     for(var t4=0;t4<list.length;t4++){
       var cc2 = catById(list[t4].cat || 'other');
-      h += '<div class="dig-item"><span>'+list[t4].n+' · '+cc2.n+'</span><b>-'+fmt(list[t4].s)+'</b></div>';
+      h += '<div class="dig-item"><span>'+esc(list[t4].n)+' · '+cc2.n+'</span><b>-'+fmt(list[t4].s)+'</b></div>';
     }
   } else if(!incs.length){
     h += '<div class="dig-item"><span>Операций нет</span><b>—</b></div>';
@@ -1446,7 +1446,7 @@ function openCatSheet(catId){
     + '<div style="max-height:300px;overflow-y:auto">';
   if(list.length){
     for(var t=0;t<list.length;t++){
-      h += '<div class="dig-item"><span>'+list[t].d.getDate()+'.'+String(list[t].d.getMonth()+1).padStart(2,'0')+' · '+list[t].n+'</span><b>-'+fmt(list[t].s)+'</b></div>';
+      h += '<div class="dig-item"><span>'+list[t].d.getDate()+'.'+String(list[t].d.getMonth()+1).padStart(2,'0')+' · '+esc(list[t].n)+'</span><b>-'+fmt(list[t].s)+'</b></div>';
     }
   } else {
     h += '<div class="dig-item"><span>Операций за период нет</span><b>—</b></div>';
@@ -1510,7 +1510,7 @@ function openHabitSheet(kind){
       + '<div class="cap" style="margin:10px 4px 6px">Чеки выше среднего</div>';
     var above = sp.filter(function(x){ return x.s > tot / sp.length; }).sort(function(a,b){ return b.s - a.s; });
     for(i=0;i<above.length && i<15;i++){
-      h += '<div class="dig-item"><span>'+above[i].d.getDate()+'.'+String(above[i].d.getMonth()+1).padStart(2,'0')+' - '+above[i].n+'</span><b>-'+fmt(above[i].s)+'</b></div>';
+      h += '<div class="dig-item"><span>'+above[i].d.getDate()+'.'+String(above[i].d.getMonth()+1).padStart(2,'0')+' - '+esc(above[i].n)+'</span><b>-'+fmt(above[i].s)+'</b></div>';
     }
     if(!above.length){ h += '<div class="dig-item"><span>Нет чеков выше среднего</span><b>-</b></div>'; }
     h += '<div class="sh-tip">Всё, что выше среднего чека, - кандидат на правило 24 часов. Средний чек растёт из-за крупных импульсивных покупок.</div>';
@@ -1526,7 +1526,7 @@ function openHabitSheet(kind){
       + rowHtml('Доля от всех трат', Math.round(top.s / tot * 100) + '%')
       + '<div class="cap" style="margin:10px 4px 6px">Топ-5 трат за период</div>';
     for(i=0;i<sorted.length && i<5;i++){
-      h += '<div class="dig-item"><span>'+sorted[i].d.getDate()+'.'+String(sorted[i].d.getMonth()+1).padStart(2,'0')+' - '+sorted[i].n+'</span><b>-'+fmt(sorted[i].s)+'</b></div>';
+      h += '<div class="dig-item"><span>'+sorted[i].d.getDate()+'.'+String(sorted[i].d.getMonth()+1).padStart(2,'0')+' - '+esc(sorted[i].n)+'</span><b>-'+fmt(sorted[i].s)+'</b></div>';
     }
     h += '<div class="sh-tip">Одна эта трата = '+Math.round(top.s / tot * 100)+'% всех расходов периода. Проверь, была ли она запланирована.</div>';
   } else if(kind === 'wd'){
@@ -1768,7 +1768,7 @@ function renderAnalytics(){
   if(sp.length){
        hRow += '<div class="habit-row" data-act="an-habit" data-h="avg"><div class="habit-ic c-blu"><svg class="ic"><use href="#i-card"/></svg></div><div class="habit-info"><b>Средний чек</b><span>'+sp.length+' транзакций за период</span></div><b>'+fmt(avgCheck)+' ›</b></div>';
     if(maxOp){
-      hRow += '<div class="habit-row" data-act="an-habit" data-h="max"><div class="habit-ic c-red"><svg class="ic"><use href="#i-alert"/></svg></div><div class="habit-info"><b>Крупнейшая трата</b><span>'+maxOp.n+' · '+maxOp.d.getDate()+'.'+String(maxOp.d.getMonth()+1).padStart(2,'0')+'</span></div><b>'+fmt(maxOp.s)+' ›</b></div>';
+      hRow += '<div class="habit-row" data-act="an-habit" data-h="max"><div class="habit-ic c-red"><svg class="ic"><use href="#i-alert"/></svg></div><div class="habit-info"><b>Крупнейшая трата</b><span>'+esc(maxOp.n)+' · '+maxOp.d.getDate()+'.'+String(maxOp.d.getMonth()+1).padStart(2,'0')+'</span></div><b>'+fmt(maxOp.s)+' ›</b></div>';
     }
     hRow += '<div class="habit-row" data-act="an-habit" data-h="wd"><div class="habit-ic c-org"><svg class="ic"><use href="#i-cal"/></svg></div><div class="habit-info"><b>Самый дорогой день недели</b><span>всего '+fmt(wdTot[maxWd])+' за период</span></div><b>'+WD_LONG[maxWd]+' ›</b></div>';
     var wstA = wkndStats(sp);
@@ -1997,7 +1997,7 @@ function renderTx(suffix){
     window._recurList = cand.slice(0,2);
     var rh = '';
     for(i=0;i<window._recurList.length;i++){
-      rh += '<div class="sh-tip" style="display:flex;align-items:center;gap:8px"><span style="flex:1">Похоже на регулярный платёж: <b>'+window._recurList[i].n+'</b> '+fmt(window._recurList[i].s)+' ('+window._recurList[i].cnt+' раза)</span>'
+      rh += '<div class="sh-tip" style="display:flex;align-items:center;gap:8px"><span style="flex:1">Похоже на регулярный платёж: <b>'+esc(window._recurList[i].n)+'</b> '+fmt(window._recurList[i].s)+' ('+window._recurList[i].cnt+' раза)</span>'
         + '<button class="chip" data-act="recur-add" data-i="'+i+'">В обязательные</button>'
         + '<button class="mini-btn" data-act="recur-hide" data-i="'+i+'" title="Это не обязательный платёж"><svg class="ic"><use href="#i-x"/></svg></button></div>';
     }
@@ -2438,16 +2438,16 @@ function renderDashboardNew() {
     var np;
     for(var bp=0;bp<D.pays.length;bp++){
       var dff = (D.pays[bp].d - now.getDate() + 31) % 31;
-      if(dff <= 3 && dff < nearDiff){ nearDiff = dff; nearTxt = D.pays[bp].n+' −'+fmt(D.pays[bp].s)+(dff===0?' · сегодня':(dff===1?' · завтра':' · через '+dff+' дн.')); }
+      if(dff <= 3 && dff < nearDiff){ nearDiff = dff; nearTxt = esc(D.pays[bp].n)+' −'+fmt(D.pays[bp].s)+(dff===0?' · сегодня':(dff===1?' · завтра':' · через '+dff+' дн.')); }
     }
     for(var bi=0;bi<D.insts.length;bi++){
       var dI = Math.round((parseD(D.insts[bi].d) - now)/864e5);
-      if(dI >= 0 && dI <= 3 && dI < nearDiff){ nearDiff = dI; nearTxt = D.insts[bi].n+' −'+fmt(D.insts[bi].s)+(dI===0?' · сегодня':(dI===1?' · завтра':' · через '+dI+' дн.')); }
+      if(dI >= 0 && dI <= 3 && dI < nearDiff){ nearDiff = dI; nearTxt = esc(D.insts[bi].n)+' −'+fmt(D.insts[bi].s)+(dI===0?' · сегодня':(dI===1?' · завтра':' · через '+dI+' дн.')); }
     }
     for(var bc=0;bc<(D.credits||[]).length;bc++){
       if(!((D.credits[bc].pay||0) > 0)){ continue; }
       var dC = ((D.credits[bc].d || 1) - now.getDate() + 31) % 31;
-      if(dC <= 3 && dC < nearDiff){ nearDiff = dC; nearTxt = D.credits[bc].n+' −'+fmt(D.credits[bc].pay)+(dC===0?' · сегодня':(dC===1?' · завтра':' · через '+dC+' дн.')); }
+      if(dC <= 3 && dC < nearDiff){ nearDiff = dC; nearTxt = esc(D.credits[bc].n)+' −'+fmt(D.credits[bc].pay)+(dC===0?' · сегодня':(dC===1?' · завтра':' · через '+dC+' дн.')); }
     }
     bb.innerHTML = '<div class="glass card-padding hov" data-act="sheet" data-t="daily" style="margin:0 0 14px;border-left:3px solid '+riskCol+';border-radius:18px">'
       + '<div class="cap-title"><span>Брифинг на сегодня</span><b style="color:'+riskCol+';font-size:11px">'+riskTxt+'</b></div>'
@@ -2895,7 +2895,7 @@ function renderMyCal(){
     }
   }
   for(var c2 in seen){
-    lg += '<span><i style="background:'+c2+'"></i>'+seen[c2].join(', ')+'</span>';
+    lg += '<span><i style="background:'+c2+'"></i>'+esc(seen[c2].join(', '))+'</span>';
   }
   $('myCalLegend').innerHTML = lg;
 }
@@ -2918,7 +2918,7 @@ function openCalSheet(dstr, noHl){
     var evs = dd2.rings.concat(dd2.plans);
     for(var i=0;i<evs.length;i++){
       var e = evs[i];
-      var left = String(d).padStart(2,'0')+'.'+String(m+1).padStart(2,'0')+' · '+e.n;
+      var left = String(d).padStart(2,'0')+'.'+String(m+1).padStart(2,'0')+' · '+esc(e.n);
       var right;
       if(e.personal){
         right = '<button class="del" data-act="cal-event-del" data-i="'+e.id+'"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></button>';
@@ -3240,7 +3240,7 @@ function openTxEdit(src, i){
     + '<div class="form"><input class="inp" id="teAmt" type="number" value="'+cur.s+'">'
     + '<select class="inp" id="teCat">'+opts+'</select>'
     + '<input class="inp" id="teDate" type="date" value="'+cur.d+'">'
-    + '<input class="inp" id="teNote" value="'+String(cur.n||'').replace(/"/g,'&quot;')+'"></div>'
+    + '<input class="inp" id="teNote" value="'+esc(cur.n||'')+'"></div>'
     + (sugg ? '<button class="sh-btn ghost" data-act="tx-apply-suggest" data-c="'+sugg+'">Похожие операции обычно в категории "'+catById(sugg).n+'" - применить</button>' : '')
     + '<button class="sh-btn" data-act="tx-edit-save">Сохранить</button>'
     + '<button class="sh-btn ghost" data-act="tx-split">Разделить на 2 категории</button>'
@@ -3437,7 +3437,7 @@ function openDupSheet(){
   for(var g=0;g<dups.length;g++){
     for(var m=0;m<dups[g].length;m++){
       var it = dups[g][m];
-      h += '<div class="dig-item"><span>'+it.d.getDate()+'.'+String(it.d.getMonth()+1).padStart(2,'0')+' · '+it.n+' · '+fmt(it.s)+(m>0?' <b style="color:var(--red)">дубль?</b>':'')+'</span><span class="row-actions"><button class="mini-btn danger" data-act="dup-del" data-g="'+g+'" data-i="'+m+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
+      h += '<div class="dig-item"><span>'+it.d.getDate()+'.'+String(it.d.getMonth()+1).padStart(2,'0')+' · '+esc(it.n)+' · '+fmt(it.s)+(m>0?' <b style="color:var(--red)">дубль?</b>':'')+'</span><span class="row-actions"><button class="mini-btn danger" data-act="dup-del" data-g="'+g+'" data-i="'+m+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
   }
   $('sheetBody').innerHTML = h;
@@ -3582,7 +3582,7 @@ function openMonthReport(){
       rl.push('  '+catById(arr[i].id).n+': '+fmt(arr[i].s)+(ddR>0?' (+'+(ddR<1000&&ddR>-1000?Math.round(ddR/Math.max(1,pdR)*100)+'%':fmt(ddR))+')':''));
     }
   }
-  if(maxOp){ rl.push('Крупнейшая: '+maxOp.n+' — '+fmt(maxOp.s)); }
+  if(maxOp){ rl.push('Крупнейшая: '+esc(maxOp.n)+' — '+fmt(maxOp.s)); }
   rl.push('Утечки: '+(leaks.length ? leaks.length+' шт., перерасход '+fmt(leakSum) : 'нет'));
   window._reportText = rl.join('\n');
   h += '<div class="dlg-btns" style="margin-top:14px">'
@@ -3916,7 +3916,7 @@ function openIncEdit(id){
     + '<div class="form"><input class="inp" id="ieAmt" type="number" value="'+it.s+'">'
     + '<select class="inp" id="ieKind">'+opts+'</select>'
     + '<input class="inp" id="ieDate" type="date" value="'+it.d+'">'
-    + '<input class="inp" id="ieNote" value="'+String(it.n||'').replace(/"/g,'&quot;')+'"></div>'
+    + '<input class="inp" id="ieNote" value="'+esc(it.n||'')+'"></div>'
     + '<button class="sh-btn" data-act="i-edit-save">Сохранить</button>'
     + '<button class="sh-btn danger" data-act="i-del">Удалить</button>';
   $('sheet').classList.add('on'); $('shb').classList.add('on');
@@ -6554,7 +6554,7 @@ function agentAnswer(query){
     else { ans = 'Всего долгов: <b>'+fmt(r.data.total)+'</b>. '+r.data.txt; }
   } else if(r.type === 'leaks'){
     if(!r.data.leaks.length){ ans = 'Утечек нет — лимиты в порядке.'; }
-    else { ans = '<b>'+r.data.leaks.length+' утечек</b> на '+fmt(r.data.total)+'. Главная: '+r.data.leaks[0].n+' — перерасход '+fmt(r.data.leaks[0].over)+'.'; }
+    else { ans = '<b>'+r.data.leaks.length+' утечек</b> на '+fmt(r.data.total)+'. Главная: '+esc(r.data.leaks[0].n)+' — перерасход '+fmt(r.data.leaks[0].over)+'.'; }
   } else if(r.type === 'subs'){
     ans = '<b>'+r.data.subs.length+' активных подписок</b>: '+fmt(r.data.monthly)+'/мес, '+fmt(r.data.annual)+'/год.';
   } else if(r.type === 'payday'){
