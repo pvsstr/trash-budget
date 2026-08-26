@@ -117,6 +117,19 @@ function shiftCycle(cs, n){
 function esc(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+// Видимый отчёт об ошибке рендера (полоса снизу) — чтобы пользователь мог прислать скрин
+function reportErr(name, e){
+  try{
+    var d = document.getElementById('dbg');
+    if(!d){
+      d = document.createElement('div');
+      d.id = 'dbg';
+      d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#401010;color:#ffd7d7;padding:8px 12px;font:11px monospace;z-index:99999;max-height:110px;overflow:auto;white-space:pre-wrap';
+      document.body.appendChild(d);
+    }
+    d.textContent = 'Ошибка: ' + name + ' — ' + (e && e.message ? e.message : e) + (e && e.stack ? '  [' + String(e.stack).split('\n')[1] + ']' : '');
+  }catch(_){}
+}
 function toast(m){ var t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(function(){ t.remove(); },2500); }
 // Тост с кнопкой-действием (например, «Отменить» после удаления)
 function dToast(msg, btnTxt, cb){
@@ -4045,24 +4058,24 @@ function render(){
   }
   
   
-  try { renderDashboardNew(); } catch(e) { console.error('Ошибка в renderDashboardNew:', e); }
-  try { renderGoals(); } catch(e) { console.error('Ошибка в renderGoals:', e); }
-  try { renderBanner(); } catch(e) { console.error('Ошибка в renderBanner:', e); }
-  try { renderAnalytics(); } catch(e) { console.error('Ошибка в renderAnalytics:', e); }
-  try { renderDigest(); } catch(e) { console.error('Ошибка в renderDigest:', e); }
-  try { renderRec(); } catch(e) { console.error('Ошибка в renderRec:', e); }
-  try { renderAllTx(); } catch(e) { console.error('Ошибка в renderTx:', e); }
-   try { renderBudSummary(); } catch(e) { console.error('Ошибка в renderBudSummary:', e); }
-  try { renderEnv(); } catch(e) { console.error('Ошибка в renderEnv:', e); }
-  try { renderPays(); } catch(e) { console.error('Ошибка в renderPays:', e); }
-  try { renderSubs(); } catch(e) { console.error('Ошибка в renderSubs:', e); }
-  try { renderCredits(); } catch(e) { console.error('Ошибка в renderCredits:', e); }
-  try { renderInsts(); } catch(e) { console.error('Ошибка в renderInsts:', e); }
-  try { renderSpend(); } catch(e) { console.error('Ошибка в renderSpend:', e); }
-  try { renderIncome(); } catch(e) { console.error('Ошибка в renderIncome:', e); }
-  try { renderLearn(); } catch(e) { console.error('Ошибка в renderLearn:', e); }
-  try { renderMyCal(); } catch(e) { console.error('Ошибка в renderMyCal:', e); }
-  try { renderHerCal(); } catch(e) { console.error('Ошибка в renderHerCal:', e); }
+  try { renderDashboardNew(); } catch(e) { reportErr('renderDashboardNew', e); }
+  try { renderGoals(); } catch(e) { reportErr('renderGoals', e); }
+  try { renderBanner(); } catch(e) { reportErr('renderBanner', e); }
+  try { renderAnalytics(); } catch(e) { reportErr('renderAnalytics', e); }
+  try { renderDigest(); } catch(e) { reportErr('renderDigest', e); }
+  try { renderRec(); } catch(e) { reportErr('renderRec', e); }
+  try { renderAllTx(); } catch(e) { reportErr('renderTx', e); }
+   try { renderBudSummary(); } catch(e) { reportErr('renderBudSummary', e); }
+  try { renderEnv(); } catch(e) { reportErr('renderEnv', e); }
+  try { renderPays(); } catch(e) { reportErr('renderPays', e); }
+  try { renderSubs(); } catch(e) { reportErr('renderSubs', e); }
+  try { renderCredits(); } catch(e) { reportErr('renderCredits', e); }
+  try { renderInsts(); } catch(e) { reportErr('renderInsts', e); }
+  try { renderSpend(); } catch(e) { reportErr('renderSpend', e); }
+  try { renderIncome(); } catch(e) { reportErr('renderIncome', e); }
+  try { renderLearn(); } catch(e) { reportErr('renderLearn', e); }
+  try { renderMyCal(); } catch(e) { reportErr('renderMyCal', e); }
+  try { renderHerCal(); } catch(e) { reportErr('renderHerCal', e); }
 }
 
 function go(p){
