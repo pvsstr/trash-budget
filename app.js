@@ -1,7 +1,7 @@
 ﻿//restart deploy
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, deleteUser } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 var app = initializeApp({apiKey:"AIzaSyBrK9eZknNE3UBniVU2cnKUtwSOXnl_y2g",authDomain:"trash-budget-737fd.firebaseapp.com",projectId:"trash-budget-737fd",storageBucket:"trash-budget-737fd.firebasestorage.app",messagingSenderId:"996241413300",appId:"1:996241413300:web:ca7c0668e67f570c7373e1"});
 var auth = getAuth(app);
@@ -3959,6 +3959,15 @@ function render(){
   _allSpendsCache = null;
   _fcCache = null;
   var now = new Date();
+  var ab3 = $('accBox');
+  if(ab3){
+    var emA = (window._curUser && window._curUser.email) || '';
+    ab3.innerHTML = '<div class="glass card-padding" style="margin:0 0 14px">'
+      + '<b style="font-size:14px">Аккаунт</b>'
+      + '<p style="font-size:12px;color:var(--mut);margin:6px 0 12px">'+esc(emA||'вход выполнен')+'<br>Это хранилище — только ваше. Чужие аккаунты изолированы правилами доступа.</p>'
+      + '<button class="sh-btn ghost" style="margin:0 0 10px" data-act="exit">Выйти из аккаунта</button>'
+      + '<button class="sh-btn danger" style="margin:0" data-act="account-delete">Удалить аккаунт и данные</button></div>';
+  }
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
   if ($('appVersion')) $('appVersion').textContent = '1.0.0';
   if ($('lastSaveTime')) {
@@ -4966,6 +4975,27 @@ save(); render(); toast('Память применена: обновлено о�
       });
     });
   }
+  else if(act === 'au-tab'){ setAuthMode(el.getAttribute('data-v')); }
+  else if(act === 'au-login'){ doLogin(); }
+  else if(act === 'au-register'){ doRegister(); }
+  else if(act === 'au-reset'){ doReset(); }
+  else if(act === 'account-delete'){
+    dConfirm('Аккаунт и ВСЕ данные будут удалены безвозвратно. Сначала скачайте копию в этом же окне выше.', 'Удаление аккаунта', true).then(function(ok){
+      if(!ok){ return; }
+      var u2 = window._curUser;
+      if(!u2 || !uid){ return; }
+      deleteDoc(doc(db, 'users', uid)).then(function(){
+        return deleteUser(u2);
+      }).then(function(){
+        toast('Аккаунт удалён');
+      }).catch(function(e3){
+        var c3 = (e3 && e3.code) || '';
+        dAlert(c3.indexOf('requires-recent-login') !== -1
+          ? 'Нужен свежий вход: выйдите из аккаунта, войдите заново и повторите удаление.'
+          : 'Не удалось удалить аккаунт: ' + (c3 || e3.message), 'Удаление аккаунта');
+      });
+    });
+  }
   else if(act === 'exit'){ signOut(auth); }
 });
 
@@ -4993,6 +5023,59 @@ if(gbtn){
       gbtn.textContent = 'Войти через Google';
       dAlert('Не удалось войти: ' + ((err2 && err2.code) || err2), 'Ошибка входа');
     });
+  });
+}
+
+// ===== РЕГИСТРАЦИЯ И ВХОД ПО E-MAIL =====
+function authErr(e){
+  var c = (e && e.code) || '';
+  if(c.indexOf('invalid-email') !== -1){ return 'Некорректный e-mail'; }
+  if(c.indexOf('missing-password') !== -1 || c.indexOf('empty-password') !== -1){ return 'Введите пароль'; }
+  if(c.indexOf('weak-password') !== -1){ return 'Пароль короче 6 символов'; }
+  if(c.indexOf('email-already-in-use') !== -1){ return 'Такой аккаунт уже есть — переключитесь на вкладку «Вход»'; }
+  if(c.indexOf('wrong-password') !== -1 || c.indexOf('invalid-credential') !== -1 || c.indexOf('user-not-found') !== -1){ return 'Неверный e-mail или пароль'; }
+  if(c.indexOf('too-many-requests') !== -1){ return 'Слишком много попыток — подождите минуту'; }
+  if(c.indexOf('network') !== -1){ return 'Нет соединения с сетью'; }
+  return 'Ошибка: ' + (c || (e && e.message) || 'неизвестно');
+}
+function setAuthMode(m){
+  var ti = $('tabIn'), tu = $('tabUp'), go = $('auGo');
+  if(!ti || !tu || !go){ return; }
+  window._auMode = m;
+  ti.classList.toggle('on', m === 'in');
+  tu.classList.toggle('on', m === 'up');
+  go.textContent = (m === 'up') ? 'Создать аккаунт' : 'Войти';
+  go.setAttribute('data-act', (m === 'up') ? 'au-register' : 'au-login');
+  $('auPass').setAttribute('autocomplete', (m === 'up') ? 'new-password' : 'current-password');
+}
+function doLogin(){
+  var m = $('auMail').value.trim(), p = $('auPass').value;
+  if(!m || !p){ dAlert('Заполните e-mail и пароль.', 'Вход'); return; }
+  var b = $('auGo'); b.textContent = 'Вхожу…';
+  signInWithEmailAndPassword(auth, m, p).catch(function(e){
+    b.textContent = 'Войти';
+    dAlert(authErr(e), 'Вход');
+  });
+}
+function doRegister(){
+  var m = $('auMail').value.trim(), p = $('auPass').value;
+  if(!m){ dAlert('Укажите e-mail.', 'Регистрация'); return; }
+  if(p.length < 6){ dAlert('Пароль минимум 6 символов. Придумайте надёжный — он охраняет все ваши данные.', 'Регистрация'); return; }
+  var b = $('auGo'); b.textContent = 'Создаю…';
+  createUserWithEmailAndPassword(auth, m, p).then(function(){
+    toast('Аккаунт создан — добро пожаловать на МАЯК!');
+  }).catch(function(e){
+    b.textContent = 'Создать аккаунт';
+    dAlert(authErr(e), 'Регистрация');
+  });
+}
+function doReset(){
+  var m = $('auMail').value.trim();
+  if(!m){ dAlert('Введите e-mail в поле выше — отправим на него ссылку для сброса пароля.', 'Сброс пароля'); return; }
+  sendPasswordResetEmail(auth, m).then(function(){
+    dAlert('Письмо со ссылкой для сброса отправлено на ' + m + '. Проверьте почту (и папку «Спам»).', 'Сброс пароля');
+  }).catch(function(e){
+    dAlert(authErr(e), 'Сброс пароля');
   });
 }
 
@@ -5025,6 +5108,7 @@ onAuthStateChanged(auth, function(u){
     return;
   }
   uid = u.uid;
+  window._curUser = u;
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
   (window._pagesLoaded || Promise.resolve()).then(function() {
