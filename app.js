@@ -469,6 +469,41 @@ try{
   });
 }catch(e){}
 
+// ===== МОБИЛЬНЫЕ ОЩУЩЕНИЯ (Xiaomi/Android) =====
+function vib(ms){ try{ if(navigator.vibrate){ navigator.vibrate(ms); } }catch(e){} }
+// Поиск по истории: рендер не чаще 4 раз в секунду при наборе
+function debRerender(){ var t=null; return function(){ clearTimeout(t); var s=this; t=setTimeout(function(){ renderTx(); },180); }; }
+function debRerender2(){ var t=null; return function(){ clearTimeout(t); var s=this; t=setTimeout(function(){ renderTx('2'); },180); }; }
+(function(){
+  var sh = $('sheet');
+  if(!sh){ return; }
+  // Свайп вниз по «ручке» шторки закрывает её
+  var sy = 0, tracking = false;
+  sh.addEventListener('touchstart', function(e){
+    var t = e.touches[0];
+    var rect = sh.getBoundingClientRect();
+    tracking = (sh.scrollTop <= 4 && t.clientY - rect.top < 64);
+    sy = t.clientY;
+  }, {passive:true});
+  sh.addEventListener('touchmove', function(e){
+    if(!tracking){ return; }
+    var dy = e.touches[0].clientY - sy;
+    if(dy > 90){
+      tracking = false;
+      vib(8);
+      closeSheet();
+    }
+  }, {passive:true});
+  // Клавиатура убирается при прокрутке шторки
+  var blT = null;
+  sh.addEventListener('scroll', function(){
+    if(blT){ return; }
+    blT = setTimeout(function(){ blT = null; }, 300);
+    var ae = document.activeElement;
+    if(ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.blur){ ae.blur(); }
+  }, {passive:true});
+})();
+
 var dlgResolve = null;
 function dlgBuild(){
   if($('dlgBox')){ return; }
@@ -3608,12 +3643,12 @@ function detectCreditIntent(n){
 function applyCreditPay(cr, amt, d){
   cr.cur = Math.max(0, (cr.cur||0) - amt);
   D.spends.push({id:Date.now(), d:d, n:'Платёж: '+cr.n, cat:'other', s:amt, tag:'planned'});
-  save(); render();
+  save(); render(); vib(12);
   toast(cr.cur <= 0 ? 'Кредит «'+cr.n+'» закрыт!' : 'Платёж по «'+cr.n+'»: −'+fmt(amt));
 }
 function finishPush(o, after){
   D.spends.push({id:Date.now(), d:o.d, n:o.n || catById(o.cat).n, cat:o.cat, s:o.amt, tag:o.tag || 'normal'});
-  save(); render(); toast('Трата добавлена: −'+fmt(o.amt));
+  save(); render(); vib(10); toast('Трата добавлена: −'+fmt(o.amt));
   if(after){ after(); }
 }
 // Умная запись: сначала проверяем, не платёж ли это по кредиту
@@ -4595,7 +4630,7 @@ save(); render(); toast('Память применена: обновлено о�
         var sid = Date.now();
         D.spends.push({id:sid, d:iso(new Date()), n:pay.n, cat:autoCat(pay.n), s:pay.s, manual:1});
         D.paid = D.paid || {}; var key = cycleKey(); D.paid[key] = D.paid[key] || {}; D.paid[key][pay.id] = sid;
-        save(); render(); toast('Платёж отмечен оплаченным');
+        save(); render(); vib(12); toast('Платёж отмечен оплаченным');
       });
     }
   }
@@ -4767,8 +4802,8 @@ onAuthStateChanged(auth, function(u){
       }
       var spDate = $('spDate');
       if (spDate) spDate.value = iso(new Date());
-      if($('q')){ $('q').addEventListener('input', function(){ renderTx(); }); }
-      if($('q2')){ $('q2').addEventListener('input', function(){ renderTx('2'); }); }
+      if($('q')){ $('q').addEventListener('input', debRerender()); }
+      if($('q2')){ $('q2').addEventListener('input', debRerender2()); }
       if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
             // Чипы быстрых сценариев в чате
       var chatContainer = $('chatLog');
@@ -5258,17 +5293,24 @@ function fcClamp(){
   if(FC.i0 + FC.span > total){ FC.i0 = total - FC.span; }
 }
 
+// Перерисовка прогноза не чаще кадров монитора (плавно на 120 Гц)
+var _fcRaf = null;
+function fcSchedule(){
+  if(_fcRaf){ return; }
+  _fcRaf = requestAnimationFrame(function(){ _fcRaf = null; if(FC){ fcPaint(); } });
+}
+
 function fcZoom(dir, anchorIdx){
   if(!FC){ return; }
   var total = FC.f.flow.length - 1;
-  if(dir === 'reset'){ FC.i0 = 0; FC.span = total; fcPaint(); return; }
+  if(dir === 'reset'){ FC.i0 = 0; FC.span = total; fcSchedule(); return; }
   var k = dir === 'in' ? 0.6 : 1.7;
   var a = (typeof anchorIdx === 'number') ? anchorIdx : (FC.i0 + FC.span/2);
   var rel = (a - FC.i0) / FC.span;
   FC.span = FC.span * k;
   FC.i0 = a - rel * FC.span;
   fcClamp();
-  fcPaint();
+  fcSchedule();
 }
 
 function drawForecastChart(f){
@@ -5284,7 +5326,7 @@ function drawForecastChart(f){
   }
   function panBy(dxPx){
     FC.i0 -= dxPx / FC.plot.pw * FC.span;
-    fcClamp(); fcPaint();
+    fcClamp(); fcSchedule();
   }
 
   c.addEventListener('wheel', function(ev){
@@ -5325,7 +5367,7 @@ function drawForecastChart(f){
       var rel = (pinch.a - FC.i0)/FC.span;
       FC.span = pinch.span * (pinch.d / nd);
       FC.i0 = pinch.a - rel * FC.span;
-      fcClamp(); fcPaint();
+      fcClamp(); fcSchedule();
       return;
     }
     if(drag && ev.touches.length === 1){
