@@ -3589,9 +3589,102 @@ function openMonthReport(){
     + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="report-copy">Скопировать</button>'
     + '<button class="sh-btn" style="margin:0;flex:1" data-act="report-share">Поделиться</button>'
     + '</div>'
+    + '<button class="sh-btn ghost" data-act="year-report">Год одним экраном</button>'
     + tipHtml(saved >= 0 ? 'Месяц закрыт в плюс — переведи остаток в цели кнопкой «В копилку».' : 'Месяц закрыт в минус — посмотри гибкие траты в аналитике и урежь их.');
   $('sheetBody').innerHTML = h;
   $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+// Год одним экраном: 12 последних циклов/месяцев лентой
+function openYearReport(){
+  var now = new Date();
+  var rows = [];
+  var totS = 0, totI = 0, firstFrom = null, lastTo = null;
+  for(var i=12;i>=1;i--){
+    var from, to, label;
+    if(D.cycleMode === 'calendar'){
+      var f0 = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      from = f0; to = new Date(f0.getFullYear(), f0.getMonth()+1, 1);
+      label = MONTHS_S[from.getMonth()] + ' ' + String(from.getFullYear()).slice(2);
+    } else {
+      from = shiftCycle(cycleStart(now), -i);
+      to = cycleEnd(from);
+      var toIn = new Date(to.getTime() - 864e5);
+      label = from.getDate()+'.'+String(from.getMonth()+1).padStart(2,'0')+'–'+toIn.getDate()+'.'+String(toIn.getMonth()+1).padStart(2,'0');
+    }
+    var spL = allSpends().filter(function(x){ return x.d >= from && x.d < to; });
+    var s = 0, j;
+    for(j=0;j<spL.length;j++){ s += spL[j].s; }
+    var inc = 0;
+    for(j=0;j<(D.incomes||[]).length;j++){ var dd = parseD(D.incomes[j].d); if(dd >= from && dd < to){ inc += D.incomes[j].s; } }
+    totS += s; totI += inc;
+    if(!firstFrom){ firstFrom = from; }
+    lastTo = to;
+    rows.push({label:label, s:s, i:inc, v:inc - s});
+  }
+  // топ-категории года
+  var catY = {};
+  var yrAll = allSpends().filter(function(x){ return x.d >= firstFrom && x.d < lastTo; });
+  for(var y2=0;y2<yrAll.length;y2++){
+    var ck2 = yrAll[y2].cat || 'other';
+    catY[ck2] = (catY[ck2]||0) + yrAll[y2].s;
+  }
+  var yArr = [];
+  for(var cy in catY){ yArr.push({id:cy, s:catY[cy]}); }
+  yArr.sort(function(a,b){ return b.s - a.s; });
+  var mxR = 1;
+  for(var r2=0;r2<rows.length;r2++){ if(rows[r2].s > mxR){ mxR = rows[r2].s; } }
+  // лучший и худший период по сбережениям
+  var best = null, worst = null;
+  for(r2=0;r2<rows.length;r2++){
+    if(rows[r2].i <= 0){ continue; }
+    if(!best || rows[r2].v > best.v){ best = rows[r2]; }
+    if(!worst || rows[r2].v < worst.v){ worst = rows[r2]; }
+  }
+  // тренд: первые 4 против последних 4
+  var head4 = 0, tail4 = 0;
+  for(i=0;i<rows.length;i++){
+    if(i < 4){ head4 += rows[i].s; }
+    if(i >= rows.length-4){ tail4 += rows[i].s; }
+  }
+  head4 /= Math.min(4, rows.length); tail4 /= Math.min(4, rows.length);
+  var trendPct = head4 > 0 ? Math.round((tail4-head4)/head4*100) : 0;
+  var rate = totI > 0 ? Math.round((totI-totS)/totI*100) : 0;
+  var rl = ['Отчёт ТРЕШ · год одним экраном'];
+  for(var ri=0;ri<rows.length;ri++){
+    rl.push(rows[ri].label+': −'+fmt(rows[ri].s)+(rows[ri].v>=0?' · в плюс +':' · в минус −')+fmt(Math.abs(rows[ri].v)));
+  }
+  rl.push('За год: доход '+fmt(totI)+', расход '+fmt(totS)+', норма '+rate+'%');
+  if(best){ rl.push('Лучший период: '+best.label+' (+'+fmt(best.v)+')'); }
+  if(worst){ rl.push('Худший: '+worst.label+' (−'+fmt(Math.abs(worst.v))+')'); }
+  rl.push('Тренд: последние 4 периода '+(trendPct>=0?'дороже':'дешевле')+' первых на '+Math.abs(trendPct)+'%');
+  window._reportText = rl.join('\n');
+  var h = sheetHead('i-grid','c-pur','Год одним экраном','12 циклов · доход '+fmt(totI)+' · расход '+fmt(totS));
+  for(r2=0;r2<rows.length;r2++){
+    var rr = rows[r2];
+    var colR = rr.v >= 0 ? 'var(--grn)' : 'var(--red)';
+    h += '<div style="margin:7px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>'+rr.label+'</span><span><b>−'+fmt(rr.s)+'</b> <b style="color:'+colR+'">'+(rr.v>=0?'+':'−')+fmt(Math.abs(rr.v))+'</b></span></div>'
+      + '<div class="bar-large" style="height:5px;margin-top:3px"><i style="width:'+Math.round(rr.s/mxR*100)+'%;background:'+(rr.v>=0?'rgba(48,209,88,.55)':'rgba(255,69,58,.55)')+'"></i></div></div>';
+  }
+  h += '<div class="sh-row"><span>Норма сбережений за год</span><b style="color:'+(rate>=10?'var(--grn)':(rate>=0?'var(--org)':'var(--red)'))+'">'+rate+'%</b></div>';
+  if(best){ h += rowHtml('Лучший период', best.label+' · +'+fmt(best.v)); }
+  if(worst){ h += rowHtml('Худший период', worst.label+' · −'+fmt(Math.abs(worst.v))); }
+  h += '<div class="cap" style="margin:14px 4px 6px">Куда ушёл год</div>';
+  for(i=0;i<yArr.length && i<5;i++){
+    h += gRowLocal(catById(yArr[i].id).n, yArr[i].s, totS);
+  }
+  var trendTxt = trendPct > 5 ? 'Тратишь на '+trendPct+'% больше, чем в начале года. Посмотри топ-категории — там и рост.' : (trendPct < -5 ? 'Тратишь на '+Math.abs(trendPct)+'% меньше, чем в начале года. Год закрыт лучше, чем открыт.' : 'Темп трат стабильный весь год.');
+  h += tipHtml(trendTxt)
+    + '<div class="dlg-btns" style="margin-top:12px">'
+    + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="report-copy">Скопировать</button>'
+    + '<button class="sh-btn" style="margin:0;flex:1" data-act="report-share">Поделиться</button>'
+    + '</div>';
+  $('sheetBody').innerHTML = h;
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+}
+function gRowLocal(name, val, tot){
+  var p2 = tot > 0 ? Math.round(val/tot*100) : 0;
+  return '<div class="g-row"><div class="g-head"><span>'+esc(name)+'</span><b>'+fmt(val)+' · '+p2+'%</b></div>'
+    + '<div class="bar-large" style="height:6px"><i style="width:'+Math.min(100,p2)+'%;background:var(--pur)"></i></div></div>';
 }
 function fallbackCopy(t){
   var ta = document.createElement('textarea');
@@ -4444,6 +4537,7 @@ save(); render(); toast('Память применена: обновлено о�
       toast('Скопировано — вставьте куда нужно');
     }
   }
+  else if(act === 'year-report'){ openYearReport(); }
   else if(act === 'month-report'){ openMonthReport(); }
   else if(act === 'xfer-del'){
     var xdId = parseFloat(el.getAttribute('data-i'));
