@@ -1,0 +1,79 @@
+# СЕССИЯ TRASH-BUDGET — 25.08.2026 — ТОЧКА ВОЗВРАТА
+
+Файл-сохранение для продолжения работы. Любая нейросеть + этот файл + репозиторий = полный контекст.
+
+## КАК ВОЗОБНОВИТЬ
+
+1. Открыть проект в рабочей папке (`C:\Users\User\Documents\Default Project`, репо уже склонирован).
+2. Дать ИИ этот файл + команду «продолжаем».
+3. ИИ обязан перечитать ключевые функции перед правками (см. раздел «Карта кода»).
+
+## СОСТОЯНИЕ
+
+- **main HEAD:** `46b4956` — Custom envelopes, credit-payment autodetect, env quick-add, Xiaomi back-button
+- **Деплой:** пуш в main → GitHub Actions → Pages. Статус видно внизу настроек приложения.
+- **Рабочее дерево:** чистое, всё запушено.
+- **Синтаксис:** проверен (`node --check`), тесты циклов пройдены.
+
+## ЧТО СДЕЛАНО ЗА СЕССИЮ (11 коммитов, сверху вниз)
+
+| Коммит | Что |
+|---|---|
+| 46b4956 | Конверты: любое имя + несколько категорий + 16 иконок + 9 цветов; автоопределение платежей по кредитам («Т-банк»→кредит); быстрое добавление трат из шторки конверта; шаблоны частых покупок конверта; кнопка «Назад» закрывает оверлеи; фикс отсутствующей иконки i-fun |
+| 7616d3f | Трата: чипы категорий вместо select, фокус на сумме, «Сохранить и ещё», автокатегория по названию; undo удаления (тост «Отменить», 6 сек); «Платежи на 3 дня» = список с кнопками оплаты; защита от двойной зарплаты через шаблон |
+| 0c8d413 | Внутренние переводы («перевод себе» — не влияет на баланс); guards пустых данных: health/runway/todayLine/weekBudget/budSummary/iAvgBox/iTpl/sIncP; кламп дня зарплаты 1–31 |
+| 06d5e2f | Пустые конверты — подсказка; тост завершения настройки |
+| 5960e28 | Аномалии чеков при вводе (>3× среднего категории, >дневного лимита); «Выходные против будней» (wkndStats + шторка + строка привычек); чек-лист первичной настройки 4 шага; брифинг-заглушка до настройки |
+| cb843eb | Визуал: радиусы карточек брифинга/предупреждений, сетка быстрых действий ≤520px |
+| aaaf1d1 | Wishlist 24ч («Могу купить?» → записать желание → купить после выдержки); аудит подписок по факту списаний (подорожала / мёртвая 90+ дн) + сигналы; уроки 8→18 (Основы + Мастерская ТРЕШ) с группировкой; убраны эмодзи; CSS: var(--blu) не существовал → --teal; bnav 7 колонок; .tagb бейджи; title страницы |
+| e634819 | Обучение починено (уроки открывались в пустую, отметить было нельзя) + lessonApply; кредиты: платёж+день списания на карточке, ETA закрытия; calcMonthlyPlan/rebalanceBudget → циклы; banner по циклу; кэш allSpends/_fcCache (+whatIf без мутации); esc() базово; deployCheck замедление |
+| 4f1a5d1 | Кредиты в прогнозе (pay/d → nextPay, fixedPay, forecast events «Кредит:»); Брифинг на сегодня; Предупреждения заранее (warnBox, 14 дней, риск = запас<10 дн или минус); lifeMin переписан (база за 3 цикла, без double count, флаг lifeMinManual) |
+| 44abf35 | Отчёт за цикл (был undefined в salary mode) + leaksForRange; health sheet читал cushion из массива как поле; сигналы: приоритеты у всех 12 + якорь cycleStart + окно 60 дней; logDecision на реальных действиях (sub-toggle/goalFund/postpone); sw.js runtime cache; дубль h-mode удалён |
+| e7fe60c | ЦИКЛЫ: shiftCycle(cs,n) — навигация строго по фактическим датам зарплат; periodRange/renderSpend/incRange/histRange2/openCycCompareSheet переведены на неё; cycLabel синхронизирован с cycleLabel (конец = день−1) |
+
+## ТОЧКИ ОТКАТА (теги, все запушены)
+
+`backup/2026-08-25-cycles-ok` → `-pre-brain-fix` → `-pre-briefing` → `-pre-audit` → `-pre-audit2` → `-pre-wishes` → `-pre-newbie` → `-pre-xfer` → `-pre-ux` → `-pre-envs` (последний = состояние до этого сеанса, HEAD `7616d3f`... фактически pre-envs указывает на `46b4956^` = `7616d3f`).
+
+Откат: `git checkout backup/<тег> -- . && git commit && git push origin main`
+
+## КАРТА КОДА (обязательно к перечитыванию перед правками)
+
+- app.js ~6100 строк. Ключевые зоны:
+  - строки ~30–130: даты/циклы (salaryDate, getLast/NextSalaryDate, cycleStart/End/Label, shiftCycle, cycLabel)
+  - ~150–260: CATS, CAT2ENV, KEYCAT, LESSONS(18)+lessonApply, DEMO
+  - ~300–420: normalize (envs.cats миграция, wishes, transfers), allSpends (кэш `_allSpendsCache`), sums/realBal, nextPay(кредиты), calcFixedPay(кредиты)
+  - ~430–520: periodRange (shiftCycle), диалоги
+  - ~700–900: openSheet ветки (balance/cycle-detail/upcoming-detail=платежи с кнопками/goals/income/leaks/leak/tip/learn/health/daily/fixed/runway/saverate)
+  - ~1900–2400: renderDashboardNew (setupState чек-лист, briefBox, warnBox, rhythmTxt, runway guards)
+  - ~2700–3100: wishlist (openCanBuy), subAudit, getSignals (13 шт, prio()), debtSnowball, calcLifeMin
+  - ~3300–3500: render() + go() + back-button (closeTopOverlay + popstate sentinel {tbRoot})
+  - ~3800–4000: click-dispatcher (все data-act)
+  - ~4400–4800: forecastCashFlow (кэш _fcCache, события вкл. кредиты), fcChart, explainForecast, cashRunway, minBalance, canAfford, debtSnowball
+  - ~5000+: agentParse/agentAnswer (intents: afford/debt/leaks/subs/payday/daily/lesson/setup/month/signals/scenario)
+- pages/: dash(setupBox,briefBox,warnBox), spend(hMode2 cyc), income(iCycOff), budget(budSummary,envList,pays,subs,credits pay/d,insts), learn, chat(чипы), settings(cycle-toggle,backup)
+- sw.js v3 network-first + runtime cache. icons.js спрайт (i-fun добавлен).
+
+## ПРАВИЛА (не нарушать)
+
+- ES5 только (var/function, без стрелок/let/шаблонных строк). Без сборщиков и зависимостей.
+- НИКАКИХ эмодзи в UI/тостах.
+- Русский UI, тон дружелюбный но с цифрами.
+- Пользователь не программист; отвечать коротко; большие тексты — частями по команде «Дальше».
+- Перед пушем: node --check app.js (копия в .mjs), бэкап-тег `backup/дата-что`.
+- Все данные пользователя — только в Firebase D, никаких цифр в коде.
+
+## ХВОСТ ЗАДАЧ (приоритет)
+
+1. Xiaomi 14, часть 2: тап-зоны bnav (56px есть), автозакрытие клавиатуры при скролле шторки, проверить 120Hz-скролл canvas графиков, safe-area в ландшафте.
+2. «Назад» закрывает не все прямые шторки (rebalance-show, stmt-parse пишут sheetBody напрямую минуя openSheet — popstate их закроет т.к. класс .on общий, но стек-запись одна: два подряд оверлея закроются одним Back). Приемлемо, можно уточнить.
+3. Экспорт отчёта за цикл (текст/картинка для отправки).
+4. Автосоздание подписок из повторяющихся выписок.
+5. Полное экранирование esc() во всех местах вставки пользовательских строк (сейчас частично).
+6. Firestore rules: убедиться, что доступ только владельцу (вне кода, в консоли Firebase).
+
+## ОТВЕТЫ НА ЧАСТЫЕ ВОПРОСЫ ПОЛЬЗОВАТЕЛЯ
+
+- Зарплата 20-го с переносом выходных (сб→пт, вс→пн). Цикл от ФАКТИЧЕСКОЙ даты прихода.
+- Доход ~114 493 ₽; аренда 63 500; кредиты Т-Банк 105 766 и Альфа 18 200 — платежи по ним пользователь вписывает сам в карточке кредита (Бюджет → карандаш или оранжевая кнопка).
+- Стиль общения: коротко, жёстко, с цифрами.
