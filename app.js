@@ -4031,7 +4031,8 @@ function render(){
   }
     var acEl = $('attCenter');
   if(acEl){
-    var sigs = getSignals();
+    var sigs = [];
+    try{ sigs = getSignals(); }catch(eSig){ console.error('getSignals:', eSig); }
     var ih = '';
     for(var si=0;si<sigs.length;si++){
       var s = sigs[si];
@@ -5006,8 +5007,13 @@ save(); render(); toast('Память применена: обновлено о�
   else if(act === 'demo-enter'){
     vib(10);
     (window._pagesLoaded || Promise.resolve()).then(function(){
-      D = buildDemoData();
-      normalize();
+      try{
+        D = buildDemoData();
+        normalize();
+      }catch(de){
+        dAlert('Не удалось подготовить демо: ' + (de && de.message), 'Демо');
+        return;
+      }
       uid = null;
       window._curUser = null;
       window._demoMode = true;
@@ -5015,10 +5021,11 @@ save(); render(); toast('Память применена: обновлено о�
       $('app').classList.remove('hidden');
       if ($('hello')) $('hello').textContent = 'Демо-режим';
       if ($('mMail')) $('mMail').textContent = 'демо';
-      wireUi();
+      try{ wireUi(); }catch(e2){}
       render();
       go('dash');
       placeTip();
+      vib(12);
       toast('Демо: цифры вымышлены, ничего не сохраняется');
     });
   }
@@ -5190,6 +5197,7 @@ function loadPages() {
 window._pagesLoaded = loadPages();
 
 onAuthStateChanged(auth, function(u){
+  if(window._demoMode){ return; }
   if(!u){
     $('login').classList.remove('hidden');
     $('app').classList.add('hidden');
@@ -5251,6 +5259,16 @@ function wireUi(){
 }
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+
+// Завершение входа через Google после редиректа (без этого вход «откатывался»)
+try{
+  getRedirectResult(auth).catch(function(e){
+    var c = (e && e.code) || '';
+    if(c.indexOf('unauthorized-domain') !== -1){
+      dAlert('Домен не добавлен в Firebase Console → Authentication → Settings → Authorized domains.', 'Вход через Google');
+    }
+  });
+}catch(e){}
 
 var watchBaseSuccess = null;
 var deployPolls = 0;

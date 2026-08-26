@@ -1,4 +1,4 @@
-var CACHE = 'tb-runtime-v4';
+var CACHE = 'tb-runtime-v5';
 
 self.addEventListener('install', function(event) {
   self.skipWaiting();
