@@ -3961,12 +3961,19 @@ function render(){
   var now = new Date();
   var ab3 = $('accBox');
   if(ab3){
-    var emA = (window._curUser && window._curUser.email) || '';
-    ab3.innerHTML = '<div class="glass card-padding" style="margin:0 0 14px">'
-      + '<b style="font-size:14px">Аккаунт</b>'
-      + '<p style="font-size:12px;color:var(--mut);margin:6px 0 12px">'+esc(emA||'вход выполнен')+'<br>Это хранилище — только ваше. Чужие аккаунты изолированы правилами доступа.</p>'
-      + '<button class="sh-btn ghost" style="margin:0 0 10px" data-act="exit">Выйти из аккаунта</button>'
-      + '<button class="sh-btn danger" style="margin:0" data-act="account-delete">Удалить аккаунт и данные</button></div>';
+    if(window._demoMode){
+      ab3.innerHTML = '<div class="glass card-padding" style="margin:0 0 14px;border:1px dashed rgba(255,255,255,.3)">'
+        + '<b style="font-size:14px">Демо-режим</b>'
+        + '<p style="font-size:12px;color:var(--mut);margin:6px 0 12px">Вы смотрите на вымышленных цифрах. Ничего не сохраняется — перезагрузка вернёт на экран входа.</p>'
+        + '<button class="sh-btn" style="margin:0" data-act="exit">Выйти из демо и войти в свой аккаунт</button></div>';
+    } else {
+      var emA = (window._curUser && window._curUser.email) || '';
+      ab3.innerHTML = '<div class="glass card-padding" style="margin:0 0 14px">'
+        + '<b style="font-size:14px">Аккаунт</b>'
+        + '<p style="font-size:12px;color:var(--mut);margin:6px 0 12px">'+esc(emA||'вход выполнен')+'<br>Это хранилище — только ваше. Чужие аккаунты изолированы правилами доступа.</p>'
+        + '<button class="sh-btn ghost" style="margin:0 0 10px" data-act="exit">Выйти из аккаунта</button>'
+        + '<button class="sh-btn danger" style="margin:0" data-act="account-delete">Удалить аккаунт и данные</button></div>';
+    }
   }
   if ($('curDate')) $('curDate').textContent = now.toLocaleDateString('ru-RU', {weekday:'long', day:'numeric', month:'long'});
   if ($('appVersion')) $('appVersion').textContent = '1.0.0';
@@ -4996,7 +5003,29 @@ save(); render(); toast('Память применена: обновлено о�
       });
     });
   }
-  else if(act === 'exit'){ signOut(auth); }
+  else if(act === 'demo-enter'){
+    vib(10);
+    (window._pagesLoaded || Promise.resolve()).then(function(){
+      D = buildDemoData();
+      normalize();
+      uid = null;
+      window._curUser = null;
+      window._demoMode = true;
+      $('login').classList.add('hidden');
+      $('app').classList.remove('hidden');
+      if ($('hello')) $('hello').textContent = 'Демо-режим';
+      if ($('mMail')) $('mMail').textContent = 'демо';
+      wireUi();
+      render();
+      go('dash');
+      placeTip();
+      toast('Демо: цифры вымышлены, ничего не сохраняется');
+    });
+  }
+  else if(act === 'exit'){
+    if(window._demoMode){ location.reload(); return; }
+    signOut(auth);
+  }
 });
 
 $('shb').addEventListener('click', closeSheet);
@@ -5079,6 +5108,65 @@ function doReset(){
   });
 }
 
+// ===== ДЕМО-РЕЖИМ =====
+// Вымышленные данные, даты строятся от «сегодня», чтобы циклы и прогноз выглядели живыми
+function buildDemoData(){
+  function ds(off){ var d = new Date(Date.now() - off*864e5); return iso(d); }
+  var sp = [], i, off;
+  var groc = ['Пятёрочка','Магнит','ВкусВилл','Перекрёсток'];
+  for(i=0;i<26;i++){ off = i*2 + (i%3); sp.push({id:1e6+i, d:ds(off), n:groc[i%4], cat:'grocery', s:380+((i*173)%900), tag:(i%7===0)?'needed':'normal'}); }
+  var cafe = ['Кофейня у офиса','Додо Пицца','Хочу пышку'];
+  for(i=0;i<14;i++){ off = i*4 + (i%2) + 1; sp.push({id:2e6+i, d:ds(off), n:cafe[i%3], cat:'cafe', s:190+((i*97)%420), tag:(i%5===2)?'impulse':'normal'}); }
+  for(i=0;i<12;i++){ sp.push({id:3e6+i, d:ds(i*5+2), n:'Тройка', cat:'transport', s:55+((i*13)%40)}); }
+  for(i=0;i<7;i++){ sp.push({id:4e6+i, d:ds(i*8+3), n:'Яндекс Такси', cat:'taxi', s:270+((i*211)%330)}); }
+  for(i=0;i<4;i++){ sp.push({id:5e6+i, d:ds(i*17+5), n:'Whoosh', cat:'scooters', s:120+((i*89)%230)}); }
+  sp.push({id:6e6, d:ds(9), n:'Аптечка', cat:'health', s:640, tag:'needed'});
+  sp.push({id:6e6+1, d:ds(31), n:'Аптека', cat:'health', s:890, tag:'needed'});
+  sp.push({id:6e6+2, d:ds(18), n:'Куртка демисезонная', cat:'clothes', s:5400, tag:'planned'});
+  sp.push({id:6e6+3, d:ds(6), n:'Кино', cat:'fun', s:520});
+  sp.push({id:6e6+4, d:ds(27), n:'Кино', cat:'fun', s:480});
+  sp.push({id:6e6+5, d:ds(2), n:'Наушники (купил импульсно)', cat:'personal', s:3490, tag:'impulse'});
+  sp.push({id:6e6+6, d:ds(21), n:'Аренда квартиры', cat:'home', s:35000, tag:'planned'});
+  sp.push({id:6e6+7, d:ds(51), n:'Аренда квартиры', cat:'home', s:35000, tag:'planned'});
+  sp.push({id:6e6+8, d:ds(12), n:'Продукты к празднику', cat:'grocery', s:3200, tag:'planned'});
+  var inc = [
+    {id:7e6, d:ds(12), n:'Заработная плата', s:96000, k:'salary'},
+    {id:7e6+1, d:ds(42), n:'Заработная плата', s:96000, k:'salary'},
+    {id:7e6+2, d:ds(9), n:'Кэшбэк Т-Банк', s:1240, k:'cash'}
+  ];
+  var envs = [
+    {id:8e6, n:'Продукты', lim:16000, cats:['grocery'], ic:'i-cart', k:'c-grn'},
+    {id:8e6+1, n:'Кафе', lim:7000, cats:['cafe'], ic:'i-coffee', k:'c-red'},
+    {id:8e6+2, n:'Транспорт', lim:4000, cats:['transport','taxi','scooters'], ic:'i-train', k:'c-blu'},
+    {id:8e6+3, n:'Личное', lim:9000, cats:['personal','fun','clothes','health','other','subs'], ic:'i-gift', k:'c-pur'}
+  ];
+  var pays = [
+    {id:9e6, n:'Аренда', s:35000, d:21},
+    {id:9e6+1, n:'Мобильная связь', s:450, d:5},
+    {id:9e6+2, n:'Интернет', s:600, d:8}
+  ];
+  var subs = [
+    {id:9e6+10, n:'Кинопоиск', s:299, off:0},
+    {id:9e6+11, n:'Spotify', s:169, off:0},
+    {id:9e6+12, n:'iCloud', s:59, off:0},
+    {id:9e6+13, n:'Музсервис (забыл отключить)', s:199, off:0}
+  ];
+  var credits = [{id:9e6+20, n:'Кредитка Т-Банк', cur:23400, total:80000, pay:4200, d:15}];
+  var insts = [{id:9e6+30, n:'Рассрочка: чайник', s:1290, d:ds(-38)}];
+  var goals = [
+    {id:9e6+40, n:'Подушка безопасности', cur:48000, target:200000, deadline:null, done:false},
+    {id:9e6+41, n:'Отпуск в Сочи', cur:12700, target:90000, deadline:ds(-150), done:false},
+    {id:9e6+42, n:'Ноутбук', cur:30000, target:30000, deadline:null, done:true}
+  ];
+  var wishes = [{id:9e6+50, n:'Кресло для работы', amt:8900, d:new Date(Date.now()-26*36e5).toISOString(), st:'wait'}];
+  return {demo:true, income:96000, salaryDay:20, baseBalance:61000,
+    spends:sp, incomes:inc, tx:[], envs:envs, pays:pays, subs:subs, credits:credits, insts:insts,
+    goals:goals, events:[], her:{}, learned:[1,2,4], removedAuto:[], cancelled:[], leakFixed:{}, paid:{},
+    merchRules:{'пятёрочка':'grocery','додо':'cafe','whoosh':'scooters'}, decisions:[], cycleMode:'salary',
+    wishes:wishes, transfers:[], recurHide:[], lastBalCheck:Date.now()-20*864e5, lastBackup:0,
+    lastSave:Date.now(), seedVersion:0};
+}
+
 function loadPages() {
   var pages = ['dash', 'spend', 'income', 'budget', 'learn', 'chat', 'settings'];
   var container = document.getElementById('pageContent');
@@ -5120,41 +5208,47 @@ onAuthStateChanged(auth, function(u){
       normalize();
       if(window.SEED && (D.seedVersion||0) !== window.SEED.version){ applySeed(window.SEED); }
       ensureSalary();
-      var sel = $('spCat');
-      if (sel) {
-        sel.innerHTML = '';
-        for(var i=0;i<CATS.length;i++){
-          var o = document.createElement('option');
-          o.value = CATS[i].id; o.textContent = CATS[i].n;
-          sel.appendChild(o);
-        }
-      }
-      var spDate = $('spDate');
-      if (spDate) spDate.value = iso(new Date());
-      if($('q')){ $('q').addEventListener('input', debRerender()); }
-      if($('q2')){ $('q2').addEventListener('input', debRerender2()); }
-      if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
-            // Чипы быстрых сценариев в чате
-      var chatContainer = $('chatLog');
-      if(chatContainer){
-        var chipContainer = document.createElement('div');
-        chipContainer.id = 'chatChips';
-        chipContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;margin-bottom:8px';
-        chipContainer.innerHTML = 
-          '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу кафе на 30%?">Урезать кафе на 30%</button>' +
-          '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу самокаты на 50%?">Самокаты -50%</button>' +
-          '<button class="chip" data-act="chat-chip" data-q="Что важно сейчас?">Что важно сейчас?</button>' +
-          '<button class="chip" data-act="chat-chip" data-q="Как мне сэкономить 10000 в этом месяце?">Сэкономить 10 000</button>';
-        chatContainer.parentNode.insertBefore(chipContainer, chatContainer);
-      }
-      if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
-      if($('spNote')){ $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } }); }
+      wireUi();
       render();
       go('dash');
       placeTip();
-    }).catch(function(){ normalize(); render(); go('dash'); placeTip(); });
+    }).catch(function(){ normalize(); wireUi(); render(); go('dash'); placeTip(); });
   });
 });
+
+// Привязка элементов интерфейса (общая для входа и демо)
+function wireUi(){
+  var sel = $('spCat');
+  if (sel) {
+    sel.innerHTML = '';
+    for(var i=0;i<CATS.length;i++){
+      var o = document.createElement('option');
+      o.value = CATS[i].id; o.textContent = CATS[i].n;
+      sel.appendChild(o);
+    }
+  }
+  var spDate = $('spDate');
+  if (spDate) spDate.value = iso(new Date());
+  if($('q')){ $('q').addEventListener('input', debRerender()); }
+  if($('q2')){ $('q2').addEventListener('input', debRerender2()); }
+  if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
+  // Чипы быстрых сценариев в чате
+  var chatContainer = $('chatLog');
+  if(chatContainer && !$('chatChips')){
+    var chipContainer = document.createElement('div');
+    chipContainer.id = 'chatChips';
+    chipContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;margin-bottom:8px';
+    chipContainer.innerHTML =
+      '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу кафе на 30%?">Урезать кафе на 30%</button>' +
+      '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу самокаты на 50%?">Самокаты -50%</button>' +
+      '<button class="chip" data-act="chat-chip" data-q="Что важно сейчас?">Что важно сейчас?</button>' +
+      '<button class="chip" data-act="chat-chip" data-q="Как мне сэкономить 10000 в этом месяце?">Сэкономить 10 000</button>';
+    chatContainer.parentNode.insertBefore(chipContainer, chatContainer);
+  }
+  if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
+  if($('spNote')){ $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } });
+  }
+}
 
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
 

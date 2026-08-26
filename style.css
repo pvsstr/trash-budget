@@ -25,9 +25,12 @@ background:linear-gradient(135deg,var(--acc),var(--pur));box-shadow:0 10px 34px 
 .logo .ic{width:34px;height:34px;color:#fff}
 .lcard h1{font-size:32px;font-weight:800}
 .lcard p{color:var(--mut);font-size:14px;margin:8px 0 28px}
-.gbtn{width:100%;min-height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:17px;font-weight:700;
-background:rgba(255,255,255,.1);border:1px solid var(--stroke);backdrop-filter:blur(16px);transition:.25s}
-.gbtn:hover{background:rgba(255,255,255,.16);transform:translateY(-2px)}
+.btn-g,.gbtn{width:100%;min-height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;font-weight:700;
+background:rgba(255,255,255,.08);border:1px solid var(--stroke);backdrop-filter:blur(16px);transition:.25s}
+.btn-g:hover,.gbtn:hover{background:rgba(255,255,255,.16);transform:translateY(-2px)}
+.btn-g svg{width:20px;height:20px;flex:none}
+.btn-demo{width:100%;min-height:52px;border-radius:14px;border:1.5px dashed rgba(255,255,255,.28);color:var(--txt);font-weight:700;font-size:14.5px;margin-top:12px;background:none;transition:.2s}
+.btn-demo:hover{border-color:rgba(100,210,255,.6);color:var(--teal)}
 .au-tabs{display:flex;background:rgba(255,255,255,.06);border-radius:12px;padding:4px;margin-top:20px}
 .au-tabs button{flex:1;padding:11px;border-radius:9px;font-weight:800;font-size:13.5px;color:var(--mut);transition:.2s}
 .au-tabs button.on{background:linear-gradient(135deg,var(--acc),var(--pur));color:#fff}
@@ -550,7 +553,19 @@ html{scroll-behavior:smooth}
   #bnav .ic{width:20px;height:20px}
   .tx-ic{width:40px;height:40px}
   .qa-btn{padding:12px 8px;font-size:12px}
-  .lcard{padding:32px 20px}
+  .lcard{padding:30px 22px}
+}
+
+/* Экран входа: плотнее на телефоне */
+@media (max-width:480px){
+  .lcard{padding:28px 20px}
+  .lcard h1{font-size:27px}
+  .lcard p{font-size:12.5px;margin:6px 0 14px}
+  .au-tabs{margin-top:12px}
+  .au-tabs button{padding:10px}
+  .au-or{margin:12px 0}
+  .au-priv{margin-top:12px;font-size:10.5px}
+  .btn-g,.btn-demo{min-height:50px;font-size:14.5px}
 }
 
 /* Landscape ориентация на мобильных */
