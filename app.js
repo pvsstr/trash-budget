@@ -4534,7 +4534,7 @@ save(); render(); toast('Память применена: обновлено о�
     var rpI = parseInt(el.getAttribute('data-i'),10);
     var rcP = (window._recrList||[])[rpI];
     if(rcP){
-      var ldP = parseD(rcP.last);
+      var ldP = rcP.last;
       D.pays.push({id:Date.now(), n:rcP.n, s:rcP.s, d:ldP.getDate()});
       save(); render(); openRecrSheet(); toast('«'+rcP.n+'» — в обязательные платежи, '+ldP.getDate()+'-го');
     }
