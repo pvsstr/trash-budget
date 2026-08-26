@@ -13,7 +13,11 @@
     }catch(_){}
   }
   window.addEventListener('error', function(e){
-    show(e.message + ' (' + (e.filename || '') + ':' + (e.lineno || 0) + ')');
+    var msg = e.message;
+    if(!msg && e.target && e.target.src){
+      msg = 'заблокирована загрузка: ' + e.target.src;
+    }
+    show((msg || 'неизвестный сбой') + ' (' + (e.filename || '') + ':' + (e.lineno || 0) + ')');
   }, true);
   window.addEventListener('unhandledrejection', function(e){
     var r = e.reason;
