@@ -30,7 +30,8 @@ function parseD(s){
 }
 function addM(dt, k){ return new Date(dt.getFullYear(), dt.getMonth()+k, dt.getDate()); }
 function salaryDate(y, m){
-  var day = D.salaryDay || 20;
+  var day = D.salaryDay;
+  if(!day){ return null; }
   var wd = new Date(y, m, day).getDay();
   if(wd === 6){ return new Date(y, m, day - 1); }
   if(wd === 0){ return new Date(y, m, day + 1); }
@@ -39,30 +40,28 @@ function salaryDate(y, m){
 // Находит последнюю дату зарплаты (фактическую) до указанной даты
 function getLastSalaryDate(dt) {
   dt = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-  // Проверяем до 12 месяцев назад
+  if(!D.salaryDay){ return new Date(dt.getFullYear(), dt.getMonth(), 1); }
   for (var i = 0; i < 12; i++) {
     var curDate = new Date(dt.getFullYear(), dt.getMonth() - i, 1);
     var sd = salaryDate(curDate.getFullYear(), curDate.getMonth());
-    if (sd <= dt) {
+    if (sd && sd <= dt) {
       return sd;
     }
   }
-  // fallback – возвращаем 1-е число текущего месяца
   return new Date(dt.getFullYear(), dt.getMonth(), 1);
 }
 
 // Находит следующую дату зарплаты (фактическую) после указанной даты
 function getNextSalaryDate(dt) {
   dt = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
-  // Проверяем до 12 месяцев вперёд
+  if(!D.salaryDay){ return new Date(dt.getFullYear(), dt.getMonth() + 1, 1); }
   for (var i = 0; i < 12; i++) {
     var curDate = new Date(dt.getFullYear(), dt.getMonth() + i, 1);
     var sd = salaryDate(curDate.getFullYear(), curDate.getMonth());
-    if (sd > dt) {
+    if (sd && sd > dt) {
       return sd;
     }
   }
-  // fallback – возвращаем 1-е число следующего месяца
   return new Date(dt.getFullYear(), dt.getMonth() + 1, 1);
 }
 
@@ -158,7 +157,7 @@ var CATS = [
  {id:'personal', n:'Личное', i:'i-user', k:'c-pur'},
  {id:'credits', n:'Кредиты и рассрочки', i:'i-card', k:'c-red'},
  {id:'other', n:'Прочее', i:'i-gift', k:'c-pur'}];
-function catById(id){ for(var i=0;i<CATS.length;i++){ if(CATS[i].id===id){ return CATS[i]; } } return CATS[CATS.length-1]; }
+function catById(id){ var all = allCats(); for(var i=0;i<all.length;i++){ if(all[i].id===id){ return all[i]; } } return all[all.length-1]; }
 var CAT2ENV = {grocery:'Продукты',cafe:'Кафе',scooters:'Самокаты',taxi:'Такси',transport:'Тройка',home:'Аренда',subs:'Личное',health:'Личное',fun:'Личное',clothes:'Личное',personal:'Личное',credits:'Кредиты',other:'Личное'};
 var TX2CAT = {'КАФЕ':'cafe','ПРОДУКТЫ':'grocery','УТЕЧКИ':'scooters','ТРАНСПОРТ':'transport','ТАКСИ':'taxi','ЖИЛЬЁ':'home','ЛИЧНОЕ':'personal','ПОДПИСКИ':'subs','ПЕРЕВОДЫ':'home','КРЕДИТЫ':'credits','РЕССРОЧКИ':'credits'};
 var KEYCAT = [
@@ -246,27 +245,33 @@ function openEnvCalc(){
   window._calcItems = [];
   window._calcTotal = 0;
   var calPattern = (D.customCal||{}).pattern || '5/2';
-  var workDays = parseInt(calPattern.split('/')[0],10) || 5;
-  window._calcWorkDays = workDays;
-  $('sheetBody').innerHTML = sheetHead('i-card','c-pur','Калькулятор','составьте список покупок и рассчитайте лимит')
+  window._calcPattern = calPattern;
+  var patterns = [['5/2','5/2 — 5 рабочих, 2 выходных'],['2/2','2/2'],['3/3','3/3'],['4/4','4/4'],['6/1','6/1'],['12/12','12/12']];
+  var patOpts = '';
+  for(var p=0;p<patterns.length;p++){
+    patOpts += '<option value="'+patterns[p][0]+'"'+(patterns[p][0]===calPattern?' selected':'')+'>'+patterns[p][1]+'</option>';
+  }
+  $('sheetBody').innerHTML = sheetHead('i-card','c-pur','Калькулятор','составьте список покупок и рассчитайте лимит на конверт')
     + '<div class="form">'
-    + '<div class="hint">Покупки:</div>'
     + '<div id="calcItems" style="margin-bottom:8px"></div>'
     + '<div class="row2">'
     + '<input class="inp" id="calcItemName" placeholder="Название" style="flex:2">'
     + '<input class="inp" id="calcItemSum" type="number" inputmode="decimal" placeholder="Сумма, ₽" style="flex:1">'
     + '</div>'
-    + '<button class="sh-btn" data-act="calc-add-item" style="margin-top:0">Добавить</button>'
-    + '<div style="display:flex;justify-content:space-between;margin-top:12px;font-weight:600;font-size:14px"><span>Итого:</span><span id="calcTotal">0 ₽</span></div>'
+    + '<button class="sh-btn" data-act="calc-add-item" style="margin-top:6px;padding:10px 16px;font-size:13px">+ Добавить</button>'
+    + '<div style="display:flex;justify-content:space-between;margin-top:12px;font-weight:600;font-size:14px;border-top:1px solid rgba(255,255,255,.06);padding-top:10px"><span>Итого покупок:</span><span id="calcTotal">0 ₽</span></div>'
     + '</div>'
     + '<div class="form" style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px">'
-    + '<div class="hint">Расчёт на основе графика '+calPattern+' ('+workDays+' рабочих в цикле):</div>'
-    + '<div class="row2">'
-    + '<div><div class="hint">Месяцы:</div><input class="inp" id="calcMonths" type="number" value="1" min="1" max="12"></div>'
-    + '<div><div class="hint">Итого/мес:</div><div id="calcPerMonth" style="padding:10px 0;font-weight:600">0 ₽</div></div>'
+    + '<div class="hint">График работы:</div>'
+    + '<select class="inp" id="calcPattern">'+patOpts+'</select>'
+    + '<div class="hint" style="margin-top:8px">Разбить на месяцев:</div>'
+    + '<input class="inp" id="calcMonths" type="number" value="1" min="1" max="24" placeholder="Сколько месяцев">'
+    + '<div style="margin-top:8px;padding:10px;background:rgba(255,255,255,.05);border-radius:10px;font-size:12.5px;color:var(--mut)">Итого покупок ÷ количество месяцев = <b style="color:var(--txt)">лимит на конверт за месяц</b></div>'
+    + '<div id="calcResult" style="display:none;margin-top:10px;padding:12px;background:rgba(48,209,88,.1);border:1px solid rgba(48,209,88,.3);border-radius:12px;text-align:center"><div style="font-size:12px;color:var(--mut)">Лимит на конверт</div><div id="calcPerMonth" style="font-size:22px;font-weight:800;color:var(--grn);margin-top:4px">0 ₽</div></div>'
+    + '<div class="row2" style="margin-top:10px">'
+    + '<button class="sh-btn" data-act="calc-calc" style="margin:0;flex:1">Рассчитать</button>'
+    + '<button class="sh-btn" data-act="calc-apply" style="margin:0;flex:1;color:var(--grn)">Применить к лимиту</button>'
     + '</div>'
-    + '<button class="sh-btn" data-act="calc-calc" style="margin-top:0">Рассчитать</button>'
-    + '<button class="sh-btn ghost" data-act="calc-apply" style="margin-top:0;color:var(--grn)">Применить к лимиту</button>'
     + '</div>';
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
@@ -304,17 +309,18 @@ function renderCalcItems(){
 function calcCalc(){
   var months = parseInt($('calcMonths') ? $('calcMonths').value : '1', 10) || 1;
   var perMonth = months > 0 ? Math.ceil(window._calcTotal / months) : 0;
+  if($('calcResult')){ $('calcResult').style.display = perMonth > 0 ? 'block' : 'none'; }
   if($('calcPerMonth')){ $('calcPerMonth').textContent = fmt(perMonth); }
 }
 
 function calcApply(){
   var months = parseInt($('calcMonths') ? $('calcMonths').value : '1', 10) || 1;
   var perMonth = months > 0 ? Math.ceil(window._calcTotal / months) : 0;
-  if(perMonth <= 0){ dAlert('Сначала добавьте покупки.', 'Калькулятор'); return; }
+  if(perMonth <= 0){ dAlert('Сначала добавьте покупки и нажмите «Рассчитать».', 'Калькулятор'); return; }
   var enLim = $('enLim');
   if(enLim){ enLim.value = perMonth; }
-  closeSheet();
   toast('Лимит установлен: '+fmt(perMonth));
+  closeSheet();
 }
 
 var LESSONS = [
@@ -541,6 +547,7 @@ function calcDailyLimit() {
   var safe = calcSafeBalance();
   var now = new Date();
   var cur = salaryDate(now.getFullYear(), now.getMonth());
+  if(!cur){ return { perDay: 0, daysLeft: 30 }; }
   var next = now < cur ? cur : cycleEnd(cur);
   var daysLeft = Math.max(1, Math.round((next - now) / 864e5));
   return { perDay: Math.round(safe / daysLeft), daysLeft: daysLeft };
@@ -802,6 +809,7 @@ function openSheet(t, i){
     var cs = cycleStart(now);
     var daily = calcDailyLimit();
     var curPay = salaryDate(now.getFullYear(), now.getMonth());
+    if(!curPay){ curPay = cycleStart(now); }
     var nextPayDate = now < curPay ? curPay : cycleEnd(curPay);
         h = sheetHead('i-cal','c-pur','Цикл зарплаты', cycleLabel(cs))
       + rowHtml('Ближайшая зарплата', payDateStr(nextPayDate))
@@ -1086,7 +1094,12 @@ function openEdit(t, i){
       + '<div class="hint">Платёж и день нужны, чтобы прогноз честно учитывал кредит. Останется долг — платежи прекратятся.</div></div>';
   }
   if(t==='inst'){ it = i?get(D.insts):null; title = it?'Рассрочка':'Новая рассрочка';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Платёж, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="date" value="'+(it?it.d:'')+'"></div></div>';
+    var instMonths = it ? Math.ceil(it.total / it.s) : 6;
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'">'
+      + '<div class="row2"><input class="inp" id="in2" type="number" placeholder="Общая сумма, ₽" value="'+(it?it.total:'')+'"><input class="inp" id="in3" type="number" placeholder="Месяцев" value="'+(it?instMonths:'6')+'" min="1" max="60"></div>'
+      + '<div class="hint" id="instHint" style="margin-top:4px">'+(it ? 'Платёж: '+fmt(it.s)+'/мес' : 'Платёж рассчитается автоматически')+'</div>'
+      + '<input class="inp" id="in4" type="number" placeholder="Платёж, ₽ (можно изменить)" value="'+(it?it.s:'')+'">'
+      + '<div class="hint">Платёж = общая сумма ÷ количество месяцев. Можно изменить вручную.</div></div>';
   }
   if(t==='env'){
     it = i?get(D.envs):null;
@@ -1106,6 +1119,20 @@ function openEdit(t, i){
     + (i ? '<button class="sh-btn danger" data-act="form-del">Удалить</button>' : '');
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
+  if(t==='inst'){
+    var in2 = $('in2'), in3 = $('in3'), in4 = $('in4');
+    function calcInstPay(){
+      var total = parseFloat(in2?in2.value:'') || 0;
+      var months = parseInt(in3?in3.value:'') || 0;
+      if(total > 0 && months > 0){
+        var pay = Math.ceil(total / months);
+        if(in4){ in4.value = pay; }
+        if($('instHint')){ $('instHint').textContent = 'Платёж: '+fmt(pay)+'/мес'; }
+      }
+    }
+    if(in2){ in2.addEventListener('input', calcInstPay); }
+    if(in3){ in3.addEventListener('input', calcInstPay); }
+  }
 }
 
 function saveEdit(){
@@ -1126,8 +1153,11 @@ function saveEdit(){
     else { var c0=parseFloat(g('in2'))||0; D.credits.push({id:Date.now(), n:g('in1')||'Кредит', cur:c0, total:parseFloat(g('in3'))||c0, pay:parseFloat(g('in4'))||0, d:parseInt(g('in5'),10)||1}); }
   }
   if(f.t==='inst'){
-    if(f.id){ it=find(D.insts); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; it.d=g('in3')||it.d; } }
-    else { D.insts.push({id:Date.now(), n:g('in1')||'Рассрочка', s:parseFloat(g('in2'))||0, d:g('in3')||iso(new Date())}); }
+    var instTotal = parseFloat(g('in2'))||0;
+    var instMonths = parseInt(g('in3'))||6;
+    var instPay = parseFloat(g('in4'))||(instTotal>0?Math.ceil(instTotal/instMonths):0);
+    if(f.id){ it=find(D.insts); if(it){ it.n=g('in1')||it.n; it.total=instTotal; it.s=instPay; it.d=g('in3')||it.d; } }
+    else { D.insts.push({id:Date.now(), n:g('in1')||'Рассрочка', s:instPay, total:instTotal, d:iso(new Date())}); }
   }
   if(f.t==='env'){
     envDraftSyncInputs();
@@ -1144,7 +1174,12 @@ function saveEdit(){
 }
 
 function delEdit(){
-  var f = window._ef; if(!f || !f.id){ return; }
+  var f = window._ef; 
+  if(!f || !f.id){ 
+    if(f && f.t==='env' && window._envDraft && window._envDraft._id){
+      f.id = window._envDraft._id;
+    } else { return; }
+  }
   dConfirm('Удалить запись?', 'Удаление', true).then(function(ok){
     if(!ok){ return; }
     function rm(key){ var arr=D[key]; for(var k=0;k<arr.length;k++){ if(arr[k].id===f.id){ arr.splice(k,1); break; } } }
@@ -2913,7 +2948,7 @@ function myDayData(y, m, day){
   var md2 = String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
   var iso2 = y+'-'+md2;
   var sd = salaryDate(y, m);
-  if(sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === day){
+  if(sd && sd.getFullYear() === y && sd.getMonth() === m && sd.getDate() === day){
     var ck0 = 'salary-'+iso2;
     if((D.cancelled||[]).indexOf(ck0) === -1){ rings.push({c:'#30d158', n:'Зарплата', id:'salary', type:'salary', date:iso2}); }
   }
@@ -3062,11 +3097,17 @@ function renderHerCal(){
   var now = new Date();
   var dt = new Date(now.getFullYear(), now.getMonth() + herOff, 1);
   var cal = D.customCal;
-  $('herCalTitle').textContent = MONTHS[dt.getMonth()]+' '+dt.getFullYear();
   if($('herCalLabel')){ $('herCalLabel').textContent = cal ? cal.name : 'Календарь'; }
   if($('herCalEditBtn')){ $('herCalEditBtn').textContent = cal ? 'настроить' : 'создать'; }
-  $('herCal').innerHTML = cal ? calGridHtml(dt.getFullYear(), dt.getMonth(), herDayData, 'her', false)
-    : '<div style="padding:20px;text-align:center;color:var(--mut);font-size:12px">Создайте календарь, чтобы видеть рабочие дни и дни зарплаты</div>';
+  var body = $('herCalBody');
+  if(!body){ return; }
+  if(!cal){
+    body.innerHTML = '<div style="padding:24px;text-align:center"><button class="sh-btn" data-act="her-cal-edit" style="margin:0 auto;display:block;width:auto;padding:10px 20px">+ Создать календарь</button><div style="margin-top:8px;font-size:12px;color:var(--mut)">рабочие дни, дни зарплаты</div></div>';
+    return;
+  }
+  body.innerHTML = '<div class="cal-nav"><button data-act="cal-prev" data-w="her">‹</button><b id="herCalTitle">'+MONTHS[dt.getMonth()]+' '+dt.getFullYear()+'</b><button data-act="cal-next" data-w="her">›</button></div>'
+    + '<div id="herCal" class="cal-grid">'+calGridHtml(dt.getFullYear(), dt.getMonth(), herDayData, 'her', false)+'</div>'
+    + '<div class="cal-legend"><span><i style="background:#30d158"></i>ЗП</span><span><i style="background:#0a84ff"></i>Работа</span><span><i style="background:#bf5af2"></i>Выходной</span></div>';
 }
 
 function openCalSheet(dstr, noHl){
@@ -3485,7 +3526,8 @@ function openTxEdit(src, i){
     if(best && best !== 'other'){ sugg = best; }
   }
   var opts = '';
-  for(var j=0;j<CATS.length;j++){ opts += '<option value="'+CATS[j].id+'"'+(CATS[j].id===cur.cat?' selected':'')+'>'+CATS[j].n+'</option>'; }
+  var allCx = allCats();
+  for(var j=0;j<allCx.length;j++){ opts += '<option value="'+allCx[j].id+'"'+(allCx[j].id===cur.cat?' selected':'')+'>'+allCx[j].n+'</option>'; }
   $('sheetBody').innerHTML = sheetHead('i-pen','c-blu','Операция','сумма, категория, дата и комментарий')
     + '<div class="form"><input class="inp" id="teAmt" type="number" value="'+cur.s+'">'
     + '<select class="inp" id="teCat">'+opts+'</select>'
@@ -3998,7 +4040,7 @@ function renderEnvForm(){
   $('sheetBody').innerHTML = sheetHead('i-target','c-pur', d._title || 'Конверт', 'категории, значок и цвет — на ваш вкус')
     + '<div class="form">'
     + '<input class="inp" id="enName" placeholder="Название конверта" value="'+esc(d.name||'')+'">'
-    + '<div style="display:flex;gap:6px;align-items:center"><input class="inp" id="enLim" type="number" inputmode="decimal" placeholder="Лимит на цикл, ₽" value="'+(d.lim||'')+'" style="flex:1"><button class="sh-btn" data-act="env-calc" style="margin:0;flex-shrink:0;padding:10px 14px"><svg class="ic" style="width:16px;height:16px"><use href="#i-card"/></svg> Калькулятор</button></div>'
+    + '<div style="display:flex;gap:8px;align-items:center"><input class="inp" id="enLim" type="number" inputmode="decimal" placeholder="Лимит на цикл, ₽" value="'+(d.lim||'')+'" style="flex:1"><button class="sh-btn" data-act="env-calc" style="margin:0;flex-shrink:0;padding:10px 12px;font-size:12px;white-space:nowrap"><svg class="ic" style="width:14px;height:14px;margin-right:4px"><use href="#i-card"/></svg> Калькулятор</button></div>'
     + '<div class="hint">Категории, которые наполняют конверт (можно несколько):</div>'
     + '<div class="chip-grid">'+catChips+'</div>'
     + '<div class="hint">Значок:</div><div class="chip-grid">'+icBtns+'</div>'
@@ -4054,6 +4096,15 @@ function paintQsCats(){
   var btns = document.querySelectorAll('.chip-grid .cat-chip');
   for(var i=0;i<btns.length;i++){
     if(btns[i].getAttribute('data-act') === 'qs-cat'){
+      btns[i].classList.toggle('on', btns[i].getAttribute('data-c') === cur);
+    }
+  }
+}
+function paintQsTags(){
+  var cur = $('qsTag') ? $('qsTag').value : '';
+  var btns = document.querySelectorAll('.chip-grid .cat-chip');
+  for(var i=0;i<btns.length;i++){
+    if(btns[i].getAttribute('data-act') === 'qs-tag'){
       btns[i].classList.toggle('on', btns[i].getAttribute('data-c') === cur);
     }
   }
@@ -4151,11 +4202,23 @@ function runSpendAlerts(qa, qc){
 function openIncomeSheet(){
   var ko = '';
   for(var ki=0;ki<INCOME_KINDS.length;ki++){ ko += '<option value="'+INCOME_KINDS[ki][0]+'">'+INCOME_KINDS[ki][1]+'</option>'; }
-  $('sheetBody').innerHTML = sheetHead('i-in','c-grn','Добавить поступление','сумма попадёт в реальный остаток')
-    + '<div class="form"><div class="row2"><input class="inp" id="incAmt" type="number" placeholder="Сумма, ₽"><input class="inp" id="incDate" type="date" value="'+iso(new Date())+'"></div>'
-    + '<select class="inp" id="incKind">'+ko+'</select>'
-    + '<input class="inp" id="incNote" placeholder="Что это (подработка, кэшбэк...)"></div>'
-    + '<button class="sh-btn" data-act="income-save">Сохранить</button>';
+  var salDay = D.salaryDay || '';
+  var advDay = D.advanceDay || '';
+  var salAmt = D.income || '';
+  var advAmt = D.advanceAmount || '';
+  var oneTime = !D.advanceDay;
+  $('sheetBody').innerHTML = sheetHead('i-in','c-grn','Настройка дохода','сумма и даты поступлений')
+    + '<div class="form">'
+    + '<input class="inp" id="incAmt" type="number" placeholder="Зарплата, ₽" value="'+salAmt+'">'
+    + '<input class="inp" id="incDate" type="number" placeholder="День зарплаты (1-31)" min="1" max="31" value="'+salDay+'">'
+    + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);padding:8px 0"><input type="checkbox" id="incOneTime"'+(oneTime?' checked':'')+' onchange="var a=document.getElementById(\'advBlock\');a.style.display=this.checked?\'none\':\'block\'"> ЗП один раз в месяц</label>'
+    + '<div id="advBlock" style="display:'+(oneTime?'none':'block')+'">'
+    + '<div class="hint">Аванс</div>'
+    + '<div class="row2"><input class="inp" id="incAdvAmt" type="number" placeholder="Сумма аванса, ₽" value="'+advAmt+'"><input class="inp" id="incAdvDate" type="number" placeholder="День аванса (1-31)" min="1" max="31" value="'+advDay+'"></div>'
+    + '</div>'
+    + '</div>'
+    + '<button class="sh-btn" data-act="income-save">Сохранить</button>'
+    + (D.income ? '<button class="sh-btn danger" data-act="income-clear">Удалить доход</button>' : '');
   $('sheet').classList.add('on'); $('shb').classList.add('on');
 }
 function openIncEdit(id){
@@ -4553,16 +4616,29 @@ return;
     else if(act === 'addincome'){ openIncomeSheet(); }
     else if(act === 'income-save'){
     var a2 = parseFloat($('incAmt').value);
-    if(isNaN(a2) || a2 <= 0){ dAlert('Введите сумму поступления.', 'Поступление'); return; }
-    var k2b = $('incKind') ? $('incKind').value : 'other';
-    var dateVal = $('incDate').value || iso(new Date());
-    D.incomes.push({id:Date.now(), d: dateVal, n: $('incNote').value.trim() || kindById(k2b)[1], s:a2, k:k2b});
-    // Если это зарплата и день зарплаты ещё не задан, запоминаем день месяца
-    if (k2b === 'salary' && !D.salaryDay) {
-        var d = new Date(dateVal);
-        D.salaryDay = d.getDate();
+    if(isNaN(a2) || a2 <= 0){ dAlert('Укажите сумму зарплаты.', 'Доход'); return; }
+    var salDay = parseInt($('incDate').value)||0;
+    if(salDay < 1 || salDay > 31){ dAlert('День зарплаты — от 1 до 31.', 'Доход'); return; }
+    D.income = a2;
+    D.salaryDay = salDay;
+    var oneTime = $('incOneTime') ? $('incOneTime').checked : true;
+    if(!oneTime){
+      var advAmt = parseFloat($('incAdvAmt').value)||0;
+      var advDay = parseInt($('incAdvDate').value)||0;
+      D.advanceDay = advDay > 0 && advDay <= 31 ? advDay : null;
+      D.advanceAmount = advAmt > 0 ? advAmt : null;
+    } else {
+      D.advanceDay = null;
+      D.advanceAmount = null;
     }
-    save(); closeSheet(); render(); toast('Поступление +'+fmt(a2));
+    save(); closeSheet(); render(); toast('Доход сохранён');
+}
+  else if(act === 'income-clear'){
+    dConfirm('Удалить настройки дохода? Зарплата и аванс будут сброшены.', 'Удаление дохода', true).then(function(ok){
+      if(!ok){ return; }
+      D.income = 0; D.salaryDay = null; D.advanceDay = null; D.advanceAmount = null;
+      save(); closeSheet(); render(); toast('Доход удалён');
+    });
 }
 
   else if(act === 'del-income'){
@@ -5224,9 +5300,24 @@ save(); render(); toast('Память применена: обновлено о�
     toast('Имя сохранено: ' + un);
   }
   else if(act === 'custom-cat-add'){
+    var savedState = {
+      amt: $('qsAmt') ? $('qsAmt').value : '',
+      cat: $('qsCat') ? $('qsCat').value : 'grocery',
+      note: $('qsNote') ? $('qsNote').value : '',
+      tag: $('qsTag') ? $('qsTag').value : 'normal',
+      date: $('qsDate') ? $('qsDate').value : iso(new Date()),
+      xfer: $('qsXfer') ? $('qsXfer').checked : false
+    };
     openCustomCatAdd(function(cat){
+      openQuickSpend();
+      if($('qsAmt')){ $('qsAmt').value = savedState.amt; }
       if($('qsCat')){ $('qsCat').value = cat.id; }
-      if($('spCat')){ $('spCat').value = cat.id; }
+      if($('qsNote')){ $('qsNote').value = savedState.note; }
+      if($('qsTag')){ $('qsTag').value = savedState.tag; }
+      if($('qsDate')){ $('qsDate').value = savedState.date; }
+      if($('qsXfer')){ $('qsXfer').checked = savedState.xfer; }
+      paintQsCats();
+      paintQsTags();
     });
   }
   else if(act === 'cc-icon'){
@@ -5955,7 +6046,7 @@ function forecastCashFlow(daysAhead, fromDate){
   var flexPerDay = flexDays > 0 ? flexSum / flexDays : 0;
   
   // 2. Поведенческие коэффициенты: после зарплаты тратим больше, перед зарплатой — меньше
-  var nextSalary = salaryDate(fromDate.getFullYear(), fromDate.getMonth() + 1);
+  var nextSalary = salaryDate(fromDate.getFullYear(), fromDate.getMonth() + 1) || new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 1);
   var daysToSalary = Math.max(1, Math.round((nextSalary - fromDate) / 864e5));
   var totalCycle = 30; // примерно
   var daysFromSalary = totalCycle - daysToSalary;
@@ -6018,7 +6109,7 @@ function forecastCashFlow(daysAhead, fromDate){
   // Зарплата — по календарю (с учётом выходных)
   for(var mo=0; mo<=Math.ceil(daysAhead/30)+1; mo++){
     var sd = salaryDate(fromDate.getFullYear(), fromDate.getMonth()+mo);
-    if(sd >= fromDate){ events.push({date:sd, amt: D.income || 0, n:'Зарплата'}); }
+    if(sd && sd >= fromDate){ events.push({date:sd, amt: D.income || 0, n:'Зарплата'}); }
   }
   
   events.sort(function(a,b){ return a.date - b.date; });

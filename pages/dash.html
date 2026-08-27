@@ -24,44 +24,6 @@
     <button class="qa-btn" data-act="canbuy"><svg class="ic"><use href="#i-card"/></svg>Могу купить?</button>
     <button class="qa-btn" data-act="month-report"><svg class="ic"><use href="#i-grid"/></svg>Месячный отчёт</button>
   </div>
-    <div id="setupBox"></div>
-  <div id="briefBox"></div>
-  <div id="warnBox"></div>
-
-  <div class="dash-row cols-3">
-    <div class="stack-col">
-      <div class="glass card-padding hov" data-act="sheet" data-t="cycle-detail">
-        <div class="cap-title"><span>Цикл зарплаты</span><b id="cycleDates">—</b></div>
-        <div class="cycle-progress-wrapper">
-          <div class="bar-large"><i id="cycleProgressBar" style="width: 0%"></i></div>
-          <div class="cycle-meta"><span id="cycleDaysLeft">Осталось 0 дней</span><span id="rhythmTxt">Ритм трат: —</span></div>
-        </div>
-      </div>
-      <div class="glass card-padding hov" data-act="sheet" data-t="upcoming-detail">
-        <div class="cap-title"><span>Платежи на 3 дня</span><b id="digSum">0 ₽</b></div>
-        <div id="digList" class="compact-list"></div>
-      </div>
-    </div>
-
-    <div class="glass card-padding cal-card">
-                  <div class="cap-title"><span>Производственный календарь РФ</span><button class="cal-add" style="background:rgba(255,255,255,.08);color:var(--txt)" data-act="cal-month">список</button><button id="calCancelBtn" class="cal-add hidden" style="background:rgba(255,69,58,.14);color:var(--red)" data-act="cal-cancel">отмена</button><button id="calSelectBtn" class="cal-add" data-act="cal-select">+ план</button></div>
-      
-            <div class="cal-nav"><button data-act="cal-prev" data-w="my">‹</button><b id="myCalTitle" data-act="cal-month" style="cursor:pointer">--</b><button data-act="cal-next" data-w="my">›</button></div>
-      <div id="myCal" class="cal-grid"></div>
-            <div class="cal-legend" id="myCalLegend"></div>
-    </div>
-
-    <div class="glass card-padding cal-card">
-            <div class="cap-title"><span id="herCalLabel">Календарь</span><button class="cal-add" id="herCalEditBtn" style="background:rgba(255,255,255,.08);color:var(--txt)" data-act="her-cal-edit">настроить</button></div>
-      <div class="cal-nav"><button data-act="cal-prev" data-w="her">‹</button><b id="herCalTitle">--</b><button data-act="cal-next" data-w="her">›</button></div>
-      <div id="herCal" class="cal-grid"></div>
-      <div class="cal-legend">
-        <span><i style="background:#30d158"></i>ЗП</span>
-        <span><i style="background:#0a84ff"></i>Работа</span>
-        <span><i style="background:#bf5af2"></i>Выходной</span>
-      </div>
-    </div>
-  </div>
 
   <div class="bento-stats">
     <div class="stat glass hov" data-act="sheet" data-t="income">
@@ -96,15 +58,44 @@
     </div>
   </div>
 
+    <div id="setupBox"></div>
+  <div id="briefBox"></div>
+  <div id="warnBox"></div>
+
+  <div class="dash-row cols-3">
+    <div class="stack-col">
+      <div class="glass card-padding hov" data-act="sheet" data-t="cycle-detail">
+        <div class="cap-title"><span>Цикл зарплаты</span><b id="cycleDates">—</b></div>
+        <div class="cycle-progress-wrapper">
+          <div class="bar-large"><i id="cycleProgressBar" style="width: 0%"></i></div>
+          <div class="cycle-meta"><span id="cycleDaysLeft">Осталось 0 дней</span><span id="rhythmTxt">Ритм трат: —</span></div>
+        </div>
+      </div>
+      <div class="glass card-padding hov" data-act="sheet" data-t="upcoming-detail">
+        <div class="cap-title"><span>Платежи на 3 дня</span><b id="digSum">0 ₽</b></div>
+        <div id="digList" class="compact-list"></div>
+      </div>
+    </div>
+
+    <div class="glass card-padding cal-card">
+                  <div class="cap-title"><span>Производственный календарь РФ</span><button class="cal-add" style="background:rgba(255,255,255,.08);color:var(--txt)" data-act="cal-month">список</button><button id="calCancelBtn" class="cal-add hidden" style="background:rgba(255,69,58,.14);color:var(--red)" data-act="cal-cancel">отмена</button><button id="calSelectBtn" class="cal-add" data-act="cal-select">+ план</button></div>
+      
+            <div class="cal-nav"><button data-act="cal-prev" data-w="my">‹</button><b id="myCalTitle" data-act="cal-month" style="cursor:pointer">--</b><button data-act="cal-next" data-w="my">›</button></div>
+      <div id="myCal" class="cal-grid"></div>
+            <div class="cal-legend" id="myCalLegend"></div>
+    </div>
+
+    <div class="glass card-padding cal-card" id="herCalCard">
+      <div class="cap-title"><span id="herCalLabel">Календарь</span><button class="cal-add" id="herCalEditBtn" style="background:rgba(255,255,255,.08);color:var(--txt)" data-act="her-cal-edit">настроить</button></div>
+      <div id="herCalBody"></div>
+    </div>
+  </div>
+
   <div class="subs-audit glass hov" data-act="sheet" data-t="fixed">
     <div class="sic c-blu"><svg class="ic"><use href="#i-sub"/></svg></div>
     <div class="subs-audit-txt"><b id="subsAuditVal">--</b><span>нажми, чтобы проверить подписки</span></div>
     <svg class="ic chev"><use href="#i-chev"/></svg>
   </div>
-
-  <div id="weekBudgetBox"></div>
-  <div id="goalCard"></div>
-  <div id="bannerBox"></div>
 
   <div class="tip glass hov" data-act="sheet" data-t="tip">
     <div class="sic"><svg class="ic"><use href="#i-cap"/></svg></div>
@@ -112,8 +103,15 @@
     <svg class="ic chev"><use href="#i-chev"/></svg>
   </div>
 
+  <div id="weekBudgetBox"></div>
+  <div id="goalCard"></div>
+  <div id="bannerBox"></div>
+
   <div id="attCenter" class="glass card-padding" style="margin:0 0 14px"></div>
   <div id="envAlerts"></div>
+
+  <div class="cap">Рекомендации · утечки</div>
+  <div id="recList" class="rec-grid"></div>
 
   <div class="cap">Аналитика трат · любой период</div>
   <div class="chart-card glass">
