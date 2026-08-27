@@ -156,21 +156,23 @@ var CATS = [
  {id:'fun', n:'Развлечения', i:'i-fun', k:'c-pur'},
  {id:'clothes', n:'Одежда', i:'i-shirt', k:'c-org'},
  {id:'personal', n:'Личное', i:'i-user', k:'c-pur'},
+ {id:'credits', n:'Кредиты и рассрочки', i:'i-card', k:'c-red'},
  {id:'other', n:'Прочее', i:'i-gift', k:'c-pur'}];
-function catById(id){ for(var i=0;i<CATS.length;i++){ if(CATS[i].id===id){ return CATS[i]; } } return CATS[11]; }
-var CAT2ENV = {grocery:'Продукты',cafe:'Кафе',scooters:'Самокаты',taxi:'Такси',transport:'Тройка',home:'Аренда',subs:'Личное',health:'Личное',fun:'Личное',clothes:'Личное',personal:'Личное',other:'Личное'};
-var TX2CAT = {'КАФЕ':'cafe','ПРОДУКТЫ':'grocery','УТЕЧКИ':'scooters','ТРАНСПОРТ':'transport','ТАКСИ':'taxi','ЖИЛЬЁ':'home','ЛИЧНОЕ':'personal','ПОДПИСКИ':'subs','ПЕРЕВОДЫ':'home'};
+function catById(id){ for(var i=0;i<CATS.length;i++){ if(CATS[i].id===id){ return CATS[i]; } } return CATS[CATS.length-1]; }
+var CAT2ENV = {grocery:'Продукты',cafe:'Кафе',scooters:'Самокаты',taxi:'Такси',transport:'Тройка',home:'Аренда',subs:'Личное',health:'Личное',fun:'Личное',clothes:'Личное',personal:'Личное',credits:'Кредиты',other:'Личное'};
+var TX2CAT = {'КАФЕ':'cafe','ПРОДУКТЫ':'grocery','УТЕЧКИ':'scooters','ТРАНСПОРТ':'transport','ТАКСИ':'taxi','ЖИЛЬЁ':'home','ЛИЧНОЕ':'personal','ПОДПИСКИ':'subs','ПЕРЕВОДЫ':'home','КРЕДИТЫ':'credits','РЕССРОЧКИ':'credits'};
 var KEYCAT = [
- ['scooters',['самокат','scooter','whoosh','urent','урент','citydrive','ситидрайв']],
- ['taxi',['такси','taxi','бериза','bamboo']],
- ['transport',['тройк','troika','tutu','туту','электрич','поезд','автобус','метро']],
- ['subs',['подписк','telegram','телеграм','иви','yandex plus','яндекс плюс','netflix','spotify']],
- ['health',['аптек','aptek','pharmacy','лекарств','врач','клиник','больниц']],
- ['clothes',['одежд','обув','sportmaster','спортмастер','new yorker','куртк','футболк']],
- ['cafe',['кафе','cafe','кофейн','coffee','пышк','пицц','pizza','dodo','додо','ресторан','столов','доставк','бургер','burger','суши','шаурм','вкусно и точка','хочу пышку','еда']],
- ['grocery',['пятероч','pyateroch','магнит','magnit','перекрест','perekrest','ашан','auchan','вкуствил','vkusvill','мерко','merko','fix price','фикс','продукт','маркет','market','лента','дикси']],
- ['home',['аренд','коммунал','жкх','квартплат']],
- ['personal',['подарк','цвет','салон','барбер','парикм','космет','книг']]];
+ ['scooters',['самокат','scooter','whoosh','urent','урент','citydrive','ситидрайв','услуги по аренде самокатов','аренда самокат','каршеринг']],
+ ['taxi',['такси','taxi','яндекс такси','yandex taxi','ситимбил','citymobil','gett','гетт','береза','bamboo','yandex go']],
+ ['transport',['тройк','troika','tutu','туту','электрич','поезд','автобус','метро','трамвай','монорельс','мцк','мцд','проезд','транспорт','ж/д','железн','аэрофлот','s7 ','победа','utair','авиасейлс','aviasales','билет','перевозк','каршеринг','делимобиль','delimobil','яндекс драйв','яндекс.драйв']],
+ ['subs',['подписк','telegram','телеграм','иви','yandex plus','яндекс плюс','youtube','ютуб','netflix','spotify','apple music','apple tv','кинопоиск','kinopoisk','okko','старт','premier','more.tv','wink','мтс подписка','билайн подписка','tele2 подписка','яндекс.плюс','яндексмузыка','музыка.яндекс']],
+ ['health',['аптек','aptek','pharmacy','лекарств','врач','клиник','больниц','стоматолог','медц','invitro','инвитро','gemotest','гемотест','лаборатори','анализ','реабилит','психотерап','психолог','аллерголог','кардиолог']],
+ ['clothes',['одежд','обув','sportmaster','спортмастер','new yorker','куртк','футболк','джинс','кроссовк','ботинк','сапог','туфл','кеды','lamoda','wildberries','ozon','shein','temu','aliexpress']],
+ ['credits',['кредит','рассрочк','займ','долг','мфо','микрофинанс','банк кредит','кредитк','овердрафт','телекредит']],
+ ['cafe',['кафе','cafe','кофейн','coffee','пышк','пицц','pizza','dodo','додо','ресторан','столов','доставк','бургер','burger','суши','шаурм','вкусно и точка','хочу пышку','еда','ростикс','kfc','кфс','mcdonald','макдоналдс','burger king','бургер кинг','starbucks','старбакс','шоколадница','кофемания','costa','кофе лайк','coffee like','cofix','кофикс','чайхон','çoq au quy']],
+ ['grocery',['пятероч','pyateroch','магнит','magnit','перекрест','perekrest','ашан','auchan','вкуствил','vkusvill','мерко','merko','fix price','фикс','продукт','маркет','market','лента','дикси','ашан','вкусвилл','пятёрочк','spar','спар','real','реал','globus','глобус','верный','megamarket','мегамаркет','самокат','sbermarket','беру','beru','остров','ostrov']],
+ ['home',['аренд','коммунал','жкх','квартплат','жкх','управляющая','уко','тсж','жко','жкоу']],
+ ['personal',['подарк','цвет','салон','барбер','парикм','космет','книг','зоо','зоомагазин','зоотовар','хозяйств','быт','запчаст','авто','мойк','стеклоочист']]]; 
 
 function autoCat(t){
   var s = (' '+t.toLowerCase()+' ');
@@ -184,6 +186,135 @@ function autoCat(t){
     for(var j=0;j<kw.length;j++){ if(s.indexOf(kw[j]) !== -1){ return KEYCAT[i][0]; } }
   }
   return 'other';
+}
+
+function allCats(){
+  var base = CATS.slice();
+  if(D.customCats){ for(var i=0;i<D.customCats.length;i++){ base.push(D.customCats[i]); } }
+  return base;
+}
+
+function openCustomCatAdd(callback){
+  $('sheetBody').innerHTML = sheetHead('i-grid','c-pur','Новая категория','название и значок')
+    + '<div class="form">'
+    + '<input class="inp" id="ccName" placeholder="Название категории">'
+    + '<div class="hint">Значок:</div><div class="chip-grid" id="ccIconGrid"></div>'
+    + '<div class="hint">Цвет:</div><div class="chip-grid" id="ccColorGrid"></div>'
+    + '</div>'
+    + '<button class="sh-btn" data-act="custom-cat-save">Создать</button>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+  window._ccCallback = callback;
+  window._ccDraft = {ic:'i-gift', k:'c-pur'};
+  renderCustomCatIcons();
+  renderCustomCatColors();
+}
+
+function renderCustomCatIcons(){
+  var icons = ['i-gift','i-cart','i-coffee','i-scoot','i-taxi','i-train','i-home','i-med','i-fun','i-shirt','i-user','i-card','i-sub','i-target','i-wallet','i-book','i-beach','i-shield','i-pen','i-cal'];
+  var g = $('ccIconGrid'); if(!g) return;
+  var h = '';
+  for(var i=0;i<icons.length;i++){
+    h += '<button type="button" class="env-ic-btn'+(window._ccDraft.ic===icons[i]?' on':'')+'" data-act="cc-icon" data-c="'+icons[i]+'"><svg class="ic"><use href="#'+icons[i]+'"/></svg></button>';
+  }
+  g.innerHTML = h;
+}
+
+function renderCustomCatColors(){
+  var colors = ENV_COLORS;
+  var g = $('ccColorGrid'); if(!g) return;
+  var h = '';
+  for(var i=0;i<colors.length;i++){
+    h += '<button type="button" class="env-col-btn '+(window._ccDraft.k===colors[i][0]?'on ':'')+colors[i][0]+'" data-act="cc-col" data-c="'+colors[i][0]+'">'+(window._ccDraft.k===colors[i][0]?'выбран':'&nbsp;')+'</button>';
+  }
+  g.innerHTML = h;
+}
+
+function customCatSave(){
+  var nm = ($('ccName') ? $('ccName').value : '').trim();
+  if(!nm){ dAlert('Введите название.', 'Категория'); return; }
+  var id = 'custom_' + Date.now();
+  var cat = {id:id, n:nm, i:window._ccDraft.ic, k:window._ccDraft.k};
+  D.customCats = D.customCats || [];
+  D.customCats.push(cat);
+  save();
+  closeSheet();
+  if(window._ccCallback){ window._ccCallback(cat); }
+  toast('Категория «'+nm+'» создана');
+}
+
+function openEnvCalc(){
+  window._calcItems = [];
+  window._calcTotal = 0;
+  var calPattern = (D.customCal||{}).pattern || '5/2';
+  var workDays = parseInt(calPattern.split('/')[0],10) || 5;
+  window._calcWorkDays = workDays;
+  $('sheetBody').innerHTML = sheetHead('i-card','c-pur','Калькулятор','составьте список покупок и рассчитайте лимит')
+    + '<div class="form">'
+    + '<div class="hint">Покупки:</div>'
+    + '<div id="calcItems" style="margin-bottom:8px"></div>'
+    + '<div class="row2">'
+    + '<input class="inp" id="calcItemName" placeholder="Название" style="flex:2">'
+    + '<input class="inp" id="calcItemSum" type="number" inputmode="decimal" placeholder="Сумма, ₽" style="flex:1">'
+    + '</div>'
+    + '<button class="sh-btn" data-act="calc-add-item" style="margin-top:0">Добавить</button>'
+    + '<div style="display:flex;justify-content:space-between;margin-top:12px;font-weight:600;font-size:14px"><span>Итого:</span><span id="calcTotal">0 ₽</span></div>'
+    + '</div>'
+    + '<div class="form" style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px">'
+    + '<div class="hint">Расчёт на основе графика '+calPattern+' ('+workDays+' рабочих в цикле):</div>'
+    + '<div class="row2">'
+    + '<div><div class="hint">Месяцы:</div><input class="inp" id="calcMonths" type="number" value="1" min="1" max="12"></div>'
+    + '<div><div class="hint">Итого/мес:</div><div id="calcPerMonth" style="padding:10px 0;font-weight:600">0 ₽</div></div>'
+    + '</div>'
+    + '<button class="sh-btn" data-act="calc-calc" style="margin-top:0">Рассчитать</button>'
+    + '<button class="sh-btn ghost" data-act="calc-apply" style="margin-top:0;color:var(--grn)">Применить к лимиту</button>'
+    + '</div>';
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+}
+
+function calcAddItem(){
+  var nm = ($('calcItemName') ? $('calcItemName').value : '').trim();
+  var sm = parseFloat($('calcItemSum') ? $('calcItemSum').value : '');
+  if(!nm){ return; }
+  if(!sm || sm <= 0){ dAlert('Введите сумму.', 'Калькулятор'); return; }
+  window._calcItems.push({n:nm, s:sm});
+  window._calcTotal += sm;
+  if($('calcItemName')){ $('calcItemName').value = ''; }
+  if($('calcItemSum')){ $('calcItemSum').value = ''; }
+  renderCalcItems();
+}
+
+function calcRemoveItem(ix){
+  window._calcTotal -= window._calcItems[ix].s;
+  window._calcItems.splice(ix, 1);
+  renderCalcItems();
+}
+
+function renderCalcItems(){
+  var el = $('calcItems');
+  if(!el){ return; }
+  var h = '';
+  for(var i=0;i<window._calcItems.length;i++){
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06)"><span>'+esc(window._calcItems[i].n)+'</span><span style="display:flex;align-items:center;gap:8px"><b>'+fmt(window._calcItems[i].s)+'</b><button data-act="calc-rm-item" data-i="'+i+'" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:0 4px">✕</button></span></div>';
+  }
+  el.innerHTML = h;
+  if($('calcTotal')){ $('calcTotal').textContent = fmt(window._calcTotal); }
+}
+
+function calcCalc(){
+  var months = parseInt($('calcMonths') ? $('calcMonths').value : '1', 10) || 1;
+  var perMonth = months > 0 ? Math.ceil(window._calcTotal / months) : 0;
+  if($('calcPerMonth')){ $('calcPerMonth').textContent = fmt(perMonth); }
+}
+
+function calcApply(){
+  var months = parseInt($('calcMonths') ? $('calcMonths').value : '1', 10) || 1;
+  var perMonth = months > 0 ? Math.ceil(window._calcTotal / months) : 0;
+  if(perMonth <= 0){ dAlert('Сначала добавьте покупки.', 'Калькулятор'); return; }
+  var enLim = $('enLim');
+  if(enLim){ enLim.value = perMonth; }
+  closeSheet();
+  toast('Лимит установлен: '+fmt(perMonth));
 }
 
 var LESSONS = [
@@ -331,12 +462,16 @@ function normalize(){
 if(!D.insts) D.insts=[];
   D.learned=D.learned||[];
   D.removedAuto=D.removedAuto||[];
-  D.events=D.events||[]; D.her=D.her||{}; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{}; D.paid=D.paid||{};  D.merchRules = D.merchRules || {};
+  D.events=D.events||[]; if(!D.her || (typeof D.her === 'object' && Object.keys(D.her).length === 0)) D.her=null; D.cancelled=D.cancelled||[]; D.leakFixed=D.leakFixed||{}; D.paid=D.paid||{};  D.merchRules = D.merchRules || {};
     D.decisions = D.decisions || [];
   if(typeof D.lifeMin !== 'number'){ D.lifeMin = 50000; }
   // Цели теперь инициализируются только из Firebase, без демо-значений
      D.goals = D.goals || [];
   if (typeof D.cycleMode !== 'string') D.cycleMode = 'salary';
+  if (typeof D.demo !== 'boolean') D.demo = false;
+  if (!D.username) D.username = '';
+  D.customCats = D.customCats || [];
+  D.customCal = D.customCal || null;
   calcLifeMin();
 }
 
@@ -651,7 +786,7 @@ function envCatsFromName(n){
 
 // Палитра и иконки для конвертов
 var ENV_COLORS = [['c-grn','Зелёный'],['c-blu','Синий'],['c-red','Красный'],['c-pur','Фиолетовый'],['c-org','Оранжевый'],['c-cyn','Голубой'],['c-pnk','Розовый'],['c-yel','Жёлтый'],['c-mnt','Мятный']];
-var ENV_ICONS = ['i-cart','i-coffee','i-scoot','i-taxi','i-train','i-home','i-med','i-shirt','i-gift','i-sub','i-card','i-beach','i-target','i-user','i-fun','i-wallet'];
+var ENV_ICONS = ['i-cart','i-coffee','i-scoot','i-taxi','i-train','i-home','i-med','i-shirt','i-gift','i-sub','i-card','i-beach','i-target','i-user','i-fun','i-wallet','i-book','i-shield','i-pen','i-cal','i-cap','i-paw','i-grad','i-mus','i-cam','i-spa','i-dog','i-cat','i-baby','i-car','i-plane','i-game','i-pc','i-phone','i-heart'];
 
 function openSheet(t, i){
   window._sheetCur = t;
@@ -2756,12 +2891,20 @@ function renderDashboardNew() {
   }
 }
 
-var RU_HOLIDAYS = ['01-01','01-02','01-03','01-04','01-05','01-06','01-07','01-08','02-23','03-08','05-01','05-09','06-12','11-04','12-31'];
+var RU_HOLIDAYS = ['01-01','01-02','01-03','01-04','01-05','01-06','01-07','01-08','02-23','02-24','03-08','05-01','05-09','06-12','11-04','12-31'];
+var RU_EXTRA_DAYS_OFF = {
+  '2024':['02-26','04-29','04-30','05-02','05-03','05-08','06-13','11-05'],
+  '2025':['01-02','01-03','01-06','02-24','03-10','05-02','05-08','06-13','11-05','12-31'],
+  '2026':['01-02','01-05','01-06','01-09','02-23','02-27','03-09','05-01','05-08','05-11','06-12','11-04']
+};
 function isRuWeekend(d){
   var wd = d.getDay();
   if(wd === 0 || wd === 6){ return true; }
   var md = String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  return RU_HOLIDAYS.indexOf(md) !== -1;
+  if(RU_HOLIDAYS.indexOf(md) !== -1){ return true; }
+  var extra = RU_EXTRA_DAYS_OFF[d.getFullYear()];
+  if(extra && extra.indexOf(md) !== -1){ return true; }
+  return false;
 }
 
 function myDayData(y, m, day){
@@ -2799,9 +2942,11 @@ function herDayData(y, m, day){
 }
 function herDayEvents(y, m, day){
   var ev = [];
-  if(day === 1 || day === 16){ ev.push({c:'#30d158', n:'ЗП любимой'}); }
+  var cal = D.customCal;
+  if(!cal){ return ev; }
+  if(cal.salaryDays && cal.salaryDays.indexOf(day) !== -1){ ev.push({c:'#30d158', n:'ЗП '+cal.name}); }
   var key = y+'-'+String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
-  var st = (D.her||{})[key];
+  var st = (cal.schedule||{})[key];
   if(st === 1){ ev.push({c:'#0a84ff', n:'Работа'}); }
   if(st === 0){ ev.push({c:'#bf5af2', n:'Выходной'}); }
   return ev;
@@ -2916,8 +3061,12 @@ function renderMyCal(){
 function renderHerCal(){
   var now = new Date();
   var dt = new Date(now.getFullYear(), now.getMonth() + herOff, 1);
+  var cal = D.customCal;
   $('herCalTitle').textContent = MONTHS[dt.getMonth()]+' '+dt.getFullYear();
-  $('herCal').innerHTML = calGridHtml(dt.getFullYear(), dt.getMonth(), herDayData, 'her', false);
+  if($('herCalLabel')){ $('herCalLabel').textContent = cal ? cal.name : 'Календарь'; }
+  if($('herCalEditBtn')){ $('herCalEditBtn').textContent = cal ? 'настроить' : 'создать'; }
+  $('herCal').innerHTML = cal ? calGridHtml(dt.getFullYear(), dt.getMonth(), herDayData, 'her', false)
+    : '<div style="padding:20px;text-align:center;color:var(--mut);font-size:12px">Создайте календарь, чтобы видеть рабочие дни и дни зарплаты</div>';
 }
 
 function openCalSheet(dstr, noHl){
@@ -2981,43 +3130,131 @@ function calEventDel(id){
 }
 
 function openHerSheet(dstr){
+  var cal = D.customCal;
+  if(!cal){
+    openHerCalCreate();
+    return;
+  }
   var p = dstr.split('-');
   var d = new Date(+p[0], +p[1]-1, +p[2]);
-  var st = (D.her||{})[dstr];
+  var st = (cal.schedule||{})[dstr];
   var stTxt = st === 1 ? 'рабочий день' : (st === 0 ? 'выходной' : 'не отмечено');
   var dateTxt = String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
-  $('sheetBody').innerHTML = sheetHead('i-user','c-pur','Календарь любимой', dateTxt+' · '+stTxt)
-    + rowHtml('Зарплата', '1 и 16 числа')
+  $('sheetBody').innerHTML = sheetHead('i-user','c-pur', cal.name, dateTxt+' · '+stTxt)
+    + rowHtml('Зарплата', (cal.salaryDays||[]).join(', ')+' числа')
     + '<div class="row2" style="margin-top:12px">'
     + '<button class="sh-btn" style="margin-top:0" data-d="'+dstr+'" data-act="her-set" data-v="1">Рабочий</button>'
     + '<button class="sh-btn ghost" style="margin-top:0" data-d="'+dstr+'" data-act="her-set" data-v="0">Выходной</button>'
     + '</div>'
     + '<button class="sh-btn ghost" data-d="'+dstr+'" data-act="her-set" data-v="x">Снять отметку с этого дня</button>'
-    + '<button class="sh-btn" data-d="'+dstr+'" data-act="her-fill">График 3/3 с этого дня (60 дней)</button>';
+    + '<button class="sh-btn" data-d="'+dstr+'" data-act="her-fill">График '+(cal.pattern||'5/2')+' с этого дня (60 дней)</button>';
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
 }
 
+function openHerCalCreate(){
+  $('sheetBody').innerHTML = sheetHead('i-user','c-pur','Новый календарь','настройте график и дни зарплаты')
+    + '<div class="form">'
+    + '<input class="inp" id="hcName" placeholder="Название календаря" value="'+esc((D.customCal||{}).name||'')+'">'
+    + '<div class="hint">График работы:</div>'
+    + '<div class="chip-grid" id="hcPatternGrid">'
+    + '<button class="cat-chip on" data-act="hc-pattern" data-c="5/2">5/2</button>'
+    + '<button class="cat-chip" data-act="hc-pattern" data-c="2/2">2/2</button>'
+    + '<button class="cat-chip" data-act="hc-pattern" data-c="3/3">3/3</button>'
+    + '<button class="cat-chip" data-act="hc-pattern" data-c="4/4">4/4</button>'
+    + '<button class="cat-chip" data-act="hc-pattern" data-c="6/1">6/1</button>'
+    + '<button class="cat-chip" data-act="hc-pattern" data-c="12/12">12/12</button>'
+    + '<button class="cat-chip" data-act="hc-pattern" data-c="custom">Свой</button>'
+    + '</div>'
+    + '<div class="hint">Дни зарплаты (через запятую, например: 5, 20):</div>'
+    + '<input class="inp" id="hcSalaryDays" placeholder="5, 20" value="'+esc(((D.customCal||{}).salaryDays||[]).join(', '))+'">'
+    + '<div class="hint">Дата начала графика:</div>'
+    + '<input class="inp" id="hcStartDate" type="date" value="'+iso(new Date())+'">'
+    + '</div>'
+    + '<button class="sh-btn" data-act="her-cal-save">Сохранить</button>'
+    + (D.customCal ? '<button class="sh-btn danger" data-act="her-cal-delete">Удалить календарь</button>' : '');
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+  window._hcPattern = (D.customCal||{}).pattern || '5/2';
+}
+
+function herCalSave(){
+  var nm = ($('hcName') ? $('hcName').value : '').trim();
+  if(!nm){ dAlert('Введите название.', 'Календарь'); return; }
+  var salaryStr = ($('hcSalaryDays') ? $('hcSalaryDays').value : '').trim();
+  var salaryDays = salaryStr ? salaryStr.split(',').map(function(s){ return parseInt(s.trim(),10); }).filter(function(n){ return n>=1 && n<=31; }) : [];
+  var pattern = window._hcPattern || '5/2';
+  var startDate = $('hcStartDate') ? $('hcStartDate').value : iso(new Date());
+  
+  var cal = D.customCal || {name:nm, pattern:pattern, salaryDays:salaryDays, schedule:{}};
+  cal.name = nm;
+  cal.pattern = pattern;
+  cal.salaryDays = salaryDays;
+  cal.schedule = cal.schedule || {};
+  
+  if(!D.customCal){
+    D.customCal = cal;
+  } else {
+    D.customCal.name = nm;
+    D.customCal.pattern = pattern;
+    D.customCal.salaryDays = salaryDays;
+  }
+  
+  fillSchedule(D.customCal, startDate);
+  save();
+  closeSheet();
+  render();
+  toast('Календарь «'+nm+'» сохранён');
+}
+
+function fillSchedule(cal, startDateStr){
+  var p = startDateStr.split('-');
+  var start = new Date(+p[0], +p[1]-1, +p[2]);
+  var parts = cal.pattern.split('/');
+  var workDays = parseInt(parts[0],10) || 5;
+  var restDays = parseInt(parts[1],10) || 2;
+  var cycle = workDays + restDays;
+  cal.schedule = cal.schedule || {};
+  for(var i=0;i<365;i++){
+    var d = new Date(start.getFullYear(), start.getMonth(), start.getDate()+i);
+    var key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    var dayInCycle = i % cycle;
+    if(isRuWeekend(d)){
+      cal.schedule[key] = 0;
+    } else {
+      cal.schedule[key] = dayInCycle < workDays ? 1 : 0;
+    }
+  }
+}
+
+function herCalDelete(){
+  dConfirm('Удалить календарь? Все данные графика будут потеряны.', 'Удаление календаря', true).then(function(ok){
+    if(!ok){ return; }
+    D.customCal = null;
+    save();
+    closeSheet();
+    render();
+    toast('Календарь удалён');
+  });
+}
+
 function herSet(dstr, v){
-  D.her = D.her || {};
-  if(v === 'x'){ delete D.her[dstr]; }
-  else { D.her[dstr] = (v === '1') ? 1 : 0; }
+  if(!D.customCal){ return; }
+  D.customCal.schedule = D.customCal.schedule || {};
+  if(v === 'x'){ delete D.customCal.schedule[dstr]; }
+  else { D.customCal.schedule[dstr] = (v === '1') ? 1 : 0; }
   save(); render();
   openHerSheet(dstr);
 }
 
 function herFill(dstr){
+  if(!D.customCal){ return; }
   var p = dstr.split('-');
   var start = new Date(+p[0], +p[1]-1, +p[2]);
-  D.her = D.her || {};
-  for(var i=0;i<60;i++){
-    var d = new Date(start.getFullYear(), start.getMonth(), start.getDate()+i);
-    var key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    D.her[key] = (i % 6) < 3 ? 1 : 0;
-  }
+  fillSchedule(D.customCal, dstr);
   save(); render();
   openHerSheet(dstr);
-  toast('График 3/3 заполнен на 60 дней');
+  toast('График '+(D.customCal.pattern||'5/2')+' заполнен на 365 дней');
 }
 
 function findGoal(id){
@@ -3744,9 +3981,10 @@ function envDraftSyncInputs(){
 }
 function renderEnvForm(){
   var d = window._envDraft;
+  var allC = allCats();
   var catChips = '';
-  for(var c=0;c<CATS.length;c++){
-    catChips += '<button type="button" class="cat-chip'+(d.cats.indexOf(CATS[c].id) !== -1?' on':'')+'" data-act="env-cat" data-c="'+CATS[c].id+'">'+CATS[c].n+'</button>';
+  for(var c=0;c<allC.length;c++){
+    catChips += '<button type="button" class="cat-chip'+(d.cats.indexOf(allC[c].id) !== -1?' on':'')+'" data-act="env-cat" data-c="'+allC[c].id+'">'+allC[c].n+'</button>';
   }
   var icBtns = '';
   for(var g=0;g<ENV_ICONS.length;g++){
@@ -3756,10 +3994,11 @@ function renderEnvForm(){
   for(var k=0;k<ENV_COLORS.length;k++){
     colBtns += '<button type="button" class="env-col-btn '+(d.k === ENV_COLORS[k][0]?'on ':'')+ENV_COLORS[k][0]+'" data-act="env-col" data-c="'+ENV_COLORS[k][0]+'">'+(d.k === ENV_COLORS[k][0]?'выбран':'&nbsp;')+'</button>';
   }
+  var calPattern = (D.customCal||{}).pattern || '5/2';
   $('sheetBody').innerHTML = sheetHead('i-target','c-pur', d._title || 'Конверт', 'категории, значок и цвет — на ваш вкус')
     + '<div class="form">'
     + '<input class="inp" id="enName" placeholder="Название конверта" value="'+esc(d.name||'')+'">'
-    + '<input class="inp" id="enLim" type="number" inputmode="decimal" placeholder="Лимит на цикл, ₽" value="'+(d.lim||'')+'">'
+    + '<div style="display:flex;gap:6px;align-items:center"><input class="inp" id="enLim" type="number" inputmode="decimal" placeholder="Лимит на цикл, ₽" value="'+(d.lim||'')+'" style="flex:1"><button class="sh-btn" data-act="env-calc" style="margin:0;flex-shrink:0;padding:10px 14px"><svg class="ic" style="width:16px;height:16px"><use href="#i-card"/></svg> Калькулятор</button></div>'
     + '<div class="hint">Категории, которые наполняют конверт (можно несколько):</div>'
     + '<div class="chip-grid">'+catChips+'</div>'
     + '<div class="hint">Значок:</div><div class="chip-grid">'+icBtns+'</div>'
@@ -3776,10 +4015,12 @@ function openEnvAdd(){
 
 function openQuickSpend(){
   window._qsCatTouched = false;
+  var allC = allCats();
   var chips = '';
-  for(var i=0;i<CATS.length;i++){
-    chips += '<button class="cat-chip'+(CATS[i].id==='grocery'?' on':'')+'" data-act="qs-cat" data-c="'+CATS[i].id+'">'+CATS[i].n+'</button>';
+  for(var i=0;i<allC.length;i++){
+    chips += '<button class="cat-chip'+(allC[i].id==='grocery'?' on':'')+'" data-act="qs-cat" data-c="'+allC[i].id+'">'+allC[i].n+'</button>';
   }
+  chips += '<button class="cat-chip" data-act="custom-cat-add" style="border:1px dashed var(--mut);background:transparent">+ Своя</button>';
   var tags = [['normal','Обычная'],['planned','План'],['impulse','Импульс'],['needed','Нужно']];
   var tchips = '';
   for(var t=0;t<tags.length;t++){ tchips += '<button class="cat-chip sm'+(t===0?' on':'')+'" data-act="qs-tag" data-c="'+tags[t][0]+'">'+tags[t][1]+'</button>'; }
@@ -4084,6 +4325,9 @@ function go(p){
   var btns = document.querySelectorAll('[data-act="nav"]');
   for(var j=0;j<btns.length;j++){ btns[j].classList.toggle('on', btns[j].getAttribute('data-p') === p); }
     if(p === 'dash'){ setTimeout(function(){ try{ renderAnalytics(); }catch(e){} }, 60); }
+  if(p === 'settings'){
+    if($('settingsUsername')){ $('settingsUsername').value = D.username || ''; }
+  }
   if(p === 'chat' && $('chatLog') && !$('chatLog').children.length){
     addMsg('bot', 'Привет! Я твой финансовый копилот — считаю только по твоим цифрам.<br>Спроси: «сколько можно сегодня?», «могу купить X?», «где утечки?», «как закрыть долги?», «что важно сейчас?»');
   }
@@ -4968,6 +5212,66 @@ save(); render(); toast('Память применена: обновлено о�
     render();
     toast('Цикл переключён на ' + (newMode === 'salary' ? 'зарплатный' : 'календарный'));
   }
+  else if(act === 'username-save'){
+    var un = ($('settingsUsername') ? $('settingsUsername').value : '').trim();
+    if(!un){ dAlert('Введите имя.', 'Имя'); return; }
+    if(un.length < 2 || un.length > 30){ dAlert('Имя должно быть от 2 до 30 символов.', 'Имя'); return; }
+    D.username = un;
+    save();
+    if ($('hello')) $('hello').textContent = 'Привет, ' + un.split(' ')[0] + '!';
+    if ($('mMail')) $('mMail').textContent = un.split(' ')[0];
+    render();
+    toast('Имя сохранено: ' + un);
+  }
+  else if(act === 'custom-cat-add'){
+    openCustomCatAdd(function(cat){
+      if($('qsCat')){ $('qsCat').value = cat.id; }
+      if($('spCat')){ $('spCat').value = cat.id; }
+    });
+  }
+  else if(act === 'cc-icon'){
+    envDraftSyncInputs();
+    window._ccDraft.ic = el.getAttribute('data-c');
+    renderCustomCatIcons();
+  }
+  else if(act === 'cc-col'){
+    envDraftSyncInputs();
+    window._ccDraft.k = el.getAttribute('data-c');
+    renderCustomCatColors();
+  }
+  else if(act === 'custom-cat-save'){
+    customCatSave();
+  }
+  else if(act === 'her-cal-edit'){
+    openHerCalCreate();
+  }
+  else if(act === 'her-cal-save'){
+    herCalSave();
+  }
+  else if(act === 'her-cal-delete'){
+    herCalDelete();
+  }
+  else if(act === 'hc-pattern'){
+    var pat = el.getAttribute('data-c');
+    window._hcPattern = pat;
+    var chips2 = document.querySelectorAll('#hcPatternGrid .cat-chip');
+    for(var ci=0;ci<chips2.length;ci++){ chips2[ci].classList.toggle('on', chips2[ci].getAttribute('data-c') === pat); }
+  }
+  else if(act === 'env-calc'){
+    openEnvCalc();
+  }
+  else if(act === 'calc-add-item'){
+    calcAddItem();
+  }
+  else if(act === 'calc-rm-item'){
+    calcRemoveItem(parseInt(el.getAttribute('data-i'),10));
+  }
+  else if(act === 'calc-calc'){
+    calcCalc();
+  }
+  else if(act === 'calc-apply'){
+    calcApply();
+  }
   else if(act === 'learn-done'){
     var li8 = parseInt(el.getAttribute('data-i'),10);
     if((D.learned||[]).indexOf(li8) === -1){
@@ -5230,19 +5534,29 @@ onAuthStateChanged(auth, function(u){
   $('login').classList.add('hidden');
   $('app').classList.remove('hidden');
   (window._pagesLoaded || Promise.resolve()).then(function() {
-    var name = (u.displayName || 'друг').split(' ')[0];
-    if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
-    if ($('mMail')) $('mMail').textContent = name;
     getDoc(doc(db,'users',uid)).then(function(s){
       if(s.exists() && s.data() && s.data().data){ D = s.data().data; }
+      else {
+        D = {spends:[], incomes:[], tx:[], envs:[], pays:[], subs:[], credits:[], insts:[], goals:[], events:[], her:null, learned:[], leaks:[], merchRules:{}, paid:{}, removedAuto:[], cancelled:[], leakFixed:{}, baseBalance:0, income:0, salaryDay:null, demo:false, cycleMode:'salary', decisions:[], username:''};
+      }
       normalize();
+      var name = (D.username || u.displayName || 'друг').split(' ')[0];
+      if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
+      if ($('mMail')) $('mMail').textContent = name;
       if(window.SEED && (D.seedVersion||0) !== window.SEED.version){ applySeed(window.SEED); }
       ensureSalary();
       wireUi();
       render();
       go('dash');
       placeTip();
-    }).catch(function(){ normalize(); wireUi(); render(); go('dash'); placeTip(); });
+    }).catch(function(){
+      D = {spends:[], incomes:[], tx:[], envs:[], pays:[], subs:[], credits:[], insts:[], goals:[], events:[], her:null, learned:[], leaks:[], merchRules:{}, paid:{}, removedAuto:[], cancelled:[], leakFixed:{}, baseBalance:0, income:0, salaryDay:null, demo:false, cycleMode:'salary', decisions:[], username:''};
+      normalize();
+      var name = (u.displayName || 'друг').split(' ')[0];
+      if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
+      if ($('mMail')) $('mMail').textContent = name;
+      wireUi(); render(); go('dash'); placeTip();
+    });
   });
 });
 
@@ -5251,9 +5565,10 @@ function wireUi(){
   var sel = $('spCat');
   if (sel) {
     sel.innerHTML = '';
-    for(var i=0;i<CATS.length;i++){
+    var allC = allCats();
+    for(var i=0;i<allC.length;i++){
       var o = document.createElement('option');
-      o.value = CATS[i].id; o.textContent = CATS[i].n;
+      o.value = allC[i].id; o.textContent = allC[i].n;
       sel.appendChild(o);
     }
   }
