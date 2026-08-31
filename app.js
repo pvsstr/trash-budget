@@ -1106,7 +1106,9 @@ function openSheet(t, i){
     h += '<div class="cap" style="margin:10px 4px 6px">Подписки</div>';
     for(var fs=0;fs<D.subs.length;fs++){
       var ss=D.subs[fs];
-      h += '<div class="dig-item"><span>'+esc(ss.n)+(ss.off?' · отключена':'')+'</span><span class="row-actions"><b>'+fmt(ss.s)+'/мес</b>'
+      var ssFreq = ss.freq || 'monthly';
+      var ssAmtStr = ssFreq === 'annual' ? fmt(ss.s)+'/ежег' : fmt(ss.s)+'/мес';
+      h += '<div class="dig-item"><span>'+esc(ss.n)+(ss.off?' · отключена':'')+'</span><span class="row-actions"><b>'+ssAmtStr+'</b>'
         + '<button class="mini-btn" data-act="edit" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
         + '<button class="mini-btn danger" data-act="fix-del" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
@@ -1214,7 +1216,7 @@ function openEdit(t, i){
   var it = null; var h = ''; var title = '';
   function get(arr){ for(var k=0;k<arr.length;k++){ if(arr[k].id === i){ return arr[k]; } } return null; }
   if(t==='sub'){ it = i?get(D.subs):null; title = it?'Подписка':'Новая подписка';
-    var subFreq = (it && it.freq) ? it.freq : 'monthly';
+    var subFreq = (it && it.freq) ? it.freq : (window._subFreq || 'monthly');
     var subDay = (it && it.d) ? it.d : '';
     var freqBtns = '<div class="chips" style="padding:0 0 8px">'
       + '<button class="chip'+(subFreq==='monthly'?' on':'')+'" data-act="sub-freq" data-v="monthly">Ежемесячная</button>'
@@ -1224,9 +1226,9 @@ function openEdit(t, i){
       + freqBtns
       + '<input class="inp" id="in2" type="number" placeholder="'+(subFreq==='annual'?'Сумма списания, ₽':'Сумма в месяц, ₽')+'" value="'+(it?it.s:'')+'">'
       + (subFreq==='annual'
-        ? '<input class="inp" id="in3" type="date" placeholder="Дата следующего списания" value="'+(subDay||'')+'">'
+        ? '<input class="inp" id="in3" type="date" value="'+(subDay||'')+'">'
         : '<input class="inp" id="in3" type="number" placeholder="День списания (1-31)" min="1" max="31" value="'+subDay+'">')
-      + '<div class="hint">'+(subFreq==='annual'?'Укажите дату следующего списания — списание учтётся только в этом месяце':'Укажите день списания для прогноза')+'</div></div>';
+      + '<div class="hint">'+(subFreq==='annual'?'Дата следующего списания — учтётся только в этом месяце':'Укажите день списания для прогноза')+'</div></div>';
   }
   if(t==='pay'){ it = i?get(D.pays):null; title = it?'Платёж':'Новый платёж';
     h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Сумма, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="number" placeholder="День (1-31)" value="'+(it?it.d:'')+'"></div></div>';
