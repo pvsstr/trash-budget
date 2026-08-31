@@ -1186,7 +1186,17 @@ function openEdit(t, i){
   var it = null; var h = ''; var title = '';
   function get(arr){ for(var k=0;k<arr.length;k++){ if(arr[k].id === i){ return arr[k]; } } return null; }
   if(t==='sub'){ it = i?get(D.subs):null; title = it?'Подписка':'Новая подписка';
-    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'"><input class="inp" id="in2" type="number" placeholder="Сумма в месяц, ₽" value="'+(it?it.s:'')+'"></div>';
+    var subFreq = (it && it.freq) ? it.freq : 'monthly';
+    var subDay = (it && it.d) ? it.d : '';
+    var freqBtns = '<div class="chips" style="padding:0 0 8px">'
+      + '<button class="chip'+(subFreq==='monthly'?' on':'')+'" data-act="sub-freq" data-v="monthly">Ежемесячная</button>'
+      + '<button class="chip'+(subFreq==='annual'?' on':'')+'" data-act="sub-freq" data-v="annual">Ежегодная</button>'
+      + '</div>';
+    h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'">'
+      + freqBtns
+      + '<div class="row2"><input class="inp" id="in2" type="number" placeholder="'+(subFreq==='annual'?'Сумма в год, ₽':'Сумма в месяц, ₽')+'" value="'+(it?it.s:'')+'">'
+      + '<input class="inp" id="in3" type="number" placeholder="День списания (1-31)" min="1" max="31" value="'+subDay+'"></div>'
+      + '<div class="hint">'+(subFreq==='annual'?'Сумма пересчитается в ежемесячную':'Укажите день списания для прогноза')+'</div></div>';
   }
   if(t==='pay'){ it = i?get(D.pays):null; title = it?'Платёж':'Новый платёж';
     h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Сумма, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="number" placeholder="День (1-31)" value="'+(it?it.d:'')+'"></div></div>';
@@ -1245,8 +1255,12 @@ function saveEdit(){
   function find(arr){ for(var k=0;k<arr.length;k++){ if(arr[k].id === f.id){ return arr[k]; } } return null; }
   var it;
   if(f.t==='sub'){
-    if(f.id){ it=find(D.subs); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; } }
-    else { D.subs.push({id:Date.now(), n:g('in1')||'Подписка', s:parseFloat(g('in2'))||0, off:0}); }
+    var subAmt = parseFloat(g('in2'))||0;
+    var subFreq = window._subFreq || (it && it.freq) || 'monthly';
+    var subDay = parseInt(g('in3'),10)||0;
+    var subMonthly = subFreq === 'annual' ? Math.round(subAmt/12) : subAmt;
+    if(f.id){ it=find(D.subs); if(it){ it.n=g('in1')||it.n; it.s=subMonthly||it.s; it.freq=subFreq; it.d=subDay||it.d; } }
+    else { D.subs.push({id:Date.now(), n:g('in1')||'Подписка', s:subMonthly, freq:subFreq, d:subDay||null, off:0}); }
   }
   if(f.t==='pay'){
     if(f.id){ it=find(D.pays); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; it.d=parseInt(g('in3'))||it.d; } }
@@ -1433,16 +1447,21 @@ function renderSubs(){
   var h = '';
   for(var i=0;i<D.subs.length;i++){
     var s = D.subs[i];
+    var freq = s.freq || 'monthly';
+    var dayStr = s.d ? ', ' + s.d + '-го числа' : '';
+    var annStr = freq === 'annual' ? fmt(s.s*12)+'/год' : fmt(s.s*12)+' в год';
     var fact = '';
     if(!s.off && audMap[s.id]){
       var au = audMap[s.id];
       if(au.rose){ fact = '<span style="color:var(--org)">подорожала: было '+fmt(s.s)+', по факту '+fmt(au.lastAmt)+'</span>'; }
       else if(!au.found){ fact = '<span style="color:var(--mut)">списаний не найдено 90+ дней</span>'; }
-      else if(au.lastAmt > 0){ fact = 'по факту '+fmt(au.lastAmt)+' · '+fmt(s.s*12)+' в год'; }
-      else { fact = 'активна · '+fmt(s.s*12)+' в год'; }
+      else if(au.lastAmt > 0){ fact = 'по факту '+fmt(au.lastAmt)+' · '+annStr; }
+      else { fact = 'активна · '+annStr; }
     } else {
-      fact = s.off ? 'отключена' : 'активна · '+fmt(s.s*12)+' в год';
+      fact = s.off ? 'отключена' : 'активна · '+annStr;
     }
+    fact += dayStr;
+    if(freq === 'annual'){ fact += ' · ежегодная'; }
     h += '<div class="env glass hov" data-act="edit" data-t="sub" data-i="'+s.id+'"><header><div class="env-name"><div class="sic '+(s.off?'':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;'+(s.off?'opacity:.4':'')+'"><svg class="ic"><use href="#i-sub"/></svg></div>'+esc(s.n)+'</div><b style="'+(s.off?'opacity:.4;text-decoration:line-through':'')+'">'+fmt(s.s)+'/мес</b></header>'
       + '<div class="note">'+fact+'</div>'
       + '<button class="sh-btn '+(s.off?'':'ghost')+'" style="margin-top:8px" data-act="sub-toggle" data-i="'+s.id+'">'+(s.off?'Включить':'Отключить')+'</button></div>';
@@ -5476,6 +5495,12 @@ save(); render(); toast('Память применена: обновлено о�
       save(); render(); toast('Отметка снята');
     });
   }
+  else if(act === 'sub-freq'){
+    window._subFreq = el.getAttribute('data-v');
+    if(window._ef && window._ef.t === 'sub'){
+      openEdit('sub', window._ef.id || 0);
+    }
+  }
   else if(act === 'sub-toggle'){
     var sid3 = parseInt(el.getAttribute('data-i'),10);
     var sIt = null;
@@ -6344,13 +6369,13 @@ function forecastCashFlow(daysAhead, fromDate){
   var events = [];
   var i, d, key;
   
-  // Подписки — списание 1 числа каждого месяца (или по дате, если известна)
+  // Подписки — списание по дате (или 1 числа если дата не задана)
   for(i=0;i<D.subs.length;i++){
     if(D.subs[i].off){ continue; }
-    for(var md=1; md<=daysAhead+30; md+=30){
-      var subDay = new Date(fromDate.getTime() + md*864e5);
-      subDay = new Date(subDay.getFullYear(), subDay.getMonth(), 1);
-      if(subDay >= fromDate){ events.push({date:subDay, amt:-D.subs[i].s, n:'Подписка: '+D.subs[i].n}); }
+    var subDayNum = D.subs[i].d || 1;
+    for(var md=0; md<=Math.ceil(daysAhead/30)+1; md++){
+      var subDay = new Date(fromDate.getFullYear(), fromDate.getMonth()+md, subDayNum);
+      if(subDay >= fromDate && (subDay - fromDate)/864e5 <= daysAhead){ events.push({date:subDay, amt:-D.subs[i].s, n:'Подписка: '+D.subs[i].n}); }
     }
   }
   
