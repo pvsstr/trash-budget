@@ -667,7 +667,7 @@ function nextPay(days){
 function calcMonthlyFixedPay() {
   var paysSum = 0;
   for (var i = 0; i < D.pays.length; i++) { paysSum += D.pays[i].s; }
-  for (var j = 0; j < D.subs.length; j++) { if (!D.subs[j].off) paysSum += D.subs[j].s; }
+  for (var j = 0; j < D.subs.length; j++) { if (!D.subs[j].off && D.subs[j].freq !== 'annual') paysSum += D.subs[j].s; }
   // Ежемесячные платежи по кредитам
   for (var k = 0; k < (D.credits||[]).length; k++) {
     if ((D.credits[k].pay||0) > 0) { paysSum += D.credits[k].pay; }
@@ -1090,7 +1090,7 @@ function openSheet(t, i){
   } else if(t === 'fixed'){
     var paysSum = 0, subsSum = 0;
     for(var a1=0;a1<D.pays.length;a1++){ paysSum += D.pays[a1].s; }
-    for(var a2=0;a2<D.subs.length;a2++){ if(!D.subs[a2].off){ subsSum += D.subs[a2].s; } }
+    for(var a2=0;a2<D.subs.length;a2++){ if(!D.subs[a2].off && D.subs[a2].freq !== 'annual'){ subsSum += D.subs[a2].s; } }
     h = sheetHead('i-card','c-blu','Обязательные траты','из чего складывается сумма на панели')
       + rowHtml('Платежи в месяц', fmt(paysSum))
       + rowHtml('Активные подписки', fmt(subsSum))
@@ -1223,9 +1223,11 @@ function openEdit(t, i){
       + '</div>';
     h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'">'
       + freqBtns
-      + '<div class="row2"><input class="inp" id="in2" type="number" placeholder="'+(subFreq==='annual'?'Сумма в год, ₽':'Сумма в месяц, ₽')+'" value="'+(it?it.s:'')+'">'
-      + '<input class="inp" id="in3" type="number" placeholder="День списания (1-31)" min="1" max="31" value="'+subDay+'"></div>'
-      + '<div class="hint">'+(subFreq==='annual'?'Сумма пересчитается в ежемесячную':'Укажите день списания для прогноза')+'</div></div>';
+      + '<input class="inp" id="in2" type="number" placeholder="'+(subFreq==='annual'?'Сумма списания, ₽':'Сумма в месяц, ₽')+'" value="'+(it?it.s:'')+'">'
+      + (subFreq==='annual'
+        ? '<input class="inp" id="in3" type="date" placeholder="Дата следующего списания" value="'+(subDay||'')+'">'
+        : '<input class="inp" id="in3" type="number" placeholder="День списания (1-31)" min="1" max="31" value="'+subDay+'">')
+      + '<div class="hint">'+(subFreq==='annual'?'Укажите дату следующего списания — списание учтётся только в этом месяце':'Укажите день списания для прогноза')+'</div></div>';
   }
   if(t==='pay'){ it = i?get(D.pays):null; title = it?'Платёж':'Новый платёж';
     h = '<div class="form"><input class="inp" id="in1" placeholder="Название" value="'+esc(it?it.n:'')+'"><div class="row2"><input class="inp" id="in2" type="number" placeholder="Сумма, ₽" value="'+(it?it.s:'')+'"><input class="inp" id="in3" type="number" placeholder="День (1-31)" value="'+(it?it.d:'')+'"></div></div>';
@@ -1286,10 +1288,14 @@ function saveEdit(){
   if(f.t==='sub'){
     var subAmt = parseFloat(g('in2'))||0;
     var subFreq = window._subFreq || (it && it.freq) || 'monthly';
-    var subDay = parseInt(g('in3'),10)||0;
-    var subMonthly = subFreq === 'annual' ? Math.round(subAmt/12) : subAmt;
-    if(f.id){ it=find(D.subs); if(it){ it.n=g('in1')||it.n; it.s=subMonthly||it.s; it.freq=subFreq; it.d=subDay||it.d; } }
-    else { D.subs.push({id:Date.now(), n:g('in1')||'Подписка', s:subMonthly, freq:subFreq, d:subDay||null, off:0}); }
+    var subDay = g('in3') || null;
+    if(subFreq === 'annual'){
+      if(f.id){ it=find(D.subs); if(it){ it.n=g('in1')||it.n; it.s=subAmt||it.s; it.freq=subFreq; it.d=subDay||it.d; } }
+      else { D.subs.push({id:Date.now(), n:g('in1')||'Подписка', s:subAmt, freq:subFreq, d:subDay||null, off:0}); }
+    } else {
+      if(f.id){ it=find(D.subs); if(it){ it.n=g('in1')||it.n; it.s=subAmt||it.s; it.freq=subFreq; it.d=subDay||it.d; } }
+      else { D.subs.push({id:Date.now(), n:g('in1')||'Подписка', s:subAmt, freq:subFreq, d:subDay||null, off:0}); }
+    }
   }
   if(f.t==='pay'){
     if(f.id){ it=find(D.pays); if(it){ it.n=g('in1')||it.n; it.s=parseFloat(g('in2'))||it.s; it.d=parseInt(g('in3'))||it.d; } }
@@ -1350,7 +1356,7 @@ function renderBudSummary(){
   }
   var paysSum = 0, subsSum = 0, envSum = 0, i;
   for(i=0;i<D.pays.length;i++){ paysSum += D.pays[i].s; }
-  for(i=0;i<D.subs.length;i++){ if(!D.subs[i].off){ subsSum += D.subs[i].s; } }
+  for(i=0;i<D.subs.length;i++){ if(!D.subs[i].off && D.subs[i].freq !== 'annual'){ subsSum += D.subs[i].s; } }
   for(i=0;i<D.envs.length;i++){ envSum += D.envs[i].lim; }
   var fixed = paysSum + subsSum;
   var used = fixed + envSum;
@@ -1477,23 +1483,29 @@ function renderSubs(){
   for(var i=0;i<D.subs.length;i++){
     var s = D.subs[i];
     var freq = s.freq || 'monthly';
-    var dayStr = s.d ? ', ' + s.d + '-го числа' : '';
-    var annStr = freq === 'annual' ? fmt(s.s*12)+'/год' : fmt(s.s*12)+' в год';
     var fact = '';
-    if(!s.off && audMap[s.id]){
-      var au = audMap[s.id];
-      if(au.rose){ fact = '<span style="color:var(--org)">подорожала: было '+fmt(s.s)+', по факту '+fmt(au.lastAmt)+'</span>'; }
-      else if(!au.found){ fact = '<span style="color:var(--mut)">списаний не найдено 90+ дней</span>'; }
-      else if(au.lastAmt > 0){ fact = 'по факту '+fmt(au.lastAmt)+' · '+annStr; }
-      else { fact = 'активна · '+annStr; }
+    if(freq === 'annual'){
+      var renewStr = s.d ? ' · следующее списание '+s.d : '';
+      fact = s.off ? 'отключена' : fmt(s.s)+' · ежегодная'+renewStr;
+      h += '<div class="env glass hov" data-act="edit" data-t="sub" data-i="'+s.id+'"><header><div class="env-name"><div class="sic '+(s.off?'':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;'+(s.off?'opacity:.4':'')+'"><svg class="ic"><use href="#i-sub"/></svg></div>'+esc(s.n)+'</div><b style="'+(s.off?'opacity:.4;text-decoration:line-through':'')+'">'+fmt(s.s)+'</b></header>'
+        + '<div class="note">'+fact+'</div>'
+        + '<button class="sh-btn '+(s.off?'':'ghost')+'" style="margin-top:8px" data-act="sub-toggle" data-i="'+s.id+'">'+(s.off?'Включить':'Отключить')+'</button></div>';
     } else {
-      fact = s.off ? 'отключена' : 'активна · '+annStr;
+      var dayStr = s.d ? ', ' + s.d + '-го числа' : '';
+      if(!s.off && audMap[s.id]){
+        var au = audMap[s.id];
+        if(au.rose){ fact = '<span style="color:var(--org)">подорожала: было '+fmt(s.s)+', по факту '+fmt(au.lastAmt)+'</span>'; }
+        else if(!au.found){ fact = '<span style="color:var(--mut)">списаний не найдено 90+ дней</span>'; }
+        else if(au.lastAmt > 0){ fact = 'по факту '+fmt(au.lastAmt)+' · '+fmt(s.s*12)+' в год'; }
+        else { fact = 'активна · '+fmt(s.s*12)+' в год'; }
+      } else {
+        fact = s.off ? 'отключена' : 'активна · '+fmt(s.s*12)+' в год';
+      }
+      fact += dayStr;
+      h += '<div class="env glass hov" data-act="edit" data-t="sub" data-i="'+s.id+'"><header><div class="env-name"><div class="sic '+(s.off?'':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;'+(s.off?'opacity:.4':'')+'"><svg class="ic"><use href="#i-sub"/></svg></div>'+esc(s.n)+'</div><b style="'+(s.off?'opacity:.4;text-decoration:line-through':'')+'">'+fmt(s.s)+'/мес</b></header>'
+        + '<div class="note">'+fact+'</div>'
+        + '<button class="sh-btn '+(s.off?'':'ghost')+'" style="margin-top:8px" data-act="sub-toggle" data-i="'+s.id+'">'+(s.off?'Включить':'Отключить')+'</button></div>';
     }
-    fact += dayStr;
-    if(freq === 'annual'){ fact += ' · ежегодная'; }
-    h += '<div class="env glass hov" data-act="edit" data-t="sub" data-i="'+s.id+'"><header><div class="env-name"><div class="sic '+(s.off?'':'c-blu')+'" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;'+(s.off?'opacity:.4':'')+'"><svg class="ic"><use href="#i-sub"/></svg></div>'+esc(s.n)+'</div><b style="'+(s.off?'opacity:.4;text-decoration:line-through':'')+'">'+fmt(s.s)+'/мес</b></header>'
-      + '<div class="note">'+fact+'</div>'
-      + '<button class="sh-btn '+(s.off?'':'ghost')+'" style="margin-top:8px" data-act="sub-toggle" data-i="'+s.id+'">'+(s.off?'Включить':'Отключить')+'</button></div>';
   }
   $('subsList').innerHTML = h || '<p style="color:var(--mut);font-size:12px;padding:4px 8px 12px">Подписок нет</p>';
 }
@@ -3608,8 +3620,9 @@ function smartTips(){
   for(var j=0;j<all.length;j++){ if(iso(all[j].d) === tk){ spent += all[j].s; } }
   if(spent > daily.perDay){ tips.push('Сегодня потрачено '+fmt(spent)+' при лимите '+fmt(daily.perDay)+' - день в перерасходе. Вечер без трат.'); }
   var sn = 0, ss = 0;
-  for(var s=0;s<D.subs.length;s++){ if(!D.subs[s].off){ ss += D.subs[s].s; sn++; } }
-  if(sn){ tips.push(sn+' активных подписок = '+fmt(ss)+' в месяц. Месячная ревизия освобождает до трети суммы.'); }
+  for(var s=0;s<D.subs.length;s++){ if(!D.subs[s].off && D.subs[s].freq !== 'annual'){ ss += D.subs[s].s; sn++; } }
+  for(var s=0;s<D.subs.length;s++){ if(!D.subs[s].off && D.subs[s].freq === 'annual'){ sn++; } }
+  if(sn){ tips.push(sn+' активных подписок. Месячная ревизия освобождает до трети суммы.'); }
   if(!tips.length){ tips.push('Перерасхода нет, лимиты в порядке. Отличная неделя - так держать!'); }
   return tips;
 }
@@ -4555,8 +4568,9 @@ function render(){
   var saV = $('subsAuditVal');
   if(saV){
     var ssN = 0, ssS = 0;
-    for(var s3=0;s3<D.subs.length;s3++){ if(!D.subs[s3].off){ ssS += D.subs[s3].s; ssN++; } }
-    saV.textContent = ssN+' активных подписок = '+fmt(ssS)+' в месяц';
+    for(var s3=0;s3<D.subs.length;s3++){ if(!D.subs[s3].off && D.subs[s3].freq !== 'annual'){ ssS += D.subs[s3].s; ssN++; } }
+    for(var s3=0;s3<D.subs.length;s3++){ if(!D.subs[s3].off && D.subs[s3].freq === 'annual'){ ssN++; } }
+    saV.textContent = ssN+' активных подписок'+(ssS > 0 ? ' = '+fmt(ssS)+' в месяц' : '');
   }
 
   var csA = cycleStart(now);
@@ -5544,7 +5558,7 @@ save(); render(); toast('Память применена: обновлено о�
     for(var s4=0;s4<D.subs.length;s4++){ if(D.subs[s4].id===sid3){ sIt = D.subs[s4]; break; } }
     if(sIt){
       sIt.off = sIt.off ? 0 : 1;
-      if(sIt.off){ logDecision('cancel_sub', {name:sIt.n, amount:sIt.s}); toast('Подписка "'+sIt.n+'" отключена · '+fmt(sIt.s*12)+' в год освободится'); }
+      if(sIt.off){ logDecision('cancel_sub', {name:sIt.n, amount:sIt.s}); toast('Подписка "'+sIt.n+'" отключена · '+(sIt.freq==='annual'?fmt(sIt.s)+' в год':'освободится '+fmt(sIt.s*12)+' в год')); }
       else { toast('Подписка "'+sIt.n+'" включена'); }
       save(); render();
     }
@@ -6409,13 +6423,22 @@ function forecastCashFlow(daysAhead, fromDate){
   var events = [];
   var i, d, key;
   
-  // Подписки — списание по дате (или 1 числа если дата не задана)
+  // Подписки — списание по дате
   for(i=0;i<D.subs.length;i++){
     if(D.subs[i].off){ continue; }
-    var subDayNum = D.subs[i].d || 1;
-    for(var md=0; md<=Math.ceil(daysAhead/30)+1; md++){
-      var subDay = new Date(fromDate.getFullYear(), fromDate.getMonth()+md, subDayNum);
-      if(subDay >= fromDate && (subDay - fromDate)/864e5 <= daysAhead){ events.push({date:subDay, amt:-D.subs[i].s, n:'Подписка: '+D.subs[i].n}); }
+    if(D.subs[i].freq === 'annual'){
+      if(D.subs[i].d){
+        var renewDate = parseD(D.subs[i].d);
+        if(renewDate && renewDate >= fromDate && (renewDate - fromDate)/864e5 <= daysAhead){
+          events.push({date:renewDate, amt:-D.subs[i].s, n:'Подписка: '+D.subs[i].n});
+        }
+      }
+    } else {
+      var subDayNum = D.subs[i].d || 1;
+      for(var md=0; md<=Math.ceil(daysAhead/30)+1; md++){
+        var subDay = new Date(fromDate.getFullYear(), fromDate.getMonth()+md, subDayNum);
+        if(subDay >= fromDate && (subDay - fromDate)/864e5 <= daysAhead){ events.push({date:subDay, amt:-D.subs[i].s, n:'Подписка: '+D.subs[i].n}); }
+      }
     }
   }
   
@@ -7056,7 +7079,7 @@ function getSignals(){
   
     // 2. Подписки годовой стоимостью
   var subsAnnual = 0;
-  for(var i=0;i<D.subs.length;i++){ if(!D.subs[i].off){ subsAnnual += D.subs[i].s * 12; } }
+  for(var i=0;i<D.subs.length;i++){ if(!D.subs[i].off){ subsAnnual += D.subs[i].freq === 'annual' ? D.subs[i].s : D.subs[i].s * 12; } }
   if(subsAnnual > 5000){
     var benefit = Math.round(subsAnnual * 0.3 / 12);
     signals.push({
