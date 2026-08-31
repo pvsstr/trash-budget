@@ -387,21 +387,20 @@ function countWorkDaysInMonth(year, month, pattern){
 function calcWork(){
   var total = window._calcTotal || 0;
   if(total <= 0){ dAlert('Сначала добавьте покупки.', 'Калькулятор'); return; }
-  var pattern = window._calcPattern || '5/2';
+  var pattern = $('calcPattern') ? $('calcPattern').value : (window._calcPattern || '5/2');
   var now = new Date();
   var workDays = countWorkDaysInMonth(now.getFullYear(), now.getMonth(), pattern);
   if(workDays <= 0){ dAlert('Нет рабочих дней в этом месяце.', 'Калькулятор'); return; }
   var perMonth = Math.ceil(total * workDays);
   window._calcResult = perMonth;
   if($('calcResult')){ $('calcResult').style.display = 'block'; }
-  if($('calcPerMonth')){ $('calcPerMonth').textContent = fmt(perMonth)+' ('+total+' × '+workDays+' раб. дн.)'; }
+  if($('calcPerMonth')){ $('calcPerMonth').textContent = fmt(perMonth)+' ('+total+' × '+workDays+' раб. дн. по '+pattern+')'; }
 }
 
 function calcApply(){
   var perMonth = window._calcResult || 0;
   if(perMonth <= 0){ dAlert('Сначала добавьте покупки и нажмите «Рассчитать» или «На рабочий месяц».', 'Калькулятор'); return; }
-  var enLim = $('enLim');
-  if(enLim){ enLim.value = perMonth; }
+  if(window._envDraft){ window._envDraft.lim = perMonth; }
   toast('Лимит установлен: '+fmt(perMonth));
   closeSheet();
   renderEnvForm();
@@ -4753,9 +4752,17 @@ return;
       '</div>';
     
     $('sheetBody').innerHTML = h;
-    $('sheet').classList.add('on');
-    $('shb').classList.add('on');
+  $('sheet').classList.add('on');
+  $('shb').classList.add('on');
+  var patEl = $('calcPattern');
+  if(patEl){
+    patEl.addEventListener('change', function(){
+      window._calcPattern = this.value;
+      window._calcResult = 0;
+      if($('calcResult')){ $('calcResult').style.display = 'none'; }
+    });
   }
+}
   else if(act === 'env'){ openEnv(parseInt(el.getAttribute('data-i'), 10)); }
   else if(act === 'env-edit-open'){
     var eo = parseInt(el.getAttribute('data-i'),10);
