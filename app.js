@@ -113,6 +113,7 @@ function payDateStr(d){
   return d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear()+' ('+WEEKDAYS[d.getDay()]+')';
 }
 function cycLabel(cs){
+  if(!D.salaryDay && D.cycleMode !== 'calendar'){ return '—'; }
   var ce = new Date(cycleEnd(cs).getTime() - 864e5);
   var label = cs.getDate()+'.'+String(cs.getMonth()+1).padStart(2,'0')+' – '+ce.getDate()+'.'+String(ce.getMonth()+1).padStart(2,'0')+'.'+ce.getFullYear();
   var preset = D.paymentPreset || 'salary';
@@ -4280,6 +4281,11 @@ function finishPush(o, after){
   var spendObj = {id:Date.now(), d:o.d, n:o.n || catById(o.cat).n, cat:o.cat, s:o.amt, tag:o.tag || 'normal'};
   if(o.envIcon){ spendObj.envIcon = o.envIcon; }
   if(o.envColor){ spendObj.envColor = o.envColor; }
+  if(!spendObj.envIcon){
+    for(var fe=0;fe<D.envs.length;fe++){
+      if(D.envs[fe].cats && D.envs[fe].cats.indexOf(o.cat) !== -1){ spendObj.envIcon = D.envs[fe].ic; spendObj.envColor = D.envs[fe].k; break; }
+    }
+  }
   D.spends.push(spendObj);
   save(); render(); vib(10); toast('Трата добавлена: −'+fmt(o.amt));
   if(D.spends.length === 1){
@@ -4381,8 +4387,7 @@ function openIncomeSheet(){
     + '<div class="form">'
     + '<input class="inp" id="incAmt" type="number" placeholder="Сумма всех поступлений, ₽" value="'+salAmt+'">'
     + presetBtns
-    + '<div class="hint">День зарплаты</div>'
-    + '<input class="inp" id="incDate" type="number" placeholder="День зарплаты (1-31)" min="1" max="31" value="'+salDay+'">'
+    + (preset !== 'custom' ? '<div class="hint">День зарплаты</div><input class="inp" id="incDate" type="number" placeholder="День зарплаты (1-31)" min="1" max="31" value="'+salDay+'">' : '<div class="hint">Укажите даты поступлений ниже</div>')
     + advBlock
     + '</div>'
     + '<button class="sh-btn" data-act="income-save">Сохранить</button>'
@@ -4819,11 +4824,13 @@ return;
     else if(act === 'income-save'){
     var a2 = parseFloat($('incAmt').value);
     if(isNaN(a2) || a2 <= 0){ dAlert('Укажите сумму всех поступлений.', 'Доход'); return; }
-    var salDay = parseInt($('incDate').value)||0;
-    if(salDay < 1 || salDay > 31){ dAlert('День зарплаты — от 1 до 31.', 'Доход'); return; }
-    D.income = a2;
-    D.salaryDay = salDay;
     var preset = D.paymentPreset || 'salary';
+    var salDay = parseInt($('incDate').value)||0;
+    if(preset !== 'custom'){
+      if(salDay < 1 || salDay > 31){ dAlert('День зарплаты — от 1 до 31.', 'Доход'); return; }
+    }
+    D.income = a2;
+    D.salaryDay = (salDay >= 1 && salDay <= 31) ? salDay : null;
     if(preset === 'advance-salary'){
       var advAmt = parseFloat($('incAdvAmt').value)||0;
       var advDay = parseInt($('incAdvDate').value)||0;
@@ -5939,18 +5946,19 @@ function wireUi(){
   if($('q')){ $('q').addEventListener('input', debRerender()); }
   if($('q2')){ $('q2').addEventListener('input', debRerender2()); }
   if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
-  // Чипы быстрых сценариев в чате
+  // Чипы быстрых сценариев в чате — внизу, рядом с action-чипами
   var chatContainer = $('chatLog');
-  if(chatContainer && !$('chatChips')){
+  var chatInEl = document.querySelector('.chat-in');
+  if(chatContainer && chatInEl && !$('chatChips')){
     var chipContainer = document.createElement('div');
     chipContainer.id = 'chatChips';
-    chipContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;margin-bottom:8px';
+    chipContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px;margin-bottom:4px';
     chipContainer.innerHTML =
       '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу кафе на 30%?">Урезать кафе на 30%</button>' +
       '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу самокаты на 50%?">Самокаты -50%</button>' +
       '<button class="chip" data-act="chat-chip" data-q="Что важно сейчас?">Что важно сейчас?</button>' +
       '<button class="chip" data-act="chat-chip" data-q="Как мне сэкономить 10000 в этом месяце?">Сэкономить 10 000</button>';
-    chatContainer.parentNode.insertBefore(chipContainer, chatContainer);
+    chatInEl.parentNode.insertBefore(chipContainer, chatInEl);
   }
   if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
   if($('spNote')){ $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } });
