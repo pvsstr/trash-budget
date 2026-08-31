@@ -4249,7 +4249,7 @@ function renderEnvForm(){
     + '<input class="inp" id="enName" placeholder="Название конверта" value="'+esc(d.name||'')+'">'
     + '<input class="inp" id="enLim" type="number" inputmode="decimal" placeholder="Лимит на цикл, ₽" value="'+(d.lim||'')+'">'
     + '<button class="env-calc-btn" data-act="env-calc"><svg class="ic" style="width:14px;height:14px;margin-right:4px"><use href="#i-card"/></svg> Калькулятор</button>'
-    + '<div class="hint">Категории, которые наполняют конверт (можно несколько):</div>'
+    + '<div class="hint">Категория конверта:</div>'
     + '<div class="chip-grid">'+catChips+'<button type="button" class="cat-chip" data-act="env-custom-cat" style="border:1px dashed var(--mut);background:transparent">+ Своя</button></div>'
     + '<div class="hint">Значок:</div><div class="chip-grid">'+icBtns+'</div>'
     + '<div class="hint">Цвет:</div><div class="chip-grid">'+colBtns+'</div>'
@@ -5530,9 +5530,7 @@ save(); render(); toast('Память применена: обновлено о�
     var dEc = window._envDraft;
     var vE = el.getAttribute('data-c');
     if(act === 'env-cat'){
-      var ix2 = dEc.cats.indexOf(vE);
-      if(ix2 !== -1){ if(dEc.cats.length > 1){ dEc.cats.splice(ix2, 1); } }
-      else { dEc.cats.push(vE); }
+      dEc.cats = [vE];
       if(!dEc.name || dEc.name === '' || dEc._nameTouched !== true){
         var catInfo = catById(vE);
         if(catInfo && catInfo.n){ dEc.name = catInfo.n; dEc._nameTouched = false; }
