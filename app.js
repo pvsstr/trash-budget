@@ -90,11 +90,23 @@ function cycleLabel(cs) {
   if (D.cycleMode === 'calendar') {
     return MONTHS[cs.getMonth()] + ' ' + cs.getFullYear();
   }
+  if (!D.salaryDay) return '';
   var ce = cycleEnd(cs);
   var ce2 = new Date(ce.getTime() - 864e5);
   var startStr = cs.getDate() + '.' + String(cs.getMonth()+1).padStart(2,'0');
   var endStr = ce2.getDate() + '.' + String(ce2.getMonth()+1).padStart(2,'0');
-  return startStr + ' – ' + endStr;
+  var label = startStr + '–' + endStr;
+  var preset = D.paymentPreset || 'salary';
+  if(preset === 'advance-salary' && D.advanceDay){
+    label += ', аванс ' + D.advanceDay + '.' + String(ce.getMonth()+1).padStart(2,'0');
+  } else if(preset === 'custom' && D.paymentDates && D.paymentDates.length){
+    var customDays = [];
+    for(var ci=0;ci<D.paymentDates.length;ci++){
+      if(D.paymentDates[ci].day){ customDays.push(D.paymentDates[ci].day); }
+    }
+    if(customDays.length){ label += ', платежи ' + customDays.join(', ') + ' числа'; }
+  }
+  return label;
 }
 var WEEKDAYS = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
 function payDateStr(d){
@@ -102,7 +114,18 @@ function payDateStr(d){
 }
 function cycLabel(cs){
   var ce = new Date(cycleEnd(cs).getTime() - 864e5);
-  return cs.getDate()+'.'+String(cs.getMonth()+1).padStart(2,'0')+' – '+ce.getDate()+'.'+String(ce.getMonth()+1).padStart(2,'0')+'.'+ce.getFullYear();
+  var label = cs.getDate()+'.'+String(cs.getMonth()+1).padStart(2,'0')+' – '+ce.getDate()+'.'+String(ce.getMonth()+1).padStart(2,'0')+'.'+ce.getFullYear();
+  var preset = D.paymentPreset || 'salary';
+  if(preset === 'advance-salary' && D.advanceDay){
+    label += ', аванс ' + D.advanceDay + '.' + String(ce.getMonth()+1).padStart(2,'0');
+  } else if(preset === 'custom' && D.paymentDates && D.paymentDates.length){
+    var customDays = [];
+    for(var ci=0;ci<D.paymentDates.length;ci++){
+      if(D.paymentDates[ci].day){ customDays.push(D.paymentDates[ci].day); }
+    }
+    if(customDays.length){ label += ', платежи ' + customDays.join(', ') + ' числа'; }
+  }
+  return label;
 }
 function shiftCycle(cs, n){
   if(D.cycleMode === 'calendar'){ return addM(cs, n); }
@@ -141,6 +164,37 @@ function dToast(msg, btnTxt, cb){
   }
   document.body.appendChild(t);
   setTimeout(function(){ t.remove(); }, 6000);
+}
+
+var _achieveSvgIcons = {
+  warn: '<svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>',
+  remind: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  confirm: '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  achieve: '<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+  alert: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+};
+var _achieveQueue = [];
+var _achieveActive = 0;
+function achieveNotify(type, title, desc){
+  if(!D.notifications){ return; }
+  var container = document.querySelector('.achieve-wrap');
+  if(!container){
+    container = document.createElement('div');
+    container.className = 'achieve-wrap';
+    document.body.appendChild(container);
+  }
+  var el = document.createElement('div');
+  el.className = 'achieve';
+  el.innerHTML = '<div class="achieve-icon '+type+'">'+(_achieveSvgIcons[type]||_achieveSvgIcons.confirm)+'</div>'
+    + '<div class="achieve-body"><div class="achieve-title">'+esc(title)+'</div>'
+    + (desc ? '<div class="achieve-desc">'+esc(desc)+'</div>' : '')+'</div>'
+    + '<div class="achieve-close" onclick="this.parentElement.classList.add(\'removing\');setTimeout(function(){this.parentElement.remove()}.bind(this),400)">&times;</div>';
+  container.appendChild(el);
+  _achieveActive++;
+  setTimeout(function(){
+    el.classList.add('removing');
+    setTimeout(function(){ if(el.parentElement){ el.remove(); } _achieveActive--; }, 400);
+  }, 4000);
 }
 
 var CATS = [
@@ -412,6 +466,7 @@ function exportBackup(){
   D.lastBackup = Date.now();
   save();
   toast('Копия данных сохранена');
+  achieveNotify('confirm', 'Данные защищены', 'Резервная копия создана. Вы в безопасности.');
 }
 
 function validateBackupImport(data){
@@ -523,6 +578,12 @@ if(!D.insts) D.insts=[];
   if (!D.username) D.username = '';
   D.customCats = D.customCats || [];
   D.customCal = D.customCal || null;
+  D.paymentPreset = D.paymentPreset || 'salary';
+  D.paymentDates = D.paymentDates || [];
+  D.theme = D.theme || 'dark';
+  D.currency = D.currency || '₽';
+  D.lang = D.lang || 'ru';
+  D.notifications = D.notifications !== undefined ? D.notifications : true;
   calcLifeMin();
 }
 
@@ -2092,7 +2153,9 @@ function txRowHtml(t){
   var fix = (t.cat||'other')==='other' ? '<span class="tx-fix"></span>' : '';
   var ca = (window._catAvg && window._catAvg[t.cat||'other']) || 0;
   var anom = (ca > 0 && t.s > 3*ca) ? '<span class="tx-anom"></span>' : '';
-  return '<div class="tx" data-act="tx-edit" data-src="'+(t.src||'sp')+'" data-i="'+(t.sid!=null?t.sid:'')+'" style="cursor:pointer"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div><div class="tx-body"><b>'+esc(t.n)+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · '+cc.n+'</span></div><div class="tx-right">'+anom+fix+'<b>-'+fmt(t.s)+'</b></div></div>';
+  var txIc = t.envIcon ? t.envIcon : cc.i;
+  var txK = t.envColor ? t.envColor : cc.k;
+  return '<div class="tx" data-act="tx-edit" data-src="'+(t.src||'sp')+'" data-i="'+(t.sid!=null?t.sid:'')+'" style="cursor:pointer"><div class="tx-ic '+txK+'"><svg class="ic"><use href="#'+txIc+'"/></svg></div><div class="tx-body"><b>'+esc(t.n)+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · '+cc.n+'</span></div><div class="tx-right">'+anom+fix+'<b>-'+fmt(t.s)+'</b></div></div>';
 }
 function renderTx(suffix){
   var sfx = suffix || '';
@@ -4085,7 +4148,8 @@ function renderEnvForm(){
   $('sheetBody').innerHTML = sheetHead('i-target','c-pur', d._title || 'Конверт', 'категории, значок и цвет — на ваш вкус')
     + '<div class="form">'
     + '<input class="inp" id="enName" placeholder="Название конверта" value="'+esc(d.name||'')+'">'
-    + '<div style="display:flex;gap:8px;align-items:center"><input class="inp" id="enLim" type="number" inputmode="decimal" placeholder="Лимит на цикл, ₽" value="'+(d.lim||'')+'" style="flex:1"><button class="sh-btn" data-act="env-calc" style="margin:0;flex-shrink:0;padding:10px 12px;font-size:12px;white-space:nowrap"><svg class="ic" style="width:14px;height:14px;margin-right:4px"><use href="#i-card"/></svg> Калькулятор</button></div>'
+    + '<input class="inp" id="enLim" type="number" inputmode="decimal" placeholder="Лимит на цикл, ₽" value="'+(d.lim||'')+'">'
+    + '<button class="env-calc-btn" data-act="env-calc"><svg class="ic" style="width:14px;height:14px;margin-right:4px"><use href="#i-card"/></svg> Калькулятор</button>'
     + '<div class="hint">Категории, которые наполняют конверт (можно несколько):</div>'
     + '<div class="chip-grid">'+catChips+'</div>'
     + '<div class="hint">Значок:</div><div class="chip-grid">'+icBtns+'</div>'
@@ -4111,12 +4175,19 @@ function openQuickSpend(){
   var tags = [['normal','Обычная'],['planned','План'],['impulse','Импульс'],['needed','Нужно']];
   var tchips = '';
   for(var t=0;t<tags.length;t++){ tchips += '<button class="cat-chip sm'+(t===0?' on':'')+'" data-act="qs-tag" data-c="'+tags[t][0]+'">'+tags[t][1]+'</button>'; }
+  var envHtml = '<div class="cap" style="margin:10px 4px 0">Конверт (необязательно)</div><div class="env-picker" id="qsEnvPicker">';
+  for(var ei=0;ei<D.envs.length;ei++){
+    var en = D.envs[ei];
+    envHtml += '<button class="env-pick" data-act="qs-env" data-i="'+en.id+'"><div class="sic '+en.k+'" style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center"><svg class="ic" style="width:14px;height:14px"><use href="#'+en.ic+'"/></svg></div>'+esc(en.n)+'</button>';
+  }
+  envHtml += '<button class="env-pick env-pick-create" data-act="qs-env-create">+ Конверт</button></div>';
   $('sheetBody').innerHTML = sheetHead('i-out','c-red','Новая трата','сумма, категория — и готово')
     + '<input class="inp" id="qsAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽">'
     + '<div class="cap" style="margin:12px 4px 0">Категория</div><div class="chip-grid">'+chips+'</div>'
+    + envHtml
     + '<input class="inp" id="qsNote" placeholder="Что это? Необязательно — подставлю категорию сам">'
     + '<div class="cap" style="margin:10px 4px 0">Метка</div><div class="chip-grid">'+tchips+'</div>'
-    + '<input type="hidden" id="qsCat" value="grocery"><input type="hidden" id="qsTag" value="normal">'
+    + '<input type="hidden" id="qsCat" value="grocery"><input type="hidden" id="qsTag" value="normal"><input type="hidden" id="qsEnv" value="">'
     + '<div class="row2" style="margin-top:10px"><input class="inp" id="qsDate" type="date" value="'+iso(new Date())+'">'
     + '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--mut);padding:0 4px"><input type="checkbox" id="qsXfer"> перевод себе</label></div>'
     + '<div class="dlg-btns" style="margin-top:14px">'
@@ -4130,7 +4201,7 @@ function openQuickSpend(){
       $('qsNote').addEventListener('input', function(){
         if(!window._qsCatTouched){
           var ac = autoCat(this.value);
-          if(ac && ac !== 'other'){ $('qsCat').value = ac; paintQsCats(); }
+          if(ac && ac !== 'other'){ $('qsCat').value = ac; paintQsCats(); paintQsEnvs(); }
         }
       });
     }
@@ -4151,6 +4222,24 @@ function paintQsTags(){
   for(var i=0;i<btns.length;i++){
     if(btns[i].getAttribute('data-act') === 'qs-tag'){
       btns[i].classList.toggle('on', btns[i].getAttribute('data-c') === cur);
+    }
+  }
+}
+function paintQsEnvs(){
+  var curCat = $('qsCat') ? $('qsCat').value : '';
+  var curEnv = $('qsEnv') ? $('qsEnv').value : '';
+  var envs = document.querySelectorAll('.env-picker .env-pick');
+  for(var i=0;i<envs.length;i++){
+    var envId = envs[i].getAttribute('data-i');
+    if(envId){
+      var env = null;
+      for(var j=0;j<D.envs.length;j++){ if(String(D.envs[j].id)===envId){ env = D.envs[j]; break; } }
+      if(env && env.cats && env.cats.indexOf(curCat)!==-1){
+        envs[i].style.display = '';
+      } else {
+        envs[i].style.display = 'none';
+        if(curEnv === envId){ envs[i].classList.remove('on'); if($('qsEnv')) $('qsEnv').value = ''; }
+      }
     }
   }
 }
@@ -4186,8 +4275,14 @@ function applyCreditPay(cr, amt, d){
   toast(cr.cur <= 0 ? 'Кредит «'+cr.n+'» закрыт!' : 'Платёж по «'+cr.n+'»: −'+fmt(amt));
 }
 function finishPush(o, after){
-  D.spends.push({id:Date.now(), d:o.d, n:o.n || catById(o.cat).n, cat:o.cat, s:o.amt, tag:o.tag || 'normal'});
+  var spendObj = {id:Date.now(), d:o.d, n:o.n || catById(o.cat).n, cat:o.cat, s:o.amt, tag:o.tag || 'normal'};
+  if(o.envIcon){ spendObj.envIcon = o.envIcon; }
+  if(o.envColor){ spendObj.envColor = o.envColor; }
+  D.spends.push(spendObj);
   save(); render(); vib(10); toast('Трата добавлена: −'+fmt(o.amt));
+  if(D.spends.length === 1){
+    achieveNotify('achieve', 'Первая трата', 'Отличный старт! Теперь я отслеживаю расходы.');
+  }
   if(after){ after(); }
 }
 // Умная запись: сначала проверяем, не платёж ли это по кредиту
@@ -4209,7 +4304,6 @@ function saveQuickSpend(again){
   if(isNaN(qa) || qa <= 0){ dAlert('Введите сумму траты.', 'Трата'); return; }
   var qd = $('qsDate').value || iso(new Date());
   var qn = $('qsNote') ? $('qsNote').value.trim() : '';
-  // Внутренний перевод: в историю, но без влияния на баланс и статистику
   if($('qsXfer') && $('qsXfer').checked){
     D.transfers.push({id:Date.now(), d:qd, n: qn || 'Перевод себе', s:qa});
     save(); render();
@@ -4219,7 +4313,14 @@ function saveQuickSpend(again){
   }
   var qc = $('qsCat').value || 'other';
   var tag = $('qsTag') ? $('qsTag').value : 'normal';
-  pushSpendSmart({amt:qa, d:qd, n:qn, cat:qc, tag:tag}, function(){
+  var envId = $('qsEnv') ? $('qsEnv').value : '';
+  var spendData = {amt:qa, d:qd, n:qn, cat:qc, tag:tag};
+  if(envId){
+    var spendEnv = null;
+    for(var se=0;se<D.envs.length;se++){ if(String(D.envs[se].id)===envId){ spendEnv = D.envs[se]; break; } }
+    if(spendEnv){ spendData.envIcon = spendEnv.ic; spendData.envColor = spendEnv.k; }
+  }
+  pushSpendSmart(spendData, function(){
     runSpendAlerts(qa, qc);
     if(again){ openQuickSpend(); } else { closeSheet(); }
   });
@@ -4237,10 +4338,12 @@ function runSpendAlerts(qa, qc){
   var msgsQ = [];
   if(avgQ > 0 && qa >= avgQ*3){
     msgsQ.push('Обычный чек по этой категории — '+fmt(Math.round(avgQ))+'. Эта трата в '+Math.round(qa/avgQ)+' раза больше.');
+    achieveNotify('warn', 'Аномальная трата', catById(qc).n+': '+fmt(qa)+' vs среднее '+fmt(Math.round(avgQ)));
   }
   var dlQ = calcDailyLimit();
   if(dlQ.perDay > 0 && qa > dlQ.perDay){
     msgsQ.push('Сумма выше дневного лимита ('+fmt(dlQ.perDay)+'). Сегодня лучше больше не тратить.');
+    achieveNotify('alert', 'Превышен лимит', 'Дневной лимит: '+fmt(dlQ.perDay)+'. Сегодня лучше остановиться.');
   }
   if(msgsQ.length){ dAlert(msgsQ.join('\n'), 'Проверка траты'); }
 }
@@ -4251,16 +4354,34 @@ function openIncomeSheet(){
   var advDay = D.advanceDay || '';
   var salAmt = D.income || '';
   var advAmt = D.advanceAmount || '';
-  var oneTime = !D.advanceDay;
+  var preset = D.paymentPreset || 'salary';
+  var presetBtns = '<div class="chips" style="padding:0 0 10px">'
+    + '<button class="chip'+(preset==='advance-salary'?' on':'')+'" data-act="inc-preset" data-v="advance-salary">Аванс + ЗП</button>'
+    + '<button class="chip'+(preset==='salary'?' on':'')+'" data-act="inc-preset" data-v="salary">Только ЗП</button>'
+    + '<button class="chip'+(preset==='custom'?' on':'')+'" data-act="inc-preset" data-v="custom">Произвольные даты</button>'
+    + '</div>';
+  var advBlock = '';
+  if(preset === 'advance-salary'){
+    advBlock = '<div id="advBlock">'
+      + '<div class="hint">Аванс</div>'
+      + '<div class="row2"><input class="inp" id="incAdvAmt" type="number" placeholder="Сумма аванса, ₽" value="'+advAmt+'"><input class="inp" id="incAdvDate" type="number" placeholder="День аванса (1-31)" min="1" max="31" value="'+advDay+'"></div>'
+      + '</div>';
+  } else if(preset === 'custom'){
+    var pdHtml = '<div id="customDatesBlock"><div class="hint">Даты поступлений</div><div id="customDatesList">';
+    var pds = D.paymentDates || [];
+    for(var pd=0;pd<pds.length;pd++){
+      pdHtml += '<div class="row2" style="margin-bottom:6px;align-items:center"><input class="inp inc-pd-name" type="text" placeholder="Название" value="'+esc(pds[pd].name||'')+'" style="flex:1"><input class="inp inc-pd-day" type="number" placeholder="День (1-31)" min="1" max="31" value="'+(pds[pd].day||'')+'" style="width:90px"><input class="inp inc-pd-amt" type="number" placeholder="Сумма, ₽" value="'+(pds[pd].amt||'')+'" style="flex:1"><button class="sh-btn danger" data-act="inc-pd-del" data-i="'+pd+'" style="margin:0;padding:8px 10px;font-size:11px;min-height:36px">✕</button></div>';
+    }
+    pdHtml += '</div><button class="sh-btn ghost" data-act="inc-pd-add" style="margin:8px 0;font-size:13px;padding:10px">+ Добавить дату</button></div>';
+    advBlock = pdHtml;
+  }
   $('sheetBody').innerHTML = sheetHead('i-in','c-grn','Настройка дохода','сумма и даты поступлений')
     + '<div class="form">'
-    + '<input class="inp" id="incAmt" type="number" placeholder="Зарплата, ₽" value="'+salAmt+'">'
+    + '<input class="inp" id="incAmt" type="number" placeholder="Сумма всех поступлений, ₽" value="'+salAmt+'">'
+    + presetBtns
+    + '<div class="hint">День зарплаты</div>'
     + '<input class="inp" id="incDate" type="number" placeholder="День зарплаты (1-31)" min="1" max="31" value="'+salDay+'">'
-    + '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);padding:8px 0"><input type="checkbox" id="incOneTime"'+(oneTime?' checked':'')+' onchange="var a=document.getElementById(\'advBlock\');a.style.display=this.checked?\'none\':\'block\'"> ЗП один раз в месяц</label>'
-    + '<div id="advBlock" style="display:'+(oneTime?'none':'block')+'">'
-    + '<div class="hint">Аванс</div>'
-    + '<div class="row2"><input class="inp" id="incAdvAmt" type="number" placeholder="Сумма аванса, ₽" value="'+advAmt+'"><input class="inp" id="incAdvDate" type="number" placeholder="День аванса (1-31)" min="1" max="31" value="'+advDay+'"></div>'
-    + '</div>'
+    + advBlock
     + '</div>'
     + '<button class="sh-btn" data-act="income-save">Сохранить</button>'
     + (D.income ? '<button class="sh-btn danger" data-act="income-clear">Удалить доход</button>' : '');
@@ -4352,7 +4473,22 @@ function render(){
   }
   if ($('hBal')) $('hBal').textContent = fmt(realBal());
   if ($('sInc')) $('sInc').textContent = fmt(D.income);
-  if ($('sIncP')) $('sIncP').textContent = D.salaryDay ? 'зарплата, '+D.salaryDay+'-го числа' : 'доход не задан';
+  if ($('sIncP')) {
+    if(!D.salaryDay){
+      $('sIncP').textContent = 'доход не задан';
+    } else {
+      var pr = D.paymentPreset || 'salary';
+      if(pr === 'advance-salary'){
+        $('sIncP').textContent = 'ЗП ' + D.salaryDay + '-го' + (D.advanceDay ? ', аванс ' + D.advanceDay + '-го' : '');
+      } else if(pr === 'custom' && D.paymentDates && D.paymentDates.length){
+        var cDays = [];
+        for(var ci=0;ci<D.paymentDates.length;ci++){ if(D.paymentDates[ci].day){ cDays.push(D.paymentDates[ci].day); } }
+        $('sIncP').textContent = 'платежи: ' + cDays.join(', ') + ' числа';
+      } else {
+        $('sIncP').textContent = 'зарплата, '+D.salaryDay+'-го числа';
+      }
+    }
+  }
   var act = activeLeaks();
   var leakSum = 0;
   for(var j=0;j<act.length;j++){ leakSum += act[j].over; }
@@ -4435,6 +4571,10 @@ function go(p){
     if(p === 'dash'){ setTimeout(function(){ try{ renderAnalytics(); }catch(e){} }, 60); }
   if(p === 'settings'){
     if($('settingsUsername')){ $('settingsUsername').value = D.username || ''; }
+    if($('toggleTheme')){ $('toggleTheme').classList.toggle('on', D.theme === 'dark'); }
+    if($('toggleNotif')){ $('toggleNotif').classList.toggle('on', D.notifications); }
+    if($('settingsCurrency')){ $('settingsCurrency').value = D.currency || '₽'; }
+    if($('settingsLang')){ $('settingsLang').value = D.lang || 'ru'; }
   }
   if(p === 'chat' && $('chatLog') && !$('chatLog').children.length){
     addMsg('bot', 'Привет! Я твой финансовый копилот — считаю только по твоим цифрам.<br>Спроси: «сколько можно сегодня?», «могу купить X?», «где утечки?», «как закрыть долги?», «что важно сейчас?»');
@@ -4659,29 +4799,59 @@ return;
     });
   }
     else if(act === 'addincome'){ openIncomeSheet(); }
+    else if(act === 'inc-preset'){
+    D.paymentPreset = el.getAttribute('data-v');
+    openIncomeSheet();
+    }
+    else if(act === 'inc-pd-add'){
+    D.paymentDates = D.paymentDates || [];
+    D.paymentDates.push({day:1, name:'', amt:0});
+    openIncomeSheet();
+    }
+    else if(act === 'inc-pd-del'){
+    var pdIdx = parseInt(el.getAttribute('data-i'),10);
+    D.paymentDates.splice(pdIdx, 1);
+    openIncomeSheet();
+    }
     else if(act === 'income-save'){
     var a2 = parseFloat($('incAmt').value);
-    if(isNaN(a2) || a2 <= 0){ dAlert('Укажите сумму зарплаты.', 'Доход'); return; }
+    if(isNaN(a2) || a2 <= 0){ dAlert('Укажите сумму всех поступлений.', 'Доход'); return; }
     var salDay = parseInt($('incDate').value)||0;
     if(salDay < 1 || salDay > 31){ dAlert('День зарплаты — от 1 до 31.', 'Доход'); return; }
     D.income = a2;
     D.salaryDay = salDay;
-    var oneTime = $('incOneTime') ? $('incOneTime').checked : true;
-    if(!oneTime){
+    var preset = D.paymentPreset || 'salary';
+    if(preset === 'advance-salary'){
       var advAmt = parseFloat($('incAdvAmt').value)||0;
       var advDay = parseInt($('incAdvDate').value)||0;
       D.advanceDay = advDay > 0 && advDay <= 31 ? advDay : null;
       D.advanceAmount = advAmt > 0 ? advAmt : null;
+    } else if(preset === 'custom'){
+      D.advanceDay = null;
+      D.advanceAmount = null;
+      var pdNames = document.querySelectorAll('.inc-pd-name');
+      var pdDays = document.querySelectorAll('.inc-pd-day');
+      var pdAmts = document.querySelectorAll('.inc-pd-amt');
+      var newPDs = [];
+      for(var pdi=0;pdi<pdNames.length;pdi++){
+        var pName = pdNames[pdi] ? pdNames[pdi].value.trim() : '';
+        var pDay = parseInt(pdDays[pdi] ? pdDays[pdi].value : '',10)||0;
+        var pAmt = parseFloat(pdAmts[pdi] ? pdAmts[pdi].value : '')||0;
+        if(pDay >= 1 && pDay <= 31){ newPDs.push({day:pDay, name:pName, amt:pAmt}); }
+      }
+      D.paymentDates = newPDs;
     } else {
       D.advanceDay = null;
       D.advanceAmount = null;
     }
     save(); closeSheet(); render(); toast('Доход сохранён');
+    achieveNotify('confirm', 'Доход настроен', 'Теперь я знаю ваш бюджет. Можно планировать.');
 }
   else if(act === 'income-clear'){
     dConfirm('Удалить настройки дохода? Зарплата и аванс будут сброшены.', 'Удаление дохода', true).then(function(ok){
       if(!ok){ return; }
       D.income = 0; D.salaryDay = null; D.advanceDay = null; D.advanceAmount = null;
+      D.paymentPreset = 'salary'; D.paymentDates = [];
       save(); closeSheet(); render(); toast('Доход удалён');
     });
 }
@@ -4763,6 +4933,16 @@ return;
     window._qsCatTouched = true;
     var qcEl = $('qsCat'); if(qcEl){ qcEl.value = el.getAttribute('data-c'); }
     paintQsCats();
+    paintQsEnvs();
+  }
+  else if(act === 'qs-env'){
+    var envBtns = document.querySelectorAll('.env-picker .env-pick');
+    for(var qeb=0;qeb<envBtns.length;qeb++){ envBtns[qeb].classList.remove('on'); }
+    el.classList.add('on');
+    if($('qsEnv')) $('qsEnv').value = el.getAttribute('data-i');
+  }
+  else if(act === 'qs-env-create'){
+    openEnvAdd();
   }
   else if(act === 'qs-tag'){
     var qtEl = $('qsTag'); if(qtEl){ qtEl.value = el.getAttribute('data-c'); }
@@ -5230,6 +5410,10 @@ save(); render(); toast('Память применена: обновлено о�
       var ix2 = dEc.cats.indexOf(vE);
       if(ix2 !== -1){ if(dEc.cats.length > 1){ dEc.cats.splice(ix2, 1); } }
       else { dEc.cats.push(vE); }
+      if(!dEc.name || dEc.name === ''){
+        var catInfo = catById(vE);
+        if(catInfo && catInfo.n){ dEc.name = catInfo.n; }
+      }
     }
     else if(act === 'env-icon'){ dEc.ic = vE; }
     else { dEc.k = vE; }
@@ -5246,6 +5430,9 @@ save(); render(); toast('Память применена: обновлено о�
     if(act === 'env-add-save'){
       D.envs.push({id:Date.now(), n:nmE, lim:lE, cats:dEs.cats.slice(), ic:dEs.ic, k:dEs.k});
       toast('Конверт «'+nmE+'» создан');
+      if(D.envs.length === 1){
+        achieveNotify('achieve', 'Бюджет создан', 'Первый конверт — начало финансового контроля!');
+      }
     } else {
       var itSv = null;
       for(var sv=0;sv<D.envs.length;sv++){ if(D.envs[sv].id === dEs._id){ itSv = D.envs[sv]; break; } }
@@ -5343,6 +5530,39 @@ save(); render(); toast('Память применена: обновлено о�
     if ($('mMail')) $('mMail').textContent = un.split(' ')[0];
     render();
     toast('Имя сохранено: ' + un);
+  }
+  else if(act === 'toggle-theme'){
+    D.theme = D.theme === 'dark' ? 'light' : 'dark';
+    document.body.classList.toggle('light', D.theme === 'light');
+    var tg = $('toggleTheme');
+    if(tg){ tg.classList.toggle('on', D.theme === 'dark'); }
+    save();
+    toast(D.theme === 'dark' ? 'Тёмная тема' : 'Светлая тема');
+  }
+  else if(act === 'toggle-notif'){
+    D.notifications = !D.notifications;
+    var tn = $('toggleNotif');
+    if(tn){ tn.classList.toggle('on', D.notifications); }
+    save();
+    toast(D.notifications ? 'Уведомления включены' : 'Уведомления выключены');
+  }
+  else if(act === 'currency-set'){
+    var curSel = $('settingsCurrency');
+    if(curSel){
+      D.currency = curSel.value;
+      save();
+      render();
+      toast('Валюта: ' + D.currency);
+    }
+  }
+  else if(act === 'lang-set'){
+    var langSel = $('settingsLang');
+    if(langSel){
+      D.lang = langSel.value;
+      save();
+      render();
+      toast('Язык: ' + (D.lang === 'ru' ? 'Русский' : 'English'));
+    }
   }
   else if(act === 'custom-cat-add'){
     var savedState = {
@@ -5461,6 +5681,7 @@ save(); render(); toast('Память применена: обновлено о�
       try{
         D = buildDemoData();
         normalize();
+        document.body.classList.toggle('light', D.theme === 'light');
       }catch(de){
         dAlert('Не удалось подготовить демо: ' + (de && de.message), 'Демо');
         return;
@@ -5676,6 +5897,7 @@ onAuthStateChanged(auth, function(u){
         D = {spends:[], incomes:[], tx:[], envs:[], pays:[], subs:[], credits:[], insts:[], goals:[], events:[], her:null, learned:[], leaks:[], merchRules:{}, paid:{}, removedAuto:[], cancelled:[], leakFixed:{}, baseBalance:0, income:0, salaryDay:null, demo:false, cycleMode:'salary', decisions:[], username:''};
       }
       normalize();
+      document.body.classList.toggle('light', D.theme === 'light');
       var name = (D.username || u.displayName || 'друг').split(' ')[0];
       if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
       if ($('mMail')) $('mMail').textContent = name;
@@ -5688,6 +5910,7 @@ onAuthStateChanged(auth, function(u){
     }).catch(function(){
       D = {spends:[], incomes:[], tx:[], envs:[], pays:[], subs:[], credits:[], insts:[], goals:[], events:[], her:null, learned:[], leaks:[], merchRules:{}, paid:{}, removedAuto:[], cancelled:[], leakFixed:{}, baseBalance:0, income:0, salaryDay:null, demo:false, cycleMode:'salary', decisions:[], username:''};
       normalize();
+      document.body.classList.toggle('light', D.theme === 'light');
       var name = (u.displayName || 'друг').split(' ')[0];
       if ($('hello')) $('hello').textContent = 'Привет, ' + name + '!';
       if ($('mMail')) $('mMail').textContent = name;
@@ -5768,7 +5991,7 @@ function deployCheck(){
     .then(function(data){
       if(!data){ return; }
       var list = (data && data.workflow_runs) ? data.workflow_runs : [];
-      if(!list.length){ deployPaint('#8b91a7','деплой: —'); deploySchedule(300000); return; }
+      if(!list.length){ deployPaint('#8b91a7','last update: —'); deploySchedule(300000); return; }
       var run = null;
       for(var i=0;i<list.length;i++){
         if(String(list[i].name||'').toLowerCase().indexOf('pages') !== -1){ run = list[i]; break; }
@@ -5784,11 +6007,11 @@ function deployCheck(){
       deployPolls++;
       var delay = deployPolls > 15 ? 300000 : 60000;
       if(st !== 'completed'){
-        deployPaint('#ff9f0a', 'деплоится… · ' + num);
+        deployPaint('#ff9f0a', 'updating… · ' + num);
       } else if(con === 'success'){
-        deployPaint('#30d158', 'деплой ' + deployFtime(run.updated_at) + ' · ' + num);
+        deployPaint('#30d158', 'last update ' + deployFtime(run.updated_at) + ' · ' + num);
       } else {
-        deployPaint('#ff453a', 'ошибка деплоя · ' + num);
+        deployPaint('#ff453a', 'last update error · ' + num);
       }
       if(watchBaseSuccess === null){
         watchBaseSuccess = success ? success.run_number : 0;
@@ -5797,14 +6020,14 @@ function deployCheck(){
       }
       if(success && success.run_number > watchBaseSuccess){
         watchBaseSuccess = success.run_number;
-        deployPaint('#30d158', 'применяю обновление… · #' + success.run_number);
+        deployPaint('#30d158', 'applying update… · #' + success.run_number);
         setTimeout(function(){ window.location.reload(); }, 2000);
         return;
       }
       deploySchedule(delay);
     })
     .catch(function(){
-      deployPaint('#8b91a7', 'деплой: —');
+      deployPaint('#8b91a7', 'last update: —');
       deploySchedule(60000);
     });
 }

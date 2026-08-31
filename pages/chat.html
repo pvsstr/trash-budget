@@ -2,7 +2,18 @@
   <div class="chat glass">
     <div style="padding:16px 18px;border-bottom:1px solid var(--stroke);display:flex;gap:12px;align-items:center"><div class="sic c-blu"><svg class="ic"><use href="#i-bot"/></svg></div><div><b style="font-size:15px">Копилот</b><br><span style="font-size:11px;color:var(--grn)">● считает по вашим цифрам</span></div></div>
     <div class="chat-log" id="chatLog"></div>
-    <div class="chips"><button class="chip" data-act="chip" data-q="С чего начать?">С чего начать?</button><button class="chip" data-act="chip" data-q="Сколько мне можно потратить сегодня?">Сколько можно сегодня?</button><button class="chip" data-act="chip" data-q="Как быстрее закрыть долги?">Как закрыть долги?</button><button class="chip" data-act="chip" data-q="Научи меня">Научи меня</button></div>
+    <div class="chips" style="flex-direction:column;gap:8px;padding:12px 14px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="chip" data-act="chip" data-q="Сколько мне можно потратить сегодня?">Сколько можно сегодня?</button>
+        <button class="chip" data-act="chip" data-q="Где утечки?">Где утечки?</button>
+        <button class="chip" data-act="chip" data-q="Что важно сейчас?">Что важно сейчас?</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="chip" data-act="chip" data-q="С чего начать?">С чего начать?</button>
+        <button class="chip" data-act="chip" data-q="Научи меня">Научи меня</button>
+        <button class="chip" data-act="chip" data-q="Как быстрее закрыть долги?">Как закрыть долги?</button>
+      </div>
+    </div>
     <div class="chat-in"><input id="chatIn" placeholder="Спросите про деньги..."><button data-act="send"><svg class="ic"><use href="#i-send"/></svg></button></div>
   </div>
 </div>

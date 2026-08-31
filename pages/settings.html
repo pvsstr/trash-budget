@@ -12,7 +12,45 @@
   </div>
   </div>
 
-  <div class="env glass hov" data-act="cycle-toggle" style="cursor:pointer">
+  <div class="glass card-padding" style="margin:0 0 14px">
+  <b style="font-size:14px">Внешний вид</b>
+  <div class="setting-row">
+    <div class="setting-label"><b>Тёмная тема</b><span>Переключение между тёмным и светлым режимом</span></div>
+    <div class="toggle on" id="toggleTheme" data-act="toggle-theme"></div>
+  </div>
+  </div>
+
+  <div class="glass card-padding" style="margin:0 0 14px">
+  <b style="font-size:14px">Региональные</b>
+  <div class="setting-row">
+    <div class="setting-label"><b>Валюта</b><span>Отображаемая валюта</span></div>
+    <select class="inp" id="settingsCurrency" data-act="currency-set" style="width:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid var(--stroke)">
+      <option value="₽">₽ Рубль</option>
+      <option value="$">$ Доллар</option>
+      <option value="€">€ Евро</option>
+      <option value="₸">₸ Тенге</option>
+      <option value="₴">₴ Гривна</option>
+      <option value="Br">Br Бел. рубль</option>
+    </select>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label"><b>Язык</b><span>Язык интерфейса</span></div>
+    <select class="inp" id="settingsLang" data-act="lang-set" style="width:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid var(--stroke)">
+      <option value="ru">Русский</option>
+      <option value="en">English</option>
+    </select>
+  </div>
+  </div>
+
+  <div class="glass card-padding" style="margin:0 0 14px">
+  <b style="font-size:14px">Уведомления</b>
+  <div class="setting-row">
+    <div class="setting-label"><b>Push-уведомления</b><span>Предупреждения о лимитах и платежах</span></div>
+    <div class="toggle on" id="toggleNotif" data-act="toggle-notif"></div>
+  </div>
+  </div>
+
+  <div class="env glass hov" data-act="cycle-toggle" style="cursor:pointer;margin:0 0 14px">
   <header>
     <div class="env-name">
       <div class="sic c-blu" style="width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center">
