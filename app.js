@@ -2514,7 +2514,9 @@ function renderSpend(){
     if(t.tag === 'impulse') tagIcon = '<span class="tagb tag-imp">импульс</span>';
     else if(t.tag === 'planned') tagIcon = '<span class="tagb tag-plan">план</span>';
     else if(t.tag === 'needed') tagIcon = '<span class="tagb tag-need">нужно</span>';
-    h += '<div class="tx" data-act="edit-spend" data-id="'+t.id+'"><div class="tx-ic '+cc.k+'"><svg class="ic"><use href="#'+cc.i+'"/></svg></div>'
+    var txIc = t.envIcon ? t.envIcon : cc.i;
+    var txK = t.envColor ? t.envColor : cc.k;
+    h += '<div class="tx" data-act="edit-spend" data-id="'+t.id+'"><div class="tx-ic '+txK+'"><svg class="ic"><use href="#'+txIc+'"/></svg></div>'
       + '<div class="tx-body"><b>'+esc(t.n)+tagIcon+'</b><span>'+t.d.getDate()+'.'+String(t.d.getMonth()+1).padStart(2,'0')+' · '+cc.n+'</span></div>'
       + '<div class="tx-right"><b>-'+fmt(t.s)+'</b></div>'
       + '<button class="del" data-act="del-spend" data-id="'+t.id+'"><svg class="ic" style="width:14px;height:14px"><use href="#i-x"/></svg></button></div>';
@@ -4696,6 +4698,7 @@ return;
     var eItem = null;
     for(var ee2=0;ee2<D.envs.length;ee2++){ if(D.envs[ee2].id === eo){ eItem = D.envs[ee2]; break; } }
     if(eItem){
+      window._ef = {t:'env', id:eo};
       window._envDraft = {name:eItem.n, lim:eItem.lim, cats:(eItem.cats&&eItem.cats.length)?eItem.cats.slice():(envCatsFromName(eItem.n)||['other']), ic:eItem.ic||'i-gift', k:eItem.k||'c-pur', _save:'form-save-env', _saveTxt:'Сохранить конверт', _title:'Конверт · '+eItem.n, _id:eItem.id};
       renderEnvForm();
     }
@@ -5991,7 +5994,7 @@ function deployCheck(){
     .then(function(data){
       if(!data){ return; }
       var list = (data && data.workflow_runs) ? data.workflow_runs : [];
-      if(!list.length){ deployPaint('#8b91a7','last update: —'); deploySchedule(300000); return; }
+      if(!list.length){ deployPaint('#8b91a7','обновлено: —'); deploySchedule(300000); return; }
       var run = null;
       for(var i=0;i<list.length;i++){
         if(String(list[i].name||'').toLowerCase().indexOf('pages') !== -1){ run = list[i]; break; }
@@ -6007,11 +6010,11 @@ function deployCheck(){
       deployPolls++;
       var delay = deployPolls > 15 ? 300000 : 60000;
       if(st !== 'completed'){
-        deployPaint('#ff9f0a', 'updating… · ' + num);
+        deployPaint('#ff9f0a', 'обновляется… · ' + num);
       } else if(con === 'success'){
-        deployPaint('#30d158', 'last update ' + deployFtime(run.updated_at) + ' · ' + num);
+        deployPaint('#30d158', 'обновлено ' + deployFtime(run.updated_at) + ' · ' + num);
       } else {
-        deployPaint('#ff453a', 'last update error · ' + num);
+        deployPaint('#ff453a', 'ошибка обновления · ' + num);
       }
       if(watchBaseSuccess === null){
         watchBaseSuccess = success ? success.run_number : 0;
@@ -6020,14 +6023,14 @@ function deployCheck(){
       }
       if(success && success.run_number > watchBaseSuccess){
         watchBaseSuccess = success.run_number;
-        deployPaint('#30d158', 'applying update… · #' + success.run_number);
+        deployPaint('#30d158', 'применение обновления… · #' + success.run_number);
         setTimeout(function(){ window.location.reload(); }, 2000);
         return;
       }
       deploySchedule(delay);
     })
     .catch(function(){
-      deployPaint('#8b91a7', 'last update: —');
+      deployPaint('#8b91a7', 'обновлено: —');
       deploySchedule(60000);
     });
 }
