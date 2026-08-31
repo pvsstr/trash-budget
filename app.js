@@ -975,10 +975,7 @@ function openSheet(t, i){
       + goalsHtml();
   }
   else if(t === 'income'){
-    h = sheetHead('i-wallet','c-grn','Доход', fmt(D.income)+' в месяц')
-      + rowHtml('Зарплата', D.salaryDay+'-го числа, авто')
-      + '<div class="form" style="margin-top:12px"><input class="inp" id="in1" type="number" value="'+D.income+'" placeholder="Зарплата, ₽"><input class="inp" id="in2" type="number" value="'+D.salaryDay+'" placeholder="День зарплаты"></div>'
-      + '<button class="sh-btn" data-act="income-edit">Сохранить</button>';
+    openIncomeSheet(); return;
   } 
   else if(t === 'leaks'){
     var nowL = new Date();
