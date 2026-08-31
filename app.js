@@ -666,7 +666,17 @@ function nextPay(days){
 function calcMonthlyFixedPay() {
   var paysSum = 0;
   for (var i = 0; i < D.pays.length; i++) { paysSum += D.pays[i].s; }
-  for (var j = 0; j < D.subs.length; j++) { if (!D.subs[j].off && D.subs[j].freq !== 'annual') paysSum += D.subs[j].s; }
+  var nowFix = new Date();
+  for (var j = 0; j < D.subs.length; j++) {
+    if (D.subs[j].off) continue;
+    if (D.subs[j].freq === 'annual') {
+      if (!D.subs[j].d) continue;
+      var rD = parseD(D.subs[j].d);
+      if (rD && rD.getMonth() === nowFix.getMonth() && rD.getFullYear() === nowFix.getFullYear()) { paysSum += D.subs[j].s; }
+    } else {
+      paysSum += D.subs[j].s;
+    }
+  }
   // Ежемесячные платежи по кредитам
   for (var k = 0; k < (D.credits||[]).length; k++) {
     if ((D.credits[k].pay||0) > 0) { paysSum += D.credits[k].pay; }
@@ -1088,8 +1098,18 @@ function openSheet(t, i){
       + tipHtml('Формула: (остаток − платежи на 30 дней) ÷ дней до зарплаты. Столько можно тратить каждый день, чтобы денег гарантированно хватило до зарплаты.');
   } else if(t === 'fixed'){
     var paysSum = 0, subsSum = 0;
+    var nowFixed = new Date();
     for(var a1=0;a1<D.pays.length;a1++){ paysSum += D.pays[a1].s; }
-    for(var a2=0;a2<D.subs.length;a2++){ if(!D.subs[a2].off && D.subs[a2].freq !== 'annual'){ subsSum += D.subs[a2].s; } }
+    for(var a2=0;a2<D.subs.length;a2++){
+      if(D.subs[a2].off) continue;
+      if(D.subs[a2].freq === 'annual'){
+        if(!D.subs[a2].d) continue;
+        var rdA = parseD(D.subs[a2].d);
+        if(rdA && rdA.getMonth() === nowFixed.getMonth() && rdA.getFullYear() === nowFixed.getFullYear()){ subsSum += D.subs[a2].s; }
+      } else {
+        subsSum += D.subs[a2].s;
+      }
+    }
     h = sheetHead('i-card','c-blu','Обязательные траты','из чего складывается сумма на панели')
       + rowHtml('Платежи в месяц', fmt(paysSum))
       + rowHtml('Активные подписки', fmt(subsSum))
@@ -1104,11 +1124,18 @@ function openSheet(t, i){
         + '<button class="mini-btn danger" data-act="fix-del" data-t="pay" data-i="'+pp.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
     h += '<div class="cap" style="margin:10px 4px 6px">Подписки</div>';
+    var nowSub = new Date();
     for(var fs=0;fs<D.subs.length;fs++){
       var ss=D.subs[fs];
+      if(ss.off){ continue; }
       var ssFreq = ss.freq || 'monthly';
+      if(ssFreq === 'annual'){
+        if(!ss.d){ continue; }
+        var renewD = parseD(ss.d);
+        if(!renewD || renewD.getMonth() !== nowSub.getMonth() || renewD.getFullYear() !== nowSub.getFullYear()){ continue; }
+      }
       var ssAmtStr = ssFreq === 'annual' ? fmt(ss.s)+'/ежег' : fmt(ss.s)+'/мес';
-      h += '<div class="dig-item"><span>'+esc(ss.n)+(ss.off?' · отключена':'')+'</span><span class="row-actions"><b>'+ssAmtStr+'</b>'
+      h += '<div class="dig-item"><span>'+esc(ss.n)+'</span><span class="row-actions"><b>'+ssAmtStr+'</b>'
         + '<button class="mini-btn" data-act="edit" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-pen"/></svg></button>'
         + '<button class="mini-btn danger" data-act="fix-del" data-t="sub" data-i="'+ss.id+'"><svg class="ic"><use href="#i-trash"/></svg></button></span></div>';
     }
@@ -1356,8 +1383,18 @@ function renderBudSummary(){
     return;
   }
   var paysSum = 0, subsSum = 0, envSum = 0, i;
+  var nowBud = new Date();
   for(i=0;i<D.pays.length;i++){ paysSum += D.pays[i].s; }
-  for(i=0;i<D.subs.length;i++){ if(!D.subs[i].off && D.subs[i].freq !== 'annual'){ subsSum += D.subs[i].s; } }
+  for(i=0;i<D.subs.length;i++){
+    if(D.subs[i].off) continue;
+    if(D.subs[i].freq === 'annual'){
+      if(!D.subs[i].d) continue;
+      var rdB = parseD(D.subs[i].d);
+      if(rdB && rdB.getMonth() === nowBud.getMonth() && rdB.getFullYear() === nowBud.getFullYear()){ subsSum += D.subs[i].s; }
+    } else {
+      subsSum += D.subs[i].s;
+    }
+  }
   for(i=0;i<D.envs.length;i++){ envSum += D.envs[i].lim; }
   var fixed = paysSum + subsSum;
   var used = fixed + envSum;
