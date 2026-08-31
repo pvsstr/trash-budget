@@ -4225,7 +4225,7 @@ function openCanBuy(){
 
 // Редактор конверта: имя + лимит + категории + значок + цвет
 function envDraftSyncInputs(){
-  if($('enName')){ window._envDraft.name = $('enName').value; if($('enName').value.trim()){ window._envDraft._nameTouched = true; } }
+  if($('enName')){ window._envDraft.name = $('enName').value; }
   if($('enLim')){ window._envDraft.lim = $('enLim').value; }
 }
 function renderEnvForm(){
@@ -4257,6 +4257,10 @@ function renderEnvForm(){
     + '<button class="sh-btn" data-act="'+(d._save||'env-add-save')+'">'+(d._saveTxt||'Сохранить')+'</button>'
     + (d._id ? '<button class="sh-btn danger" data-act="form-del">Удалить конверт</button>' : '');
   $('sheet').classList.add('on'); $('shb').classList.add('on');
+  var enNameEl = $('enName');
+  if(enNameEl){
+    enNameEl.addEventListener('input', function(){ window._envDraft._nameTouched = true; });
+  }
 }
 function openEnvAdd(){
   window._envDraft = {name:'', lim:'', cats:['grocery'], ic:'i-cart', k:'c-grn', _save:'env-add-save', _saveTxt:'Создать конверт', _title:'Новый конверт'};
