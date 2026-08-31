@@ -4433,6 +4433,39 @@ function saveQuickSpend(again){
     if(again){ openQuickSpend(); } else { closeSheet(); }
   });
 }
+
+function openQuickIncome(){
+  var kindOpts = '';
+  for(var k=0;k<INCOME_KINDS.length;k++){
+    kindOpts += '<button class="cat-chip sm'+(k===0?' on':'')+'" data-act="qi-kind" data-c="'+INCOME_KINDS[k][0]+'">'+INCOME_KINDS[k][1]+'</button>';
+  }
+  $('sheetBody').innerHTML = sheetHead('i-in','c-grn','Новое поступление','сумма, тип — и готово')
+    + '<input class="inp" id="qiAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽">'
+    + '<div class="cap" style="margin:12px 4px 0">Тип</div><div class="chip-grid">'+kindOpts+'</div>'
+    + '<input class="inp" id="qiNote" placeholder="Название (необязательно)">'
+    + '<input type="hidden" id="qiKind" value="salary">'
+    + '<input class="inp" id="qiDate" type="date" value="'+iso(new Date())+'">'
+    + '<div class="dlg-btns" style="margin-top:14px">'
+    + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="qi-save-more">Сохранить и ещё</button>'
+    + '<button class="sh-btn" style="margin:0;flex:1" data-act="qi-save">Сохранить</button>'
+    + '</div>';
+  $('sheet').classList.add('on'); $('shb').classList.add('on');
+  setTimeout(function(){ if($('qiAmt')){ $('qiAmt').focus(); } }, 250);
+}
+
+function saveQuickIncome(again){
+  if(document.activeElement && document.activeElement.blur){ document.activeElement.blur(); }
+  var qa = parseFloat($('qiAmt').value);
+  if(isNaN(qa) || qa <= 0){ dAlert('Введите сумму поступления.', 'Поступление'); return; }
+  var qd = $('qiDate').value || iso(new Date());
+  var qn = $('qiNote') ? $('qiNote').value.trim() : '';
+  var qk = $('qiKind') ? $('qiKind').value : 'salary';
+  var kindLabel = kindById(qk)[1];
+  D.incomes.push({id:Date.now(), d:qd, n:qn||kindLabel, s:qa, k:qk});
+  save(); render();
+  toast('Поступление +'+fmt(qa));
+  if(again){ openQuickIncome(); } else { closeSheet(); }
+}
 // Живая проверка после записи: аномальный чек или пробой дневного лимита
 function runSpendAlerts(qa, qc){
   var avgQ = 0, cntQ = 0;
@@ -4915,7 +4948,7 @@ return;
       } else { toast('Трата удалена'); }
     });
   }
-    else if(act === 'addincome'){ openIncomeSheet(); }
+    else if(act === 'addincome'){ openQuickIncome(); }
     else if(act === 'inc-preset'){
     D.paymentPreset = el.getAttribute('data-v');
     openIncomeSheet();
@@ -5074,7 +5107,18 @@ return;
   }
   else if(act === 'qa-spend-save-more'){ saveQuickSpend(true); }
   else if(act === 'qa-spend-save'){ saveQuickSpend(false); }
-  else if(act === 'qa-income'){ openIncomeSheet(); }
+  else if(act === 'qi-kind'){
+    var qiK = $('qiKind'); if(qiK){ qiK.value = el.getAttribute('data-c'); }
+    var qiBtns = document.querySelectorAll('.chip-grid .cat-chip');
+    for(var qk=0;qk<qiBtns.length;qk++){
+      if(qiBtns[qk].getAttribute('data-act') === 'qi-kind'){
+        qiBtns[qk].classList.toggle('on', qiBtns[qk].getAttribute('data-c') === el.getAttribute('data-c'));
+      }
+    }
+  }
+  else if(act === 'qi-save-more'){ saveQuickIncome(true); }
+  else if(act === 'qi-save'){ saveQuickIncome(false); }
+  else if(act === 'qa-income'){ openQuickIncome(); }
   else if(act === 'qa-goal'){ openQuickGoal(); }
   else if(act === 'qa-goal-save'){
     var qg = findGoal(parseInt($('qgGoal').value,10));
