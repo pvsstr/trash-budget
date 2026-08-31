@@ -4225,7 +4225,7 @@ function openCanBuy(){
 
 // Редактор конверта: имя + лимит + категории + значок + цвет
 function envDraftSyncInputs(){
-  if($('enName')){ window._envDraft.name = $('enName').value; }
+  if($('enName')){ window._envDraft.name = $('enName').value; if($('enName').value.trim()){ window._envDraft._nameTouched = true; } }
   if($('enLim')){ window._envDraft.lim = $('enLim').value; }
 }
 function renderEnvForm(){
@@ -5533,9 +5533,9 @@ save(); render(); toast('Память применена: обновлено о�
       var ix2 = dEc.cats.indexOf(vE);
       if(ix2 !== -1){ if(dEc.cats.length > 1){ dEc.cats.splice(ix2, 1); } }
       else { dEc.cats.push(vE); }
-      if(!dEc.name || dEc.name === ''){
+      if(!dEc.name || dEc.name === '' || dEc._nameTouched !== true){
         var catInfo = catById(vE);
-        if(catInfo && catInfo.n){ dEc.name = catInfo.n; }
+        if(catInfo && catInfo.n){ dEc.name = catInfo.n; dEc._nameTouched = false; }
       }
     }
     else if(act === 'env-icon'){ dEc.ic = vE; }
