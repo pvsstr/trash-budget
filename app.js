@@ -319,14 +319,12 @@ function openEnvCalc(){
     + '<div class="form" style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px">'
     + '<div class="hint">График работы:</div>'
     + '<select class="inp" id="calcPattern">'+patOpts+'</select>'
-    + '<div class="hint" style="margin-top:8px">Разбить на месяцев:</div>'
-    + '<input class="inp" id="calcMonths" type="number" value="1" min="1" max="24" placeholder="Сколько месяцев">'
-    + '<div style="margin-top:8px;padding:10px;background:rgba(255,255,255,.05);border-radius:10px;font-size:12.5px;color:var(--mut)">Итого покупок ÷ количество месяцев = <b style="color:var(--txt)">лимит на конверт за месяц</b></div>'
     + '<div id="calcResult" style="display:none;margin-top:10px;padding:12px;background:rgba(48,209,88,.1);border:1px solid rgba(48,209,88,.3);border-radius:12px;text-align:center"><div style="font-size:12px;color:var(--mut)">Лимит на конверт</div><div id="calcPerMonth" style="font-size:22px;font-weight:800;color:var(--grn);margin-top:4px">0 ₽</div></div>'
-    + '<div class="row2" style="margin-top:10px">'
+    + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'
     + '<button class="sh-btn" data-act="calc-calc" style="margin:0;flex:1">Рассчитать</button>'
-    + '<button class="sh-btn" data-act="calc-apply" style="margin:0;flex:1;color:var(--grn)">Применить к лимиту</button>'
+    + '<button class="sh-btn" data-act="calc-work" style="margin:0;flex:1">На рабочий месяц</button>'
     + '</div>'
+    + '<button class="sh-btn" data-act="calc-apply" style="margin-top:8px;width:100%">Применить к лимиту</button>'
     + '</div>';
   $('sheet').classList.add('on');
   $('shb').classList.add('on');
@@ -358,24 +356,55 @@ function renderCalcItems(){
     h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06)"><span>'+esc(window._calcItems[i].n)+'</span><span style="display:flex;align-items:center;gap:8px"><b>'+fmt(window._calcItems[i].s)+'</b><button data-act="calc-rm-item" data-i="'+i+'" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:0 4px">✕</button></span></div>';
   }
   el.innerHTML = h;
+  window._calcResult = 0;
+  if($('calcResult')){ $('calcResult').style.display = 'none'; }
   if($('calcTotal')){ $('calcTotal').textContent = fmt(window._calcTotal); }
 }
 
 function calcCalc(){
-  var months = parseInt($('calcMonths') ? $('calcMonths').value : '1', 10) || 1;
-  var perMonth = months > 0 ? Math.ceil(window._calcTotal / months) : 0;
+  var perMonth = Math.ceil(window._calcTotal || 0);
+  window._calcResult = perMonth;
   if($('calcResult')){ $('calcResult').style.display = perMonth > 0 ? 'block' : 'none'; }
   if($('calcPerMonth')){ $('calcPerMonth').textContent = fmt(perMonth); }
 }
 
+function countWorkDaysInMonth(year, month, pattern){
+  var parts = (pattern || '5/2').split('/');
+  var workLen = parseInt(parts[0],10) || 5;
+  var cycleLen = workLen + (parseInt(parts[1],10) || 2);
+  var count = 0;
+  var daysInMonth = new Date(year, month+1, 0).getDate();
+  for(var d=1; d<=daysInMonth; d++){
+    var dt = new Date(year, month, d);
+    if(isRuWeekend(dt)){ continue; }
+    var ref = new Date(2024, 0, 1);
+    var dayIdx = Math.floor((dt - ref) / 864e5);
+    if(dayIdx % cycleLen < workLen){ count++; }
+  }
+  return count;
+}
+
+function calcWork(){
+  var total = window._calcTotal || 0;
+  if(total <= 0){ dAlert('Сначала добавьте покупки.', 'Калькулятор'); return; }
+  var pattern = window._calcPattern || '5/2';
+  var now = new Date();
+  var workDays = countWorkDaysInMonth(now.getFullYear(), now.getMonth(), pattern);
+  if(workDays <= 0){ dAlert('Нет рабочих дней в этом месяце.', 'Калькулятор'); return; }
+  var perMonth = Math.ceil(total * workDays);
+  window._calcResult = perMonth;
+  if($('calcResult')){ $('calcResult').style.display = 'block'; }
+  if($('calcPerMonth')){ $('calcPerMonth').textContent = fmt(perMonth)+' ('+total+' × '+workDays+' раб. дн.)'; }
+}
+
 function calcApply(){
-  var months = parseInt($('calcMonths') ? $('calcMonths').value : '1', 10) || 1;
-  var perMonth = months > 0 ? Math.ceil(window._calcTotal / months) : 0;
-  if(perMonth <= 0){ dAlert('Сначала добавьте покупки и нажмите «Рассчитать».', 'Калькулятор'); return; }
+  var perMonth = window._calcResult || 0;
+  if(perMonth <= 0){ dAlert('Сначала добавьте покупки и нажмите «Рассчитать» или «На рабочий месяц».', 'Калькулятор'); return; }
   var enLim = $('enLim');
   if(enLim){ enLim.value = perMonth; }
   toast('Лимит установлен: '+fmt(perMonth));
   closeSheet();
+  renderEnvForm();
 }
 
 var LESSONS = [
@@ -4170,7 +4199,7 @@ function renderEnvForm(){
     + '<input class="inp" id="enLim" type="number" inputmode="decimal" placeholder="Лимит на цикл, ₽" value="'+(d.lim||'')+'">'
     + '<button class="env-calc-btn" data-act="env-calc"><svg class="ic" style="width:14px;height:14px;margin-right:4px"><use href="#i-card"/></svg> Калькулятор</button>'
     + '<div class="hint">Категории, которые наполняют конверт (можно несколько):</div>'
-    + '<div class="chip-grid">'+catChips+'</div>'
+    + '<div class="chip-grid">'+catChips+'<button type="button" class="cat-chip" data-act="env-custom-cat" style="border:1px dashed var(--mut);background:transparent">+ Своя</button></div>'
     + '<div class="hint">Значок:</div><div class="chip-grid">'+icBtns+'</div>'
     + '<div class="hint">Цвет:</div><div class="chip-grid">'+colBtns+'</div>'
     + '</div>'
@@ -5428,6 +5457,14 @@ save(); render(); toast('Память применена: обновлено о�
     }
   }
   else if(act === 'env-add'){ openEnvAdd(); }
+  else if(act === 'env-custom-cat'){
+    envDraftSyncInputs();
+    openCustomCatAdd(function(cat){
+      envDraftSyncInputs();
+      window._envDraft.cats.push(cat.id);
+      renderEnvForm();
+    });
+  }
   else if(act === 'env-cat' || act === 'env-icon' || act === 'env-col'){
     envDraftSyncInputs();
     var dEc = window._envDraft;
@@ -5656,6 +5693,9 @@ save(); render(); toast('Память применена: обновлено о�
   }
   else if(act === 'calc-calc'){
     calcCalc();
+  }
+  else if(act === 'calc-work'){
+    calcWork();
   }
   else if(act === 'calc-apply'){
     calcApply();
