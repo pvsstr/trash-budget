@@ -71,5 +71,3 @@ target/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-Nothing should be ignored based on the provided file changes, as they consist only of source files (.html, .js) without any build artifacts, dependencies, or temporary files.
-main

@@ -114,7 +114,7 @@ function shiftCycle(cs, n){
   return r;
 }
 function esc(s){
-  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');
 }
 // Видимый отчёт об ошибке рендера (полоса снизу) — чтобы пользователь мог прислать скрин
 function reportErr(name, e){
@@ -238,7 +238,7 @@ function customCatSave(){
   save();
   closeSheet();
   if(window._ccCallback){ window._ccCallback(cat); }
-  toast('Категория «'+nm+'» создана');
+  toast('Категория «'+esc(nm)+'» создана');
 }
 
 function openEnvCalc(){
@@ -386,7 +386,17 @@ var TIPS = [
 'Кредитка выгодна только при полном погашении в грейс-период.',
 'Конверт пуст — трата стоп. Правило работает без силы воли.'];
 
-function save(){ if(uid){ D.lastSave = new Date().getTime(); _allSpendsCache = null; setDoc(doc(db,'users',uid), {data:D}, {merge:true}); } }
+var _saveTimer = null;
+function save(){
+  if(!uid){ return; }
+  D.lastSave = new Date().getTime();
+  _allSpendsCache = null;
+  if(_saveTimer){ clearTimeout(_saveTimer); }
+  _saveTimer = setTimeout(function(){
+    setDoc(doc(db,'users',uid), {data:D}, {merge:true});
+    _saveTimer = null;
+  }, 300);
+}
 
 function exportBackup(){
   var json = JSON.stringify(D, null, 2);
@@ -404,14 +414,49 @@ function exportBackup(){
   toast('Копия данных сохранена');
 }
 
+function validateBackupImport(data){
+  if(!data || typeof data !== 'object'){ return {valid:false, error:'Файл не является валидным JSON-объектом'}; }
+  if(Object.prototype.hasOwnProperty.call(data, '__proto__') || Object.prototype.hasOwnProperty.call(data, 'constructor')){
+    return {valid:false, error:'Недопустимые ключи в данных'};
+  }
+  if(!data.spends || !Array.isArray(data.spends)){ return {valid:false, error:'Отсутствует массив spends'}; }
+  if(!data.incomes || !Array.isArray(data.incomes)){ return {valid:false, error:'Отсутствует массив incomes'}; }
+  var arrays = ['spends','incomes','tx','envs','pays','subs','credits','insts','goals','events'];
+  for(var i=0;i<arrays.length;i++){
+    if(data[arrays[i]] && !Array.isArray(data[arrays[i]])){
+      return {valid:false, error:arrays[i]+' должен быть массивом'};
+    }
+  }
+  if(typeof data.income !== 'number' && data.income != null){ return {valid:false, error:'income должно быть числом'}; }
+  if(typeof data.baseBalance !== 'number' && data.baseBalance != null){ return {valid:false, error:'baseBalance должно быть числом'}; }
+  return {valid:true};
+}
+
+function sanitizeImportedData(data){
+  var MAX_ITEMS = 10000;
+  var MAX_STR = 500;
+  var arrays = ['spends','incomes','tx','pays','subs','credits','insts','goals','events','learned'];
+  for(var i=0;i<arrays.length;i++){
+    if(data[arrays[i]] && data[arrays[i]].length > MAX_ITEMS){ data[arrays[i]] = data[arrays[i]].slice(0, MAX_ITEMS); }
+  }
+  for(var j=0;j<(data.spends||[]).length;j++){
+    var sp = data.spends[j];
+    if(sp.n && typeof sp.n === 'string'){ sp.n = sp.n.substring(0, MAX_STR); }
+  }
+  return data;
+}
+
 function importBackupFromFile(el){
   var file = el.files[0];
   if(!file){ return; }
+  if(file.size > 10*1024*1024){ dAlert('Файл слишком большой (макс. 10 МБ).', 'Ошибка'); return; }
   var reader = new FileReader();
   reader.onload = function(e){
     try{
       var data = JSON.parse(e.target.result);
-      if(!data.spends || !data.incomes){ throw new Error('Неверный формат файла'); }
+      var check = validateBackupImport(data);
+      if(!check.valid){ throw new Error(check.error); }
+      sanitizeImportedData(data);
       dConfirm('Все текущие данные будут заменены данными из копии. Продолжить?', 'Восстановление данных').then(function(ok){
         if(!ok){ return; }
         D = data;
