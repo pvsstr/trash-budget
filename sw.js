@@ -1,11 +1,17 @@
-var CACHE = 'tb-runtime-v6';
+var CACHE = 'tb-runtime-v7';
 
 self.addEventListener('install', function(event) {
-  self.skipWaiting();
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', function(event) {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(function(names) {
+      return Promise.all(
+        names.filter(function(n){ return n !== CACHE; }).map(function(n){ return caches.delete(n); })
+      );
+    }).then(function(){ return self.clients.claim(); })
+  );
 });
 
 self.addEventListener('fetch', function(event) {

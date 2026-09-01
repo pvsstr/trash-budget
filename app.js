@@ -143,8 +143,8 @@ function iso(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2
 function parseD(s){
   var y = new Date().getFullYear();
   if(!s){ return new Date(y,0,1); }
-  if(s.length <= 5){ var p=s.split('.'); return new Date(y, +p[1]-1, +p[0]); }
-  var q=s.split('-'); return new Date(+q[0], +q[1]-1, +q[2]);
+  if(s.length <= 5){ var p=s.split('.'); var mo=(+p[1]||1)-1; var dy=+p[0]||1; if(mo<0)mo=0; if(mo>11)mo=11; if(dy<1)dy=1; if(dy>31)dy=31; var dt=new Date(y,mo,dy); return dt; }
+  var q=s.split('-'); var yr=+q[0]||y; var mo2=(+q[1]||1)-1; var dy2=+q[2]||1; if(mo2<0)mo2=0; if(mo2>11)mo2=11; if(dy2<1)dy2=1; if(dy2>31)dy2=31; var dt2=new Date(yr,mo2,dy2); return dt2;
 }
 function addM(dt, k){
   var target = new Date(dt.getFullYear(), dt.getMonth()+k+1, 0);
@@ -153,10 +153,12 @@ function addM(dt, k){
 function salaryDate(y, m){
   var day = D.salaryDay;
   if(!day){ return null; }
-  var wd = new Date(y, m, day).getDay();
-  if(wd === 6){ return new Date(y, m, day - 1); }
-  if(wd === 0){ return new Date(y, m, day + 1); }
-  return new Date(y, m, day);
+  var maxDay = new Date(y, m+1, 0).getDate();
+  var safeDay = Math.min(day, maxDay);
+  var wd = new Date(y, m, safeDay).getDay();
+  if(wd === 6){ return new Date(y, m, safeDay - 1); }
+  if(wd === 0){ return new Date(y, m, safeDay + 1); }
+  return new Date(y, m, safeDay);
 }
 // Находит последнюю дату зарплаты (фактическую) до указанной даты
 function getLastSalaryDate(dt) {
@@ -631,7 +633,7 @@ function exportBackup(){
 
 function validateBackupImport(data){
   if(!data || typeof data !== 'object'){ return {valid:false, error:'Файл не является валидным JSON-объектом'}; }
-  if(Object.prototype.hasOwnProperty.call(data, '__proto__') || Object.prototype.hasOwnProperty.call(data, 'constructor')){
+  if(Object.prototype.hasOwnProperty.call(data, '__proto__') || Object.prototype.hasOwnProperty.call(data, 'constructor') || Object.prototype.hasOwnProperty.call(data, 'prototype')){
     return {valid:false, error:'Недопустимые ключи в данных'};
   }
   if(!data.spends || !Array.isArray(data.spends)){ return {valid:false, error:'Отсутствует массив spends'}; }
@@ -644,6 +646,19 @@ function validateBackupImport(data){
   }
   if(typeof data.income !== 'number' && data.income != null){ return {valid:false, error:'income должно быть числом'}; }
   if(typeof data.baseBalance !== 'number' && data.baseBalance != null){ return {valid:false, error:'baseBalance должно быть числом'}; }
+  for(var j=0;j<(data.spends||[]).length;j++){
+    var sp = data.spends[j];
+    if(sp && typeof sp !== 'object'){ return {valid:false, error:'Элемент spends['+j+'] должен быть объектом'}; }
+    if(sp && typeof sp.s === 'string'){ sp.s = parseFloat(sp.s) || 0; }
+    if(sp && typeof sp.s !== 'number'){ return {valid:false, error:'spends['+j+'].s должно быть числом'}; }
+    if(sp && sp.s < 0){ sp.s = Math.abs(sp.s); }
+  }
+  for(var k=0;k<(data.incomes||[]).length;k++){
+    var inc = data.incomes[k];
+    if(inc && typeof inc !== 'object'){ return {valid:false, error:'Элемент incomes['+k+'] должен быть объектом'}; }
+    if(inc && typeof inc.s === 'string'){ inc.s = parseFloat(inc.s) || 0; }
+    if(inc && typeof inc.s !== 'number'){ return {valid:false, error:'incomes['+k+'].s должно быть числом'}; }
+  }
   return {valid:true};
 }
 
@@ -654,9 +669,15 @@ function sanitizeImportedData(data){
   for(var i=0;i<arrays.length;i++){
     if(data[arrays[i]] && data[arrays[i]].length > MAX_ITEMS){ data[arrays[i]] = data[arrays[i]].slice(0, MAX_ITEMS); }
   }
-  for(var j=0;j<(data.spends||[]).length;j++){
-    var sp = data.spends[j];
-    if(sp.n && typeof sp.n === 'string'){ sp.n = sp.n.substring(0, MAX_STR); }
+  var strArrays = ['spends','incomes','tx','pays','subs','credits','insts','goals','events'];
+  for(var a=0;a<strArrays.length;a++){
+    var arr = data[strArrays[a]];
+    if(!arr) continue;
+    for(var j=0;j<arr.length;j++){
+      if(arr[j] && arr[j].n && typeof arr[j].n === 'string'){ arr[j].n = arr[j].n.substring(0, MAX_STR); }
+      if(arr[j] && arr[j].d && typeof arr[j].d === 'string' && arr[j].d.length > 50){ arr[j].d = arr[j].d.substring(0, 50); }
+      if(arr[j] && typeof arr[j].s === 'string'){ arr[j].s = parseFloat(arr[j].s) || 0; }
+    }
   }
   return data;
 }
@@ -754,11 +775,14 @@ function allSpends(){
   var arr = []; var i;
   for(i=0;i<(D.spends||[]).length;i++){
     var sp = D.spends[i];
-    arr.push({d:parseD(sp.d), s:sp.s, n:sp.n, cat:sp.cat, id:sp.id, manual:1, src:'sp', sid:sp.id, tag:sp.tag||'normal'});
+    var spAmt = typeof sp.s === 'number' ? sp.s : (parseFloat(sp.s) || 0);
+    if(spAmt <= 0) continue;
+    arr.push({d:parseD(sp.d), s:spAmt, n:sp.n, cat:sp.cat, id:sp.id, manual:1, src:'sp', sid:sp.id, tag:sp.tag||'normal'});
   }
   for(i=0;i<(D.tx||[]).length;i++){
     var t = D.tx[i];
-    if(t.s < 0 || t.refund){ arr.push({d:parseD(t.d), s:-t.s, n:t.n, cat:TX2CAT[t.c]||t.c||'other', src:'tx', sid:i}); }
+    var txAmt = typeof t.s === 'number' ? t.s : (parseFloat(t.s) || 0);
+    if(txAmt < 0 || t.refund){ arr.push({d:parseD(t.d), s:Math.abs(txAmt), n:t.n, cat:TX2CAT[t.c]||t.c||'other', src:'tx', sid:i}); }
   }
   _allSpendsCache = arr;
   return arr;
@@ -836,13 +860,14 @@ function calcHealthScore() {
   for(var ig=0;ig<(D.goals||[]).length;ig++){
     if(/подушк/i.test(D.goals[ig].n) && !D.goals[ig].done){ cushGoal = D.goals[ig]; break; }
   }
-  var cushion = cushGoal ? cushGoal.cur : 0;
-  var cushionTarget = cushGoal ? cushGoal.target : 100000;
-  score += Math.min(30, Math.round((cushion / cushionTarget) * 30));
+  var cushion = cushGoal ? (cushGoal.cur || 0) : 0;
+  var cushionTarget = cushGoal ? (cushGoal.target || 100000) : 100000;
+  var cushPct = cushionTarget > 0 ? cushion / cushionTarget : 0;
+  score += Math.min(30, Math.round(cushPct * 30));
   if (safe > 0) score += 20;
   var actLeakN = activeLeaks().length;
   score -= (actLeakN * 7);
-  return Math.max(10, Math.min(100, score));
+  return Math.max(10, Math.min(100, isNaN(score) ? 50 : score));
 }
 
 function ensureSalary(){
@@ -6656,7 +6681,7 @@ function forecastCashFlow(daysAhead, fromDate){
   // 2. Поведенческие коэффициенты: после зарплаты тратим больше, перед зарплатой — меньше
   var nextSalary = salaryDate(fromDate.getFullYear(), fromDate.getMonth() + 1) || new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 1);
   var daysToSalary = Math.max(1, Math.round((nextSalary - fromDate) / 864e5));
-  var totalCycle = 30; // примерно
+  var totalCycle = Math.max(28, Math.round((cycleEnd(cycleStart(fromDate)) - cycleStart(fromDate)) / 864e5));
   var daysFromSalary = totalCycle - daysToSalary;
   
   function getBehaviorCoeff(dayFromStart) {
@@ -7203,9 +7228,10 @@ function canAfford(amount){
   var minAfter = minBalance(90);
   var postMin = minAfter.val - amount;
   
+  var warnThreshold = Math.max(5000, Math.round((D.income || 50000) * 0.1));
   if(amount <= daily.perDay && postMin >= 0){
     return {verdict:'yes', txt:'Можно: вписывается в дневной лимит, после покупки минимальный баланс будет '+fmt(postMin)+' ₽.', color:'var(--grn)'};
-  } else if(postMin >= -5000){
+  } else if(postMin >= -warnThreshold){
     return {verdict:'warn', txt:'Можно, но осторожно: после покупки минимум будет '+fmt(postMin)+' ₽. Срежь гибкие траты на пару дней.', color:'var(--org)'};
   } else {
     return {verdict:'no', txt:'Не советую: минимум уйдёт в '+fmt(postMin)+' ₽. Лучше подождать или найти дешевле.', color:'var(--red)'};
@@ -7252,7 +7278,7 @@ function debtSnowball(){
       sim[s].cur -= pay;
       sim[s].totalPaid += pay;
       extra -= pay;
-      if(sim[s].cur <= 0){ sim[s].cur = 0; sim[s].months = totalMonths; paid = true; extra += monthlyExtra - (monthlyExtra - extra); }
+      if(sim[s].cur <= 0){ sim[s].cur = 0; sim[s].months = totalMonths; paid = true; extra = monthlyExtra; }
     }
     if(!paid) break;
     extra = monthlyExtra;
@@ -7357,9 +7383,7 @@ function detectAnomalies(allSpend, windowDays){
   for(var k = 0; k < 90; k++){
     var dd2 = new Date(now.getTime() - k * 864e5);
     var key = iso(dd2);
-    if(dailyTotals[key] !== undefined){
-      values.push(dailyTotals[key]);
-    }
+    values.push(dailyTotals[key] || 0);
   }
   if(values.length < 7) return [];
   var mean = 0;
@@ -7370,7 +7394,7 @@ function detectAnomalies(allSpend, windowDays){
   variance = variance / values.length;
   var std = Math.sqrt(variance);
   // Check today and yesterday
-  var checkDays = [0, 1];
+  var checkDays = [0, 1, 2];
   for(var c = 0; c < checkDays.length; c++){
     var dd3 = new Date(now.getTime() - checkDays[c] * 864e5);
     var key3 = iso(dd3);
@@ -7384,7 +7408,7 @@ function detectAnomalies(allSpend, windowDays){
         std: Math.round(std),
         sigma: Math.round((todaySum - mean) / std * 10) / 10,
         count: todayCount,
-        label: checkDays[c] === 0 ? 'Сегодня' : 'Вчера'
+        label: checkDays[c] === 0 ? 'Сегодня' : checkDays[c] === 1 ? 'Вчера' : 'Позавчера'
       });
     }
   }
