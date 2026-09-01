@@ -6639,7 +6639,7 @@ function forecastCashFlow(daysAhead, fromDate){
     var hist = allSpends();
     var recentCycles = 0, recentTotal = 0;
     for(var rc=1;rc<=3;rc++){
-      var cs = shiftCycle(cycleStart(now), -rc);
+      var cs = shiftCycle(cycleStart(fromDate), -rc);
       var ce = cycleEnd(cs);
       var cSum = 0;
       for(var ri=0;ri<hist.length;ri++){
