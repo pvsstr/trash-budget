@@ -4850,11 +4850,19 @@ function go(p){
     if($('settingsLang')){ $('settingsLang').value = D.lang || 'ru'; }
   }
   if(p === 'chat' && $('chatLog') && !$('chatLog').children.length){
-    var hasData = (D.income || 0) > 0 || (D.spends || []).length > 3;
-    if(hasData){
-      addMsg('bot', 'Привет! Я твой финансовый копилот — считаю только по твоим цифрам.<br><br>Спроси: «Могу купить X?», «Как мой бюджет?», «Где утечки?», «Как закрыть долги?», «Что важно сейчас?»');
+    // Use copilot for welcome message if available
+    if(window.Copilot){
+      var wr = window.Copilot.process('Привет', D, {
+        fmt:fmt, esc:esc, canAfford:canAfford, debtSnowball:debtSnowball,
+        calcDailyLimit:calcDailyLimit, cashRunway:cashRunway, getSignals:getSignals,
+        whatIf:whatIf, setupState:setupState, calcRiskScore:calcRiskScore,
+        minBalance:minBalance, allSpends:allSpends, catById:catById
+      });
+      addMsg('bot', wr.text);
+      window._lastCopilotChips = wr.chips || [];
+      updateChatChips();
     } else {
-      addMsg('bot', 'Привет! Я — финансовый копилот МАЯКА.<br><br>Помогу с бюджетом, долгами, накоплениями и подписками. Расскажи о себе — или просто спроси!');
+      addMsg('bot', 'Привет! Я — финансовый копилот МАЯКА.<br><br>Помогу с бюджетом, долгами, накоплениями и подписками. Просто спроси!');
     }
   }
   closeSheet();
@@ -4878,6 +4886,22 @@ function addMsg(cls, html){
   log.scrollTop = 1000000;
 }
 
+function updateChatChips(){
+  var chips = window._lastCopilotChips || [];
+  var container = $('chatChips');
+  if(!container) return;
+  if(chips.length === 0){
+    container.innerHTML = '';
+    return;
+  }
+  var html = '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  for(var i=0; i<Math.min(4, chips.length); i++){
+    html += '<button class="chip" data-act="chat-chip" data-q="' + esc(chips[i].query) + '">' + esc(chips[i].label) + '</button>';
+  }
+  html += '</div>';
+  container.innerHTML = html;
+}
+
 function answer(t){
   return agentAnswer(t);
 }
@@ -4887,7 +4911,11 @@ function ask(q){
   if(!t){ return; }
   $('chatIn').value = '';
   addMsg('me', esc(t));
-  setTimeout(function(){ addMsg('bot', answer(t)); }, 400);
+  setTimeout(function(){
+    addMsg('bot', answer(t));
+    // Update chips based on copilot response
+    updateChatChips();
+  }, 400);
 }
 
 document.addEventListener('click', function(e){
@@ -6252,19 +6280,16 @@ function wireUi(){
   if($('q')){ $('q').addEventListener('input', debRerender()); }
   if($('q2')){ $('q2').addEventListener('input', debRerender2()); }
   if($('chatIn')){ $('chatIn').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ ask(); } }); }
-  // Чипы быстрых сценариев в чате — внизу, рядом с action-чипами
+  // Chat chips container — populated dynamically by copilot responses
   var chatContainer = $('chatLog');
   var chatInEl = document.querySelector('.chat-in');
   if(chatContainer && chatInEl && !$('chatChips')){
     var chipContainer = document.createElement('div');
     chipContainer.id = 'chatChips';
     chipContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px;margin-bottom:4px';
-    chipContainer.innerHTML =
-      '<button class="chip" data-act="chat-chip" data-q="Как мой бюджет?">Как мой бюджет?</button>' +
-      '<button class="chip" data-act="chat-chip" data-q="Как сократить траты?">Сократить траты</button>' +
-      '<button class="chip" data-act="chat-chip" data-q="Что важно сейчас?">Что важно?</button>' +
-      '<button class="chip" data-act="chat-chip" data-q="Как начать копить?">Как копить?</button>';
     chatInEl.parentNode.insertBefore(chipContainer, chatInEl);
+    // Initial chips from copilot if available
+    updateChatChips();
   }
   if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
   if($('spNote')){ $('spNote').addEventListener('input', function(){ if(!catTouched){ $('spCat').value = autoCat(this.value); } });
@@ -7795,18 +7820,15 @@ function whatIf(perMonth){
 }
 
 // Парсер намерений для копилота
-// ===== COPILOT: Universal Financial Advisor =====
-// See copilot.js for the intent classifier and response handlers.
-// This bridge exposes D, helpers, and routes queries to the Copilot module.
+// ===== COPILOT: Conversational Financial Advisor =====
+// See copilot.js — session memory, intent routing, contextual chips.
 
 function agentParse(query){
-  // Kept for backward compatibility — the new system handles everything in agentAnswer
   return {type:'copilot', data:{query:query}};
 }
 
 function agentAnswer(query){
   if(!window.Copilot){
-    // Fallback if copilot.js hasn't loaded
     return 'Копилот загружается... Попробуй ещё раз через секунду.';
   }
   var result = window.Copilot.process(query, D, {
@@ -7824,7 +7846,9 @@ function agentAnswer(query){
     allSpends: allSpends,
     catById: catById
   });
-  return result.html;
+  // Store chips for dynamic update after response
+  window._lastCopilotChips = result.chips || [];
+  return result.text;
 }
 
 function agentDisclaimer(){

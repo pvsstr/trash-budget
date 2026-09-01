@@ -1,19 +1,14 @@
 <div class="page on">
   <div class="chat glass">
-    <div style="padding:16px 18px;border-bottom:1px solid var(--stroke);display:flex;gap:12px;align-items:center"><div class="sic c-blu"><svg class="ic"><use href="#i-bot"/></svg></div><div><b style="font-size:15px">Копилот</b><br><span style="font-size:11px;color:var(--grn)">● финансовый советник</span></div></div>
-    <div class="chat-log" id="chatLog"></div>
-    <div class="chips" style="flex-direction:column;gap:8px;padding:12px 14px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="chip" data-act="chip" data-q="Как мой бюджет?">Мой бюджет</button>
-        <button class="chip" data-act="chip" data-q="Как сократить траты?">Сократить траты</button>
-        <button class="chip" data-act="chip" data-q="Что важно сейчас?">Что важно?</button>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="chip" data-act="chip" data-q="Как начать копить?">Как копить?</button>
-        <button class="chip" data-act="chip" data-q="Как быстрее закрыть долги?">Долги</button>
-        <button class="chip" data-act="chip" data-q="Оцени моё финансовое состояние">Здоровье</button>
-      </div>
+    <div style="padding:16px 18px;border-bottom:1px solid var(--stroke);display:flex;gap:12px;align-items:center">
+      <div class="sic c-blu"><svg class="ic"><use href="#i-bot"/></svg></div>
+      <div><b style="font-size:15px">Копилот</b><br><span style="font-size:11px;color:var(--grn)">● финансовый советник</span></div>
     </div>
-    <div class="chat-in"><input id="chatIn" placeholder="Спросите про деньги..."><button data-act="send"><svg class="ic"><use href="#i-send"/></svg></button></div>
+    <div class="chat-log" id="chatLog"></div>
+    <div id="chatChips" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px;margin-bottom:4px"></div>
+    <div class="chat-in">
+      <input id="chatIn" placeholder="Спросите про деньги...">
+      <button data-act="send"><svg class="ic"><use href="#i-send"/></svg></button>
+    </div>
   </div>
 </div>

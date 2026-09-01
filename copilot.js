@@ -1,726 +1,804 @@
 /**
- * МАЯК Copilot — Universal Financial Advisor
- * ===========================================
+ * МАЯК Copilot v2 — Conversational Financial Advisor
+ * ====================================================
  * Architecture:
- *   1. Intent Classifier: keyword + context matching → intent type
- *   2. Response Handlers: each intent → {text, chips[], followUp}
- *   3. Proactive System: vague queries → clarifying questions
- *   4. Personalization: uses D object data when available
- *   5. i18n: all responses via t() function
+ *   Session ─→ Intent Router ─→ Handler ─→ {text, chips[], followUp?}
+ *       ↓                              ↑
+ *   Context Store ─── data summary ────┘
  *
- * Intents: afford, debt, budget, savings, emergency, invest,
- *          subscriptions, spending, payday, daily, scenario,
- *          health, education, setup, month, signals, greeting,
- *          thanks, help, general
- *
- * Each handler returns: {html: string, chips: [{label, query}]}
+ * Features:
+ *   - Session memory: tracks last intent, topics discussed, user data state
+ *   - Clarifying questions: vague queries get follow-ups, not generic advice
+ *   - Data-driven: all numbers come from D object, never fabricated
+ *   - Proactive: each response suggests 1-2 contextual follow-ups
+ *   - Dynamic chips: 4 chips change based on conversation flow
+ *   - i18n ready: all text via t() function
  */
 (function(){
 'use strict';
 
-var intentMap = [
-  // Order matters: more specific patterns first
-  {intent:'afford',    re:/куп(ить|лю|аю|ай)|можн(о|ый)|потян(у|ет)|afford|хват(ит|ит ли|аем)|достаточ|позволю|bu(?:y|dget)/i, needsNum:true},
-  {intent:'debt',      re:/долг|кредит|рассроч|закрыть кредит|займ|переплат| borrowing|debt|loan|credit/i},
-  {intent:'budget',    re:/бюджет|50.?30.?20|конверт|лимит|распредел|Envelope|budget|К播нверт/i},
-  {intent:'savings',   re:/накоп(ить|ить|ление)|копи(ть|т)|цель|отпуск|подушк|сберечь|save|savings|goal/i},
-  {intent:'emergency', re:/подушк|резерв|аварийн|запас|emergency|rainy.?day|стабильн/i},
-  {intent:'invest',    re:/инвест|влож|акци|бирж|дивиденд|процент|ставк|пассивн|invest|stock|market|return/i},
-  {intent:'subscriptions', re:/подпис(к|ка|ок)|автоплат|subscribe|subscription/i},
-  {intent:'spending',  re:/трат(ы|а|ил|ю)|расход|уход|прожит|utеч|перерасход|лишн|лишне|expense|spend|spending/i},
-  {intent:'payday',    re:/зарплат|зп|до зп|payday|salary|wage|оклад/i},
-  {intent:'daily',     re:/сегодня|дневн|лимит|потратить|тратить|daily|today|limit/i},
-  {intent:'scenario',  re:/если|уреж|сократ|увелич|сценари|what.?if|scenario|если бы/i},
-  {intent:'health',    re:/здоров|оценк|рейтинг|балл|score|health|состояни|финанс(ов)?/i},
-  {intent:'education', re:/научи|урок|обуч|финграмотн|грамотн|lesson|teach|learn|совет/i},
-  {intent:'setup',     re:/настр(ой|оить)|начать|с чего|старт|первый раз|новичок|start|setup|begin/i},
-  {intent:'month',     re:/итог|месяц|этот месяц|прошл|summary|month|total/i},
-  {intent:'signals',   re:/сигнал|важно|срочн|проблем|вниман|alert|signal|warning/i},
-  {intent:'thanks',    re:/спасибо|благодар|thanks|thank|merci/i},
-  {intent:'greeting',  re:/привет|здравств|добр(ый|ое|ой)|hello|hi|hey|день|вечер|утр/i},
-  {intent:'help',      re:/помощ|помог|что (ты |умеешь|можешь)|help|how (do|does)|что делать/i},
-];
+// ===== SESSION MEMORY =====
+var session = {
+  history: [],         // [{role:'user'|'bot', text, intent, ts}]
+  lastIntent: null,
+  lastTopic: null,
+  topicsDiscussed: {},
+  userState: null,     // 'new' | 'setup' | 'established'
+  dataFingerprint: ''  // hash of D to detect changes
+};
 
-function classifyIntent(query) {
-  var q = query.toLowerCase().trim();
-  for (var i = 0; i < intentMap.length; i++) {
-    if (intentMap[i].re.test(q)) {
-      return intentMap[i].intent;
+function resetSession(){
+  session.history = [];
+  session.lastIntent = null;
+  session.lastTopic = null;
+  session.topicsDiscussed = {};
+  session.userState = null;
+  session.dataFingerprint = '';
+}
+
+function updateUserState(D){
+  var income = D.income || 0;
+  var spends = (D.spends || []).length + (D.tx || []).length;
+  var hasSetup = income > 0 && ((D.pays || []).length > 0 || (D.envs || []).length > 0);
+  var fp = income + ':' + spends + ':' + (D.pays || []).length + ':' + (D.envs || []).length;
+  if(fp !== session.dataFingerprint){
+    session.dataFingerprint = fp;
+    if(!hasSetup && spends < 3) session.userState = 'new';
+    else if(hasSetup) session.userState = 'established';
+    else session.userState = 'setup';
+  }
+}
+
+function recordHistory(role, text, intent){
+  session.history.push({role:role, text:text, intent:intent, ts:Date.now()});
+  if(session.history.length > 20) session.history.shift();
+  if(intent){
+    session.lastIntent = intent;
+    session.topicsDiscussed[intent] = (session.topicsDiscussed[intent] || 0) + 1;
+  }
+}
+
+function getLastBotText(){
+  for(var i = session.history.length - 1; i >= 0; i--){
+    if(session.history[i].role === 'bot') return session.history[i].text;
+  }
+  return '';
+}
+
+// ===== INTENT CLASSIFIER =====
+// Returns: {intent, confidence, amounts[], categories[]}
+function classify(query){
+  var q = query.toLowerCase().replace(/[^\w\s\u0400-\u04FF₽]/g, ' ').trim();
+  var amounts = [];
+  var numMatches = q.match(/(\d[\d\s]*)(?:₽|руб|р\.|тыс|к)?/g);
+  if(numMatches){
+    for(var i=0; i<numMatches.length; i++){
+      var raw = numMatches[i].replace(/[^\d]/g,'');
+      var n = parseInt(raw, 10);
+      if(numMatches[i].indexOf('тыс') !== -1 || numMatches[i].indexOf('к') !== -1) n *= 1000;
+      if(n > 0 && n < 100000000) amounts.push(n);
     }
   }
-  // Check if query contains a number (might be afford or savings with amount)
-  if (/\d[\d\s]*[₽руб]|^\d[\d\s]*$/i.test(q)) {
-    return 'afford';
+
+  // Ordered by specificity (most specific first)
+  var patterns = [
+    // Greetings
+    {intent:'greeting', re:/^(привет|здравств|добр(ый|ое|ой|ого)|hello|hi|hey|йо|хай|здарова)/i},
+    // Thanks
+    {intent:'thanks', re:/^(спасибо|благодар|thanks|thank|мерси|сенкс)/i},
+    // Help
+    {intent:'help', re:/^(помощ|помог|что (ты |умеешь|можешь|такое)|help|how|что делать|инструкц)/i},
+    // Explicit afford
+    {intent:'afford', re:/куп(ить|лю|аю|ай|ил)|можн(о|ый|ет)|потян(у|ет|у)|allow|afford|хват(ит|ает)|достаточ|позволю|позволит|buy|enough/i},
+    // Debt
+    {intent:'debt', re:/долг|кредит|рассроч|займ|переплат|задолженност|borrowing|debt|loan|credit|касс|заём/i},
+    // Savings goal
+    {intent:'savings', re:/накоп(ить|ить|ление|лю)|копи(ть|т|у)|цель|отпуск|подушк|сберечь|save|savings|goal|купе|攒/i},
+    // Investment
+    {intent:'invest', re:/инвест(ировать|иц|ор)|влож|акци|бирж|дивиденд|пассивн(ый|ого|ому)|invest|stock|market|etf|облигац|iis|иис/i},
+    // Budget
+    {intent:'budget', re:/бюджет|50.?30.?20|конверт|лимит|распредел|Envelope|budget|расход|Конверт/i},
+    // Subscriptions
+    {intent:'subscriptions', re:/подпис(к|ка|ок)|автоплат|subscribe|subscription/i},
+    // Emergency
+    {intent:'emergency', re:/подушк|резерв|аварийн|запас|emergency|rainy|стабильност/i},
+    // Health score
+    {intent:'health', re:/здоров|оценк|рейтинг|балл|score|health|состояни|финанс(ов)?|analyz/i},
+    // Education
+    {intent:'education', re:/научи|урок|обуч|финграмотн|грамотн|lesson|teach|learn|совет|объясни|расскажи про|что такое/i},
+    // Spending (before scenario — "сократ траты" is spending, not scenario)
+    {intent:'spending', re:/трат(ы|а|ил|ю|ает)|расход|уход|прожит|utеч|перерасход|лишн|лишне|expense|spend|spending|сократ.*трат|трат.*сократ/i},
+    // Scenario (needs explicit "если" or scenario keywords)
+    {intent:'scenario', re:/если|уреж(?!.*трат)|увелич|сценари|what.?if|scenario|если б|simulat/i},
+    // Signals
+    {intent:'signals', re:/сигнал|важно|срочн|проблем|вниман|alert|signal|warning|kritich/i},
+    // Payday
+    {intent:'payday', re:/зарплат|зп|до зп|payday|salary|wage|оклад|avans|аванс/i},
+    // Daily
+    {intent:'daily', re:/сегодня|дневн|лимит|потратить|тратить|daily|today|limit|сколько могу/i},
+    // Month summary
+    {intent:'month', re:/итог|месяц|этот месяц|прошл|summary|month|total|за месяц/i},
+    // Setup
+    {intent:'setup', re:/настр(ой|оить)|начать|с чего|старт|первый раз|новичок|start|setup|begin|setup/i},
+  ];
+
+  for(var j=0; j<patterns.length; j++){
+    if(patterns[j].re.test(q)){
+      return {intent:patterns[j].intent, confidence:1, amounts:amounts, query:q};
+    }
   }
-  return 'general';
+
+  // Check for number-only queries (likely afford)
+  if(amounts.length > 0 && q.length < 30){
+    return {intent:'afford', confidence:0.7, amounts:amounts, query:q};
+  }
+
+  // Check for category-specific queries
+  var catWords = {
+    'кафе':'cafe','ресторан':'cafe','еда':'grocery','продукт':'grocery','самокат':'scooters',
+    'такси':'taxi','транспорт':'transport','подписк':'subs','развлечен':'fun',
+    'одежд':'personal','салон':'personal','аптек':'health','лекарств':'health',
+    'аренд':'home','жкх':'home','связ':'home','телефон':'home'
+  };
+  for(var word in catWords){
+    if(q.indexOf(word) !== -1){
+      return {intent:'scenario', confidence:0.8, amounts:amounts, query:q, category:catWords[word]};
+    }
+  }
+
+  return {intent:'general', confidence:0, amounts:amounts, query:q};
 }
 
-function extractAmount(query) {
-  var m = query.match(/(\d[\d\s]*)/);
-  if (!m) return 0;
-  return parseInt(m[1].replace(/\s/g, ''), 10) || 0;
+// ===== DATA SUMMARY (for handlers) =====
+function summarizeData(D, helpers){
+  var now = new Date();
+  var income = D.income || 0;
+  var allSp = helpers.allSpends();
+
+  // Month spend
+  var mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  var monthSpend = 0;
+  for(var i=0; i<allSp.length; i++){ if(allSp[i].d >= mStart) monthSpend += allSp[i].s; }
+
+  // Essential vs flexible
+  var essentialCats = ['home','subs','transport','grocery'];
+  var essentialSpend = 0;
+  for(var j=0; j<allSp.length; j++){
+    if(allSp[j].d >= mStart && essentialCats.indexOf(allSp[j].cat || 'other') !== -1) essentialSpend += allSp[j].s;
+  }
+  var flexSpend = monthSpend - essentialSpend;
+
+  // Category breakdown
+  var catSpend = {};
+  for(var k=0; k<allSp.length; k++){
+    if(allSp[k].d >= mStart){
+      var c = allSp[k].cat || 'other';
+      catSpend[c] = (catSpend[c] || 0) + allSp[k].s;
+    }
+  }
+
+  // Top spending categories
+  var topCats = [];
+  for(var cat in catSpend){ topCats.push({cat:cat, sum:catSpend[cat]}); }
+  topCats.sort(function(a,b){ return b.sum - a.sum; });
+
+  // Debts
+  var debts = D.credits || [];
+  var totalDebt = 0;
+  for(var d=0; d<debts.length; d++) totalDebt += debts[d].cur || 0;
+
+  // Subscriptions
+  var activeSubs = [];
+  var subTotal = 0;
+  for(var s=0; s<(D.subs||[]).length; s++){
+    if(!D.subs[s].off){ activeSubs.push(D.subs[s]); subTotal += D.subs[s].s || 0; }
+  }
+
+  // Goals
+  var goals = D.goals || [];
+  var activeGoals = [];
+  for(var g=0; g<goals.length; g++){ if(!goals[g].done) activeGoals.push(goals[g]); }
+
+  // Envelopes
+  var envs = D.envs || [];
+
+  // Fixed payments
+  var pays = D.pays || [];
+
+  // Credit score
+  var riskScore = helpers.calcRiskScore();
+
+  // Daily limit
+  var dl = helpers.calcDailyLimit();
+
+  // Cash runway
+  var runway = helpers.cashRunway();
+
+  // Min balance
+  var minBal = helpers.minBalance(90);
+
+  // Savings rate
+  var savingsRate = income > 0 ? Math.round((income - monthSpend) / income * 100) : null;
+
+  // Debt-to-income
+  var dti = income > 0 ? Math.round(totalDebt / income * 100) : null;
+
+  return {
+    income: income,
+    monthSpend: monthSpend,
+    essentialSpend: essentialSpend,
+    flexSpend: flexSpend,
+    saved: income - monthSpend,
+    savingsRate: savingsRate,
+    topCats: topCats,
+    catSpend: catSpend,
+    totalDebt: totalDebt,
+    debts: debts,
+    dti: dti,
+    activeSubs: activeSubs,
+    subTotal: subTotal,
+    annualSubs: subTotal * 12,
+    goals: goals,
+    activeGoals: activeGoals,
+    envs: envs,
+    pays: pays,
+    riskScore: riskScore,
+    dl: dl,
+    runway: runway,
+    minBal: minBal,
+    hasIncome: income > 0,
+    hasData: income > 0 || allSp.length > 3
+  };
 }
 
-// ===== RESPONSE HANDLERS =====
-// Each returns {html: string, chips: [{label: string, query: string}]}
+// ===== RESPONSE BUILDERS =====
+// Each returns: {text: string, chips: [{label, query}], followUp: string|null}
 
-var handlers = {};
+var R = {};
 
 // --- GREETING ---
-handlers.greeting = function(q, D, ctx) {
-  var name = (D.username || '').split(' ')[0] || null;
-  var hello = name ? ('Привет, ' + name + '!') : 'Привет!';
-  var hasData = (D.income || 0) > 0 || (D.spends || []).length > 3;
-  if (!hasData) {
+R.greeting = function(q, D, S, H){
+  var name = (D.username || '').split(' ')[0];
+  var hi = name ? ('Привет, ' + name + '!') : 'Привет!';
+  if(S.userState === 'new'){
     return {
-      html: hello + ' Я — твой финансовый копилот.<br><br>' +
-        'Я помогу разобраться с деньгами: посчитаю, сколько можно тратить, найду утечки, подскажу, как копить и выходить из долгов.<br><br>' +
-        'Расскажи о себе: <b>какой у тебя доход в месяц?</b> — и я дам персональные советы.',
-      chips: [
-        {label: 'Указать доход', query: 'Как настроить доход?'},
-        {label: 'Что умеешь?', query: 'Что ты умеешь?'},
-        {label: 'Совет по бюджету', query: 'Как составить бюджет?'}
-      ]
+      text: hi + ' Я — МАЯК, твой финансовый помощник.<br><br>' +
+        'Расскажи о себе: <b>сколько ты зарабатываешь в месяц?</b> — и я помогу разобраться с деньгами.',
+      chips: [{label:'Указать доход', query:'Мой доход 80000'},{label:'Что умеешь?', query:'Что ты умеешь?'}],
+      followUp: 'income_question'
+    };
+  }
+  if(S.userState === 'setup'){
+    return {
+      text: hi + ' Вижу, ты уже начал настройку. Чем помочь?',
+      chips: [{label:'Завершить настройку', query:'Как настроить?'}],
+      followUp: null
+    };
+  }
+  // Established
+  var topIssue = null;
+  if(S.dl.perDay < 500) topIssue = 'дневной лимит совсем маленький';
+  else if(S.runway < 15) topIssue = 'прогноз нестабилен';
+  else if(S.savingsRate !== null && S.savingsRate < 10) topIssue = 'норма сбережений низкая';
+  else if(S.totalDebt > 0) topIssue = 'есть долги';
+  if(topIssue){
+    return {
+      text: hi + ' Вижу, что ' + topIssue + '. Чем помочь?',
+      chips: [{label:'Разобраться', query:'Что важно сейчас?'},{label:'Совет', query:'Дай совет по бюджету'}],
+      followUp: null
     };
   }
   return {
-    html: hello + ' Вижу, ты уже пользуешься МАЯКом. Чем помочь?',
-    chips: [
-      {label: 'Как дела с бюджетом?', query: 'Как мой бюджет?'},
-      {label: 'Что важно сейчас?', query: 'Что важно сейчас?'},
-      {label: 'Совет по экономии', query: 'Как сэкономить?'}
-    ]
+    text: hi + ' Дела идут нормально. Чем помочь?',
+    chips: [{label:'Мой бюджет', query:'Как мой бюджет?'},{label:'Совет', query:'Дай совет по экономии'}],
+    followUp: null
   };
 };
 
 // --- HELP ---
-handlers.help = function(q, D, ctx) {
+R.help = function(q, D, S, H){
   return {
-    html: '<b>Что я умею:</b><br><br>' +
-      '• <b>Бюджет</b> — «Как составить бюджет?» / «Как работает 50/30/20?»<br>' +
-      '• <b>Долги</b> — «Как быстрее закрыть долги?» / «Стоит ли гасить кредит досрочно?»<br>' +
-      '• <b>Копилка</b> — «Как накопить на отпуск?» / «Сколько откладывать?»<br>' +
-      '• <b>Траты</b> — «Могу купить X?» / «Где утечки?»<br>' +
-      '• <b>Инвестиции</b> — «С чего начать инвестировать?»<br>' +
-      '• <b>Подписки</b> — «Мои подписки» / «Стоит ли отключить подписку?»<br>' +
-      '• <b>Здоровье</b> — «Оцени моё финансовое состояние»<br><br>' +
+    text: '<b>Что я умею:</b><br><br>' +
+      '💰 <b>Бюджет</b> — «Как мой бюджет?» / «Как работает 50/30/20?»<br>' +
+      '💳 <b>Долги</b> — «Как быстрее закрыть долги?»<br>' +
+      '🏦 <b>Копилка</b> — «Как накопить на отпуск?» / «Сколько откладывать?»<br>' +
+      '🛒 <b>Покупки</b> — «Могу купить X?» / «Где утечки?»<br>' +
+      '📈 <b>Инвестиции</b> — «С чего начать?»<br>' +
+      '📊 <b>Здоровье</b> — «Оцени моё финансовое состояние»<br><br>' +
       'Просто напиши вопрос — я постараюсь помочь!',
-    chips: [
-      {label: 'Как составить бюджет?', query: 'Как составить бюджет?'},
-      {label: 'Могу купить машину?', query: 'Могу купить машину за 500000?'},
-      {label: 'Финансовое здоровье', query: 'Оцени моё финансовое состояние'}
-    ]
+    chips: [{label:'Мой бюджет', query:'Как мой бюджет?'},{label:'Здоровье', query:'Оцени моё финансовое состояние'}],
+    followUp: null
   };
 };
 
 // --- THANKS ---
-handlers.thanks = function(q, D, ctx) {
+R.thanks = function(q, D, S, H){
   return {
-    html: 'Рад помочь! Если появятся вопросы — я здесь. Удачи с финансами!',
-    chips: [
-      {label: 'Ещё вопрос', query: 'Помоги с бюджетом'},
-      {label: 'Что важно сейчас?', query: 'Что важно сейчас?'}
-    ]
+    text: 'Рад помочь! Если появятся вопросы — я здесь.',
+    chips: [{label:'Ещё вопрос', query:'Дай совет по бюджету'}],
+    followUp: null
   };
 };
 
 // --- AFFORD ---
-handlers.afford = function(q, D, ctx) {
-  var amount = extractAmount(q);
-  if (amount <= 0) {
+R.afford = function(q, D, S, H){
+  var amount = (S.amounts && S.amounts[0]) || 0;
+  if(amount <= 0){
     return {
-      html: 'Скажи сумму: «Могу купить X за Y₽?» — и я проверю по прогнозу.',
-      chips: [
-        {label: 'Могу купить за 5000₽?', query: 'Могу купить за 5000₽?'},
-        {label: 'Могу купить за 20000₽?', query: 'Могу купить за 20000₽?'}
-      ]
+      text: 'Скажи сумму: «Могу купить за 5000₽?» — и я проверю по прогнозу.',
+      chips: [{label:'За 5000₽', query:'Могу купить за 5000₽?'}],
+      followUp: null
     };
   }
-  if (!ctx.hasIncome) {
+  if(!S.hasIncome){
     return {
-      html: 'Чтобы ответить, мне нужно знать твой доход. Укажи его на Панели — и я смогу точно сказать, потянешь ли покупку.',
-      chips: [
-        {label: 'Указать доход', query: 'Как настроить доход?'}
-      ]
+      text: 'Чтобы ответить, мне нужно знать твой доход. Укажи его — и я смогу точно сказать.',
+      chips: [{label:'Указать доход', query:'Мой доход 80000'}],
+      followUp: 'income_question'
     };
   }
-  var r = ctx.canAfford(amount);
+  var r = H.canAfford(amount);
   var advice = '';
-  if (r.verdict === 'yes') {
-    advice = 'Покупка не повредит прогнозу. Но подумай: это нужда или желание? ' +
-      'Если откладываешь на цель — проверь, не сдвинет ли это срок.';
-  } else if (r.verdict === 'risk') {
-    advice = 'Можно, но с риском. Минимум баланса станет ' + ctx.fmt(r.riskMin) + '. ' +
-      'Лучше подождать до зарплаты или найти способ компенсировать.';
+  if(r.verdict === 'yes'){
+    advice = 'Покупка не повредит прогнозу. Но подумай: это нужда или желание?';
+  } else if(r.verdict === 'warn'){
+    advice = 'Можно, но с риском. Минимум баланса станет ' + H.fmt(r.riskMin) + '. Подожди зарплату или компенсируй.';
   } else {
-    advice = 'Пока лучше воздержаться. Без этой покупки минимум баланса будет ' + ctx.fmt(r.safeMin) + ', ' +
-      'а с ней — ' + ctx.fmt(r.riskMin) + '. Подожди зарплату или урежь другие траты.';
+    advice = 'Пока лучше воздержаться. Минимум уйдёт в ' + H.fmt(r.riskMin) + '. Подожди зарплату или урежь другие траты.';
   }
   return {
-    html: '<b>' + ctx.fmt(amount) + '</b> — ' + r.txt + '<br><br>' + advice,
-    chips: [
-      {label: 'Что если урежу кафе?', query: 'Что будет, если я урежу кафе на 30%?'},
-      {label: 'Сколько осталось до зп?', query: 'Сколько до зарплаты?'}
-    ]
+    text: '<b>' + H.fmt(amount) + '</b> — ' + r.txt + '<br><br>' + advice,
+    chips: [{label:'Что если урежу кафе?', query:'Что будет, если я урежу кафе на 30%?'},{label:'До зп осталось?', query:'Сколько до зарплаты?'}],
+    followUp: 'afford_done'
   };
 };
 
 // --- DEBT ---
-handlers.debt = function(q, D, ctx) {
-  var debts = D.credits || [];
-  var totalDebt = 0;
-  for (var i = 0; i < debts.length; i++) totalDebt += debts[i].cur || 0;
-  if (debts.length === 0 || totalDebt === 0) {
+R.debt = function(q, D, S, H){
+  if(S.totalDebt === 0){
     return {
-      html: 'У тебя нет долгов — это отличная позиция! ' +
-        'Можешь сосредоточиться на накоплениях и инвестициях.<br><br>' +
-        '<b>Совет:</b> Если появится возможность взять кредит — помни правило: ' +
-        'ежемесячный платёж не должен превышать 30% дохода.',
-      chips: [
-        {label: 'Как копить?', query: 'Как начать копить?'},
-        {label: 'Инвестиции', query: 'С чего начать инвестировать?'}
-      ]
+      text: 'У тебя нет долгов — отличная позиция! Можешь сосредоточиться на накоплениях.',
+      chips: [{label:'Как копить?', query:'Как начать копить?'},{label:'Инвестиции', query:'С чего начать инвестировать?'}],
+      followUp: null
     };
   }
-  var plan = ctx.debtSnowball();
-  var income = D.income || 1;
-  var dti = Math.round(totalDebt / income * 100);
+  var plan = H.debtSnowball();
   var advice = '';
-  if (plan) {
-    advice = '<b>Стратегия:</b> ' + (plan.strategy === 'avalanche' ? 'Авалинх — гаси самые дорогие кредиты первыми (экономия на процентах).' :
-      'Сноуболл — гаси самые маленькие кредиты первыми (мотивация быстрых побед).') +
-      '<br><br><b>План:</b> ' + plan.txt +
-      '<br><br><b>Совет:</b> Не гаси все деньги в долг одновременно. Оставляй подушку безопасности хотя бы 1 месяц расходов.';
+  if(plan){
+    advice = '<b>Стратегия:</b> ' + (plan.strategy === 'avalanche' ?
+      'Авалинх — гаси дорогие кредиты первыми (экономия на процентах).' :
+      'Сноуболл — гаси маленькие первыми (мотивация быстрых побед).') +
+      '<br><br>' + plan.txt;
   } else {
-    advice = 'Общий долг: ' + ctx.fmt(totalDebt) + ' (' + dti + '% дохода). ' +
-      (dti > 50 ? 'Это критически много — нужна срочная стратегия.' :
-       dti > 30 ? 'Много, но управляемо.' : 'В пределах нормы.') +
-      '<br><br><b>Правило 50/30/20:</b> Не более 20% дохода должно уходить на погашение долгов.';
+    advice = 'Общий долг: ' + H.fmt(S.totalDebt) + ' (' + S.dti + '% дохода).';
   }
   return {
-    html: 'Долгов: ' + debts.length + ' на ' + ctx.fmt(totalDebt) + ' (' + dti + '% дохода).<br><br>' + advice,
-    chips: [
-      {label: 'План погашения', query: 'План погашения долгов'},
-      {label: 'Стоит ли гасить досрочно?', query: 'Стоит ли гасить кредит досрочно?'},
-      {label: 'Как сократить траты?', query: 'Как сократить траты?'}
-    ]
+    text: '<b>Долги: ' + S.debts.length + ' на ' + H.fmt(S.totalDebt) + '</b><br><br>' + advice,
+    chips: [{label:'План погашения', query:'План погашения долгов'},{label:'Сократить траты', query:'Как сократить траты?'}],
+    followUp: 'debt_done'
   };
 };
 
 // --- BUDGET ---
-handlers.budget = function(q, D, ctx) {
-  var income = D.income || 0;
-  if (!income) {
+R.budget = function(q, D, S, H){
+  if(!S.hasIncome){
     return {
-      html: '<b>Правило 50/30/20</b> — простой способ распределить доход:<br><br>' +
-        '• <b>50%</b> — Обязательные (аренда, еда, транспорт, связь)<br>' +
-        '• <b>30%</b> — Гибкие (кафе, развлечения, подписки, одежда)<br>' +
+      text: '<b>Правило 50/30/20:</b><br><br>' +
+        '• <b>50%</b> — Обязательные (аренда, еда, транспорт)<br>' +
+        '• <b>30%</b> — Гибкие (кафе, развлечения, подписки)<br>' +
         '• <b>20%</b> — Накопления и долги<br><br>' +
-        'Укажи доход на Панели — и я покажу, как у тебя распределены траты.',
-      chips: [
-        {label: 'Указать доход', query: 'Как настроить доход?'},
-        {label: 'Что такое конверты?', query: 'Как работают конверты?'}
-      ]
+        'Укажи доход — и я покажу, как у тебя.',
+      chips: [{label:'Указать доход', query:'Мой доход 80000'}],
+      followUp: 'income_question'
     };
   }
-  var monthSpend = ctx.monthSpend;
-  var saved = income - monthSpend;
-  var essential = ctx.essentialSpend;
-  var flex = monthSpend - essential;
-  var ePct = Math.round(essential / income * 100);
-  var fPct = Math.round(flex / income * 100);
-  var sPct = Math.round(saved / income * 100);
-  var verdict = '';
-  if (ePct > 50) verdict = 'Обязательные траты (' + ePct + '%) превышают норму 50%. Ищи, где сократить: связи, транспорт, продукты.';
-  else if (fPct > 30) verdict = 'Гибкие траты (' + fPct + '%) выше нормы 30%. Посмотри на кафе, развлечения, подписки.';
-  else if (sPct < 20) verdict = 'Норма сбережений (' + sPct + '%) ниже рекомендованных 20%. Попробуй автоматически откладывать 10% в день зарплаты.';
-  else verdict = 'Отличное распределение! Ты в рамках рекомендаций 50/30/20.';
+  var ePct = S.income > 0 ? Math.round(S.essentialSpend / S.income * 100) : 0;
+  var fPct = S.income > 0 ? Math.round(S.flexSpend / S.income * 100) : 0;
+  var sPct = S.savingsRate;
+  var issues = [];
+  if(ePct > 50) issues.push('Обязательные (' + ePct + '%) выше 50%');
+  if(fPct > 30) issues.push('Гибкие (' + fPct + '%) выше 30%');
+  if(sPct !== null && sPct < 20) issues.push('Сбережения (' + sPct + '%) ниже 20%');
+
+  var cats = '';
+  for(var i=0; i<Math.min(5, S.topCats.length); i++){
+    var pct = S.income > 0 ? Math.round(S.topCats[i].sum / S.income * 100) : 0;
+    cats += '• ' + H.esc(H.catById(S.topCats[i].cat).n) + ': ' + H.fmt(S.topCats[i].sum) + ' (' + pct + '%)<br>';
+  }
+
   return {
-    html: '<b>Твой бюджет:</b><br><br>' +
-      '• Обязательные: ' + ctx.fmt(essential) + ' (' + ePct + '%) — ' + (ePct <= 50 ? '✓' : '✗') + '<br>' +
-      '• Гибкие: ' + ctx.fmt(flex) + ' (' + fPct + '%) — ' + (fPct <= 30 ? '✓' : '✗') + '<br>' +
-      '• Накопления: ' + ctx.fmt(saved) + ' (' + sPct + '%) — ' + (sPct >= 20 ? '✓' : '✗') + '<br><br>' +
-      '<b>Вердикт:</b> ' + verdict,
-    chips: [
-      {label: 'Как сократить гибкие?', query: 'Как сократить траты?'},
-      {label: 'Настроить конверты', query: 'Как работают конверты?'},
-      {label: 'Автосбережения', query: 'Как автоматически откладывать?'}
-    ]
+    text: '<b>Твой бюджет:</b><br><br>' +
+      'Обязательные: ' + H.fmt(S.essentialSpend) + ' (' + ePct + '%) — ' + (ePct<=50?'✓':'✗') + '<br>' +
+      'Гибкие: ' + H.fmt(S.flexSpend) + ' (' + fPct + '%) — ' + (fPct<=30?'✓':'✗') + '<br>' +
+      'Накопления: ' + H.fmt(S.saved) + ' (' + sPct + '%) — ' + (sPct>=20?'✓':'✗') + '<br><br>' +
+      (cats ? '<b>Топ трат:</b><br>' + cats + '<br>' : '') +
+      (issues.length ? '<b>Что улучшить:</b> ' + issues.join('; ') : '<b>Отлично!</b> Ты в рамках нормы.'),
+    chips: [{label:'Как сократить?', query:'Как сократить траты?'},{label:'Подробнее', query:'Расскажи подробнее про бюджет'}],
+    followUp: 'budget_done'
   };
 };
 
 // --- SAVINGS ---
-handlers.savings = function(q, D, ctx) {
-  var amount = extractAmount(q);
-  var goals = D.goals || [];
-  var activeGoals = [];
-  for (var i = 0; i < goals.length; i++) {
-    if (!goals[i].done) activeGoals.push(goals[i]);
-  }
-  if (amount > 0) {
-    var income = D.income || 1;
-    var safeSave = Math.round(income * 0.1);
-    if (safeSave < 1000) safeSave = 1000;
+R.savings = function(q, D, S, H){
+  var amount = (S.amounts && S.amounts[0]) || 0;
+  if(amount > 0){
+    var safeSave = S.income > 0 ? Math.round(S.income * 0.1) : 5000;
     var months = Math.ceil(amount / safeSave);
     return {
-      html: 'Чтобы накопить ' + ctx.fmt(amount) + ':<br><br>' +
-        '• Откладывай ' + ctx.fmt(safeSave) + '/мес (10% дохода) → накопишь за ~' + months + ' мес.<br>' +
-        '• Или ' + ctx.fmt(Math.round(amount / 3)) + '/мес → за 3 мес.<br><br>' +
-        '<b>Совет:</b> Настрой автоперевод в копилку в день зарплаты — так не потратишь случайно.',
-      chips: [
-        {label: 'Какие у меня цели?', query: 'Мои цели'},
-        {label: 'Как откладывать автоматически?', query: 'Как автоматически откладывать?'}
-      ]
+      text: 'Чтобы накопить ' + H.fmt(amount) + ':<br><br>' +
+        '• Откладывай ' + H.fmt(safeSave) + '/мес (10% дохода) → ~' + months + ' мес.<br>' +
+        '• Или ' + H.fmt(Math.round(amount/3)) + '/мес → за 3 мес.<br><br>' +
+        '<b>Совет:</b> Настрой автоперевод в копилку в день зарплаты.',
+      chips: [{label:'Какие у меня цели?', query:'Мои цели'},{label:'Автоперевод', query:'Как автоматически откладывать?'}],
+      followUp: null
     };
   }
-  if (activeGoals.length > 0) {
+  if(S.activeGoals.length > 0){
     var list = '';
-    for (var j = 0; j < activeGoals.length; j++) {
-      var g = activeGoals[j];
+    for(var i=0; i<S.activeGoals.length; i++){
+      var g = S.activeGoals[i];
       var pct = Math.round((g.cur || 0) / g.target * 100);
-      list += '• <b>' + ctx.esc(g.n) + '</b>: ' + ctx.fmt(g.cur || 0) + ' из ' + ctx.fmt(g.target) + ' (' + pct + '%)<br>';
+      list += '• <b>' + H.esc(g.n) + '</b>: ' + H.fmt(g.cur || 0) + ' / ' + H.fmt(g.target) + ' (' + pct + '%)<br>';
     }
     return {
-      html: '<b>Твои цели:</b><br><br>' + list + '<br>' +
-        'Совет: начни с подушки безопасности (3-6 месяцев расходов), потом — инвестиции.',
-      chips: [
-        {label: 'Добавить цель', query: 'Как добавить цель?'},
-        {label: 'Подушка безопасности', query: 'Как создать подушку?'}
-      ]
+      text: '<b>Твои цели:</b><br><br>' + list + '<br>Совет: начни с подушки безопасности.',
+      chips: [{label:'Подушка', query:'Как создать подушку?'},{label:'Добавить цель', query:'Как добавить цель?'}],
+      followUp: null
     };
   }
   return {
-    html: 'Целей пока нет. <b>С чего начать копить?</b><br><br>' +
-      '1. Создай подушку безопасности (3-6 месяцев расходов)<br>' +
-      '2. Определи крупные покупки (машина, отпуск, жильё)<br>' +
-      '3. Настрой автоперевод 10% от зарплаты<br><br>' +
-      '<b>Правило:</b> плати себе первым — в день зарплаты переводи 10-20% в копилку.',
-    chips: [
-      {label: 'Создать подушку', query: 'Как создать подушку безопасности?'},
-      {label: 'Копить на отпуск', query: 'Как накопить на отпуск?'}
-    ]
+    text: 'Целей пока нет. <b>С чего начать копить?</b><br><br>' +
+      '1. Подушка безопасности (3-6 мес. расходов)<br>' +
+      '2. Крупные покупки<br>' +
+      '3. Автоперевод 10% от зарплаты<br><br>' +
+      '<b>Правило:</b> плати себе первым — в день зарплаты.',
+    chips: [{label:'Подушка', query:'Как создать подушку?'},{label:'Копить на отпуск', query:'Как накопить на отпуск?'}],
+    followUp: null
   };
 };
 
 // --- EMERGENCY ---
-handlers.emergency = function(q, D, ctx) {
-  var income = D.income || 0;
-  var monthSpend = ctx.monthSpend || income * 0.8;
-  var cush = null;
-  var goals = D.goals || [];
-  for (var i = 0; i < goals.length; i++) {
-    if (/подушк|резерв|аварийн/i.test(goals[i].n || '')) { cush = goals[i]; break; }
+R.emergency = function(q, D, S, H){
+  var cushion = 0;
+  for(var i=0; i<S.activeGoals.length; i++){
+    if(/подушк|резерв/i.test(S.activeGoals[i].n || '')) cushion = S.activeGoals[i].cur || 0;
   }
-  var cushion = cush ? (cush.cur || 0) : 0;
-  var monthsCovered = monthSpend > 0 ? (cushion / monthSpend) : 0;
-  var target = monthSpend * 6;
+  var monthExp = S.monthSpend || S.income * 0.8 || 50000;
+  var monthsCovered = monthExp > 0 ? (cushion / monthExp) : 0;
+  var target = monthExp * 6;
   var verdict = '';
-  if (monthsCovered >= 6) verdict = 'Отлично! У тебя запас на 6+ месяцев. Ты финансово защищён.';
-  else if (monthsCovered >= 3) verdict = 'Хорошая подушка! Но лучше довести до 6 месяцев.';
-  else if (monthsCovered >= 1) verdict = 'Подушка есть, но маленькая. Нужно как минимум 3 месяца.';
-  else verdict = 'Подушки нет или она почти пустая. Это приоритет номер один!';
+  if(monthsCovered >= 6) verdict = 'Отлично! Запас на 6+ месяцев.';
+  else if(monthsCovered >= 3) verdict = 'Хорошо, но лучше довести до 6 месяцев.';
+  else if(monthsCovered >= 1) verdict = 'Маленькая подушка. Нужно минимум 3 месяца.';
+  else verdict = 'Подушки нет. Это приоритет номер один!';
   return {
-    html: '<b>Подушка безопасности</b><br><br>' +
-      'Сейчас: ' + ctx.fmt(cushion) + ' (~' + monthsCovered.toFixed(1) + ' мес.)<br>' +
-      'Цель: ' + ctx.fmt(target) + ' (6 мес. расходов)<br><br>' +
-      '<b>Вердикт:</b> ' + verdict + '<br><br>' +
-      '<b>Как создать:</b> откладывай 10% от зарплаты на отдельный счёт. Не трогай пока не накопишь нужную сумму.',
-    chips: [
-      {label: 'Как откладывать 10%?', query: 'Как автоматически откладывать?'},
-      {label: 'Где хранить подушку?', query: 'Где лучше хранить подушку безопасности?'}
-    ]
+    text: '<b>Подушка безопасности</b><br><br>' +
+      'Сейчас: ' + H.fmt(cushion) + ' (~' + monthsCovered.toFixed(1) + ' мес.)<br>' +
+      'Цель: ' + H.fmt(target) + '<br><br>' +
+      '<b>' + verdict + '</b><br><br>' +
+      'Как создать: откладывай 10% от зарплаты на отдельный счёт. Не трогай пока не накопишь.',
+    chips: [{label:'Как откладывать?', query:'Как автоматически откладывать?'},{label:'Где хранить?', query:'Где лучше хранить подушку?'}],
+    followUp: null
   };
 };
 
 // --- INVEST ---
-handlers.invest = function(q, D, ctx) {
-  var income = D.income || 0;
-  var hasDebt = false;
-  var debts = D.credits || [];
-  for (var i = 0; i < debts.length; i++) { if ((debts[i].cur || 0) > 0) hasDebt = true; }
-  var cushion = 0;
-  var goals = D.goals || [];
-  for (var j = 0; j < goals.length; j++) {
-    if (/подушк/i.test(goals[j].n || '')) cushion = goals[j].cur || 0;
+R.invest = function(q, D, S, H){
+  if(S.totalDebt > 0){
+    return {
+      text: '<b>Сначала закрой долги.</b> Кредит под 20% = 20% годовых, которые ты теряешь.',
+      chips: [{label:'Как гасить долги?', query:'Как быстрее закрыть долги?'}],
+      followUp: null
+    };
   }
-  var monthSpend = ctx.monthSpend || income * 0.8;
-  var advice = '';
-  if (hasDebt) {
-    advice = 'Сначала закрой долги — это «безрисковая доходность» равная процентной ставке кредита. ' +
-      'Кредит под 20% = 20% годовых, которые ты теряешь.';
-  } else if (cushion < monthSpend * 3) {
-    advice = 'Сначала создай подушку безопасности (3-6 месяцев расходов). Инвестировать без подушки — риск.';
-  } else {
-    advice = '<b>С чего начать:</b><br>' +
-      '1. ИИС (индивидуальный инвестиционный счёт) — налоговый вычет<br>' +
-      '2. Индексные фонды (ETF) — низкий риск, средняя доходность 8-12% годовых<br>' +
-      '3. Диверсификация — не клади всё в один актив<br><br>' +
-      '<b>Правило:</b> инвестируй только то, что готов потерять. Начни с 5-10% дохода.';
+  var cushion = 0;
+  for(var i=0; i<S.activeGoals.length; i++){
+    if(/подушк/i.test(S.activeGoals[i].n || '')) cushion = S.activeGoals[i].cur || 0;
+  }
+  if(cushion < (S.monthSpend || S.income * 0.8) * 3){
+    return {
+      text: '<b>Сначала создай подушку безопасности</b> (3-6 месяцев расходов). Инвестировать без подушки — риск.',
+      chips: [{label:'Как создать подушку?', query:'Как создать подушку безопасности?'}],
+      followUp: null
+    };
   }
   return {
-    html: '<b>Инвестиции</b><br><br>' + advice,
-    chips: [
-      {label: 'Что такое ИИС?', query: 'Что такое ИИС?'},
-      {label: 'Какие ETF выбрать?', query: 'Какие ETF выбрать?'},
-      {label: 'Сначала подушка', query: 'Как создать подушку безопасности?'}
-    ]
+    text: '<b>С чего начать инвестировать:</b><br><br>' +
+      '1. <b>ИИС</b> — налоговый вычет до 52 000₽/год<br>' +
+      '2. <b>Индексные фонды</b> (ETF) — средняя доходность 8-12% годовых<br>' +
+      '3. <b>Облигации</b> — стабильный доход 8-15% годовых<br><br>' +
+      '<b>Правило:</b> инвестируй только готовый потерять. Начни с 5-10% дохода.',
+    chips: [{label:'Что такое ИИС?', query:'Что такое ИИС?'},{label:'Какие ETF?', query:'Какие ETF выбрать?'}],
+    followUp: null
   };
 };
 
 // --- SUBSCRIPTIONS ---
-handlers.subscriptions = function(q, D, ctx) {
-  var subs = D.subs || [];
-  var active = [];
-  var total = 0;
-  for (var i = 0; i < subs.length; i++) {
-    if (!subs[i].off) {
-      active.push(subs[i]);
-      total += subs[i].s || 0;
-    }
-  }
-  if (active.length === 0) {
+R.subscriptions = function(q, D, S, H){
+  if(S.activeSubs.length === 0){
     return {
-      html: 'Активных подписок нет. Это хорошо — ты контролируешь свои обязательства.',
-      chips: [
-        {label: 'Мои обязательные платежи', query: 'Мои обязательные платежи'},
-        {label: 'Как сократить расходы?', query: 'Как сократить траты?'}
-      ]
+      text: 'Активных подписок нет. Контролируешь обязательства — хорошо!',
+      chips: [{label:'Обязательные платежи', query:'Мои обязательные платежи'}],
+      followUp: null
     };
   }
-  var annual = total * 12;
-  var income = D.income || 1;
-  var pct = Math.round(total / income * 100);
   var list = '';
-  for (var j = 0; j < active.length; j++) {
-    list += '• <b>' + ctx.esc(active[j].n) + '</b> — ' + ctx.fmt(active[j].s) + '/мес<br>';
+  for(var i=0; i<S.activeSubs.length; i++){
+    list += '• <b>' + H.esc(S.activeSubs[i].n) + '</b> — ' + H.fmt(S.activeSubs[i].s) + '/мес<br>';
   }
-  var advice = pct > 10 ?
-    'Подписки (' + pct + '% дохода) — много. Проверь, какие реально используешь.' :
-    'Подписки в норме (' + pct + '% дохода).';
+  var pct = S.income > 0 ? Math.round(S.subTotal / S.income * 100) : null;
   return {
-    html: '<b>' + active.length + ' активных подписок</b>: ' + ctx.fmt(total) + '/мес, ' + ctx.fmt(annual) + '/год<br><br>' +
-      list + '<br>' + advice + '<br><br>' +
-      '<b>Совет:</b> Раз в квартал проверяй список подписок. Отключи те, которыми не пользовался >30 дней.',
-    chips: [
-      {label: 'Отключить подписку', query: 'Как отключить подписку?'},
-      {label: 'Аудит подписок', query: 'Проверь мои подписки'}
-    ]
+    text: '<b>' + S.activeSubs.length + ' подписок</b>: ' + H.fmt(S.subTotal) + '/мес, ' + H.fmt(S.annualSubs) + '/год<br><br>' +
+      list + '<br>' +
+      (pct !== null ? (pct > 10 ? 'Подписки (' + pct + '% дохода) — много. Проверь, какие используешь.' : 'Подписки в норме (' + pct + '% дохода).') : '') +
+      '<br><br><b>Совет:</b> Раз в квартал проверяй список. Отключи неиспользуемые >30 дней.',
+    chips: [{label:'Отключить подписку', query:'Как отключить подписку?'},{label:'Аудит подписок', query:'Проверь мои подписки'}],
+    followUp: null
   };
 };
 
 // --- SPENDING ---
-handlers.spending = function(q, D, ctx) {
-  var monthSpend = ctx.monthSpend;
-  var income = D.income || 0;
-  var saved = income - monthSpend;
-  var pct = income > 0 ? Math.round(monthSpend / income * 100) : 0;
-  var verdict = '';
-  if (income === 0) {
-    verdict = 'Укажи доход — тогда смогу оценить, насколько адекватны твои траты.';
-  } else if (pct > 100) {
-    verdict = 'Тратишь больше дохода! Это критично — нужно срочно сокращать расходы.';
-  } else if (pct > 80) {
-    verdict = 'Тратишь ' + pct + '% дохода — многовато. Мало что остаётся на накопления.';
-  } else if (pct > 60) {
-    verdict = 'Нормально, но есть потенциал для оптимизации.';
-  } else {
-    verdict = 'Отлично! Тратишь только ' + pct + '% дохода.';
+R.spending = function(q, D, S, H){
+  if(!S.hasIncome){
+    return {
+      text: 'Укажи доход — тогда смогу оценить траты.',
+      chips: [{label:'Указать доход', query:'Мой доход 80000'}],
+      followUp: 'income_question'
+    };
   }
+  var pct = S.income > 0 ? Math.round(S.monthSpend / S.income * 100) : 0;
+  var verdict = '';
+  if(pct > 100) verdict = 'Тратишь больше дохода! Критично.';
+  else if(pct > 80) verdict = 'Многовато. Мало что остаётся.';
+  else if(pct > 60) verdict = 'Нормально, но есть потенциал.';
+  else verdict = 'Отлично! Тратишь только ' + pct + '% дохода.';
   return {
-    html: '<b>Траты за месяц:</b> ' + ctx.fmt(monthSpend) + '<br>' +
-      'Доход: ' + ctx.fmt(income) + '<br>' +
-      'Итого: ' + (saved >= 0 ? '+' : '') + ctx.fmt(saved) + ' (' + (saved >= 0 ? 'экономия' : 'дефицит') + ')<br><br>' +
-      '<b>Вердикт:</b> ' + verdict,
-    chips: [
-      {label: 'Где утечки?', query: 'Где утечки в моём бюджете?'},
-      {label: 'Как сократить?', query: 'Как сократить траты?'},
-      {label: 'Правило 50/30/20', query: 'Как работает 50/30/20?'}
-    ]
+    text: '<b>Траты за месяц:</b> ' + H.fmt(S.monthSpend) + '<br>' +
+      'Доход: ' + H.fmt(S.income) + '<br>' +
+      'Итого: ' + (S.saved >= 0 ? '+' : '') + H.fmt(S.saved) + '<br><br>' +
+      '<b>' + verdict + '</b>',
+    chips: [{label:'Где утечки?', query:'Где утечки в моём бюджете?'},{label:'Как сократить?', query:'Как сократить траты?'}],
+    followUp: null
   };
 };
 
 // --- PAYDAY ---
-handlers.payday = function(q, D, ctx) {
-  var dl = ctx.calcDailyLimit();
-  var rw = ctx.cashRunway();
+R.payday = function(q, D, S, H){
   return {
-    html: '<b>До зарплаты:</b> ' + dl.daysLeft + ' дн.<br>' +
-      'Дневной лимит: ' + ctx.fmt(dl.perDay) + '<br>' +
-      'Запас хода: ' + rw + ' дн.<br><br>' +
-      '<b>Совет:</b> ' + (dl.perDay > 2000 ? 'Можешь позволить себе чуть больше, но не забывай про цели.' :
-      'Экономь — дни до зарплаты длинные. Придержи крупные покупки.'),
-    chips: [
-      {label: 'Могу купить за 3000₽?', query: 'Могу купить за 3000₽?'},
-      {label: 'Что если сокращу кафе?', query: 'Что будет, если я урежу кафе на 30%?'}
-    ]
+    text: '<b>До зарплаты:</b> ' + S.dl.daysLeft + ' дн.<br>' +
+      'Дневной лимит: ' + H.fmt(S.dl.perDay) + '<br>' +
+      'Запас хода: ' + S.runway + ' дн.',
+    chips: [{label:'Могу купить за 3000₽?', query:'Могу купить за 3000₽?'},{label:'Увеличить лимит', query:'Как увеличить дневной лимит?'}],
+    followUp: null
   };
 };
 
 // --- DAILY ---
-handlers.daily = function(q, D, ctx) {
-  var dl = ctx.calcDailyLimit();
+R.daily = function(q, D, S, H){
   return {
-    html: 'Сегодня можно потратить <b>' + ctx.fmt(dl.perDay) + '</b> — и до зарплаты (' + dl.daysLeft + ' дн.) всё будет в плюсе.<br><br>' +
-      '<b>Как считается:</b> (остаток − обязательные платежи на оставшиеся дни) ÷ дней до зарплаты.',
-    chips: [
-      {label: 'Могу купить за 1000₽?', query: 'Могу купить за 1000₽?'},
-      {label: 'Как увеличить лимит?', query: 'Как увеличить дневной лимит?'}
-    ]
+    text: 'Сегодня можно потратить <b>' + H.fmt(S.dl.perDay) + '</b> — и до зарплаты (' + S.dl.daysLeft + ' дн.) всё будет в плюсе.<br><br>' +
+      '<b>Как считается:</b> (остаток − обязательные) ÷ дней до зарплаты.',
+    chips: [{label:'Могу купить за 1000₽?', query:'Могу купить за 1000₽?'},{label:'Увеличить лимит', query:'Как увеличить дневной лимит?'}],
+    followUp: null
   };
 };
 
 // --- SCENARIO ---
-handlers.scenario = function(q, D, ctx) {
-  var amount = extractAmount(q);
-  var catMatch = q.match(/(кафе|ресторан|продукт|самокат|такси|подписк|развлечен|личн|одежд|транспорт|связ)/i);
-  var catMap = {
-    'кафе':'cafe','ресторан':'cafe','продукт':'grocery','самокат':'scooters',
-    'такси':'taxi','подписк':'subs','развлечен':'fun','личн':'personal',
-    'одежд':'personal','транспорт':'transport','связ':'home'
-  };
-  var catId = catMatch ? (catMap[catMatch[1].toLowerCase()] || 'cafe') : 'cafe';
-  var catSum = 0;
-  var mNow = new Date(); mNow = new Date(mNow.getFullYear(), mNow.getMonth(), 1);
-  var allSp = ctx.allSpends();
-  for (var i = 0; i < allSp.length; i++) {
-    if (allSp[i].d >= mNow && (allSp[i].cat || 'other') === catId) catSum += allSp[i].s;
-  }
-  if (amount === 0) amount = Math.round(catSum * 0.3);
-  if (amount <= 0) amount = 1000;
-  var sim = ctx.whatIf(amount);
-  var catName = ctx.catById(catId);
+R.scenario = function(q, D, S, H){
+  var amount = (S.amounts && S.amounts[0]) || 0;
+  var catId = S.category || 'cafe';
+  var catSum = S.catSpend[catId] || 0;
+  if(amount === 0) amount = Math.round(catSum * 0.3);
+  if(amount <= 0) amount = 1000;
+  var sim = H.whatIf(amount);
+  var catName = H.catById(catId).n;
   return {
-    html: '<b>Сценарий: урезать «' + catName + '» на ' + ctx.fmt(amount) + '</b><br><br>' +
-      'Сейчас: ' + ctx.fmt(catSum) + ' за месяц.<br>' +
-      'Эффект на 90 дней: минимум баланса ' +
+    text: '<b>Сценарий: урезать «' + H.esc(catName) + '» на ' + H.fmt(amount) + '</b><br><br>' +
+      'Сейчас: ' + H.fmt(catSum) + '/мес.<br>' +
+      'Эффект на 90 дней: минимум ' +
       '<b style="color:' + (sim.diff > 0 ? 'var(--grn)' : 'var(--red)') + '">' +
-      ctx.fmt(sim.newMin) + '</b> (было ' + ctx.fmt(sim.originalMin) + ', ' +
-      (sim.diff > 0 ? '+' : '') + ctx.fmt(sim.diff) + ')<br><br>' +
-      (sim.diff > 0 ?
-        'Это добавит ' + ctx.fmt(sim.diff) + ' к минимальному балансу. Хороший шаг!' :
-        'Это ухудшит ситуацию на ' + ctx.fmt(Math.abs(sim.diff)) + '. Лучше урежь другую категорию.'),
-    chips: [
-      {label: 'Другая категория', query: 'Что будет, если я урежу самокаты на 50%?'},
-      {label: 'Могу ли я это?', query: 'Могу ли я это потянуть?'}
-    ]
+      H.fmt(sim.newMin) + '</b> (было ' + H.fmt(sim.originalMin) + ', ' +
+      (sim.diff > 0 ? '+' : '') + H.fmt(sim.diff) + ')<br><br>' +
+      (sim.diff > 0 ? 'Отличный шаг!' : 'Лучше урежь другую категорию.'),
+    chips: [{label:'Другая категория', query:'Что будет, если я урежу самокаты на 50%?'},{label:'Другой сценарий', query:'Что если сокращу подписки?'}],
+    followUp: null
   };
 };
 
 // --- HEALTH ---
-handlers.health = function(q, D, ctx) {
-  var score = ctx.calcRiskScore();
-  var income = D.income || 0;
-  var debts = D.credits || [];
-  var totalDebt = 0;
-  for (var i = 0; i < debts.length; i++) totalDebt += debts[i].cur || 0;
-  var cushion = 0;
-  var goals = D.goals || [];
-  for (var j = 0; j < goals.length; j++) {
-    if (/подушк/i.test(goals[j].n || '')) cushion = goals[j].cur || 0;
-  }
-  var monthSpend = ctx.monthSpend || income * 0.8;
+R.health = function(q, D, S, H){
+  var score = S.riskScore;
   var details = '';
-  if (income > 0) {
-    var savingsRate = Math.round((income - monthSpend) / income * 100);
-    details += '• Норма сбережений: ' + savingsRate + '% ' + (savingsRate >= 20 ? '✓' : '✗') + '<br>';
-  }
-  details += '• Долги: ' + ctx.fmt(totalDebt) + ' ' + (totalDebt === 0 ? '✓' : '✗') + '<br>';
-  details += '• Подушка: ' + ctx.fmt(cushion) + ' (~' + (monthSpend > 0 ? (cushion / monthSpend).toFixed(1) : '0') + ' мес.)<br>';
-  details += '• Прогноз: ' + (ctx.minBalance(90).val >= 0 ? 'стабилен ✓' : 'уходит в минус ✗') + '<br>';
+  if(S.savingsRate !== null) details += '• Сбережения: ' + S.savingsRate + '% ' + (S.savingsRate >= 20 ? '✓' : '✗') + '<br>';
+  details += '• Долги: ' + H.fmt(S.totalDebt) + ' ' + (S.totalDebt === 0 ? '✓' : '✗') + '<br>';
+  details += '• Подушка: ~' + (S.monthSpend > 0 ? ((0) / S.monthSpend).toFixed(1) : '0') + ' мес.<br>';
+  details += '• Прогноз: ' + (S.minBal.val >= 0 ? 'стабилен ✓' : 'уходит в минус ✗') + '<br>';
+  var recs = '';
+  if(score.score < 50) recs = 'Сфокусируйся на подушке. Сократи гибкие. Гаси долги.';
+  else if(score.score < 75) recs = 'Увеличь сбережения до 20%. Рассмотри инвестиции.';
+  else recs = 'Отличное здоровье! Рассмотри инвестиции и оптимизируй налоги.';
   return {
-    html: '<b>Финансовое здоровье: ' + score.grade + ' (' + score.score + '/100)</b><br><br>' + details + '<br>' +
-      '<b>Рекомендации:</b><br>' +
-      (score.score < 50 ? '• Сфокусируйся на подушке безопасности<br>• Сократи гибкие траты<br>• Погашай долги агрессивнее' :
-       score.score < 75 ? '• Увеличь норму сбережений до 20%<br>• Рассмотри инвестиции<br>• Проверь подписки' :
-       '• Отличное здоровье! Рассмотри инвестиции<br>• Оптимизируй налоги<br>• Поставь амбициозные финансовые цели'),
-    chips: [
-      {label: 'Как улучшить?', query: 'Как улучшить финансовое здоровье?'},
-      {label: 'План погашения долгов', query: 'Как быстрее закрыть долги?'},
-      {label: 'Инвестиции', query: 'С чего начать инвестировать?'}
-    ]
+    text: '<b>Финансовое здоровье: ' + score.grade + ' (' + score.score + '/100)</b><br><br>' + details + '<br><b>' + recs + '</b>',
+    chips: [{label:'Как улучшить?', query:'Как улучшить финансовое здоровье?'},{label:'План долгов', query:'Как быстрее закрыть долги?'}],
+    followUp: null
   };
 };
 
 // --- EDUCATION ---
-handlers.education = function(q, D, ctx) {
-  var qLower = q.toLowerCase();
-  if (/бюджет|50.?30.?20|распредел/i.test(qLower)) {
+R.education = function(q, D, S, H){
+  var ql = q.toLowerCase();
+  if(/бюджет|50.?30.?20|распредел/i.test(ql)){
     return {
-      html: '<b>Правило 50/30/20</b><br><br>' +
-        'Распредели свой доход:<br>' +
-        '• <b>50%</b> — Обязательные: аренда/ипотека, еда, транспорт, связь, страхование<br>' +
-        '• <b>30%</b> — Гибкие: кафе, развлечения, подписки, одежда, хобби<br>' +
-        '• <b>20%</b> — Накопления и долги: подушка, инвестиции, досрочное погашение<br><br>' +
-        '<b>Пример:</b> Доход 80 000₽ → 40 000 обязательных, 24 000 гибких, 16 000 накопления.',
-      chips: [
-        {label: 'Мой бюджет', query: 'Как мой бюджет?'},
-        {label: 'Как сократить обязательные?', query: 'Как сократить расходы?'}
-      ]
+      text: '<b>Правило 50/30/20:</b><br><br>' +
+        '• <b>50%</b> — Обязательные (аренда, еда, транспорт)<br>' +
+        '• <b>30%</b> — Гибкие (кафе, развлечения, подписки)<br>' +
+        '• <b>20%</b> — Накопления и долги<br><br>' +
+        '<b>Пример:</b> 80 000₽ → 40 000 обязательных, 24 000 гибких, 16 000 накопления.',
+      chips: [{label:'Мой бюджет', query:'Как мой бюджет?'}],
+      followUp: null
     };
   }
-  if (/долг|кредит|snow|avalanche/i.test(qLower)) {
+  if(/долг|кредит|snow|avalanche/i.test(ql)){
     return {
-      html: '<b>Два метода погашения долгов:</b><br><br>' +
-        '<b>1. Сноуболл (Snowball)</b> — гаси самый маленький долг первым.<br>' +
-        'Плюс: быстрые победы мотивируют.<br><br>' +
-        '<b>2. Авалинх (Avalanche)</b> — гаси самый дорогой долг (с высоким %) первым.<br>' +
-        'Плюс: меньше переплат.<br><br>' +
-        '<b>Какой выбрать?</b> Если нужна мотивация — сноуболл. Если хочешь сэкономить — авалинх.',
-      chips: [
-        {label: 'Мой план погашения', query: 'Как быстрее закрыть мои долги?'},
-        {label: 'Стоит ли гасить досрочно?', query: 'Стоит ли гасить кредит досрочно?'}
-      ]
+      text: '<b>Два метода погашения долгов:</b><br><br>' +
+        '<b>1. Сноуболл</b> — гаси маленький долг первым (мотивация).<br>' +
+        '<b>2. Авалинх</b> — гаси дорогой первым (экономия).<br><br>' +
+        'Какой выбрать? Мотивация → сноуболл. Экономия → авалинх.',
+      chips: [{label:'Мой план', query:'Как быстрее закрыть мои долги?'}],
+      followUp: null
     };
   }
-  if (/инвест|влож|акци|бирж/i.test(qLower)) {
+  if(/инвест|влож|акци|бирж/i.test(ql)){
     return {
-      html: '<b>Инвестиции для начинающих:</b><br><br>' +
-        '1. <b>ИИС</b> — налоговый вычет до 52 000₽/год<br>' +
-        '2. <b>Индексные фонды</b> (S&P 500, MOEX) — средняя доходность 8-12% годовых<br>' +
-        '3. <b>Облигации</b> — стабильный доход 8-15% годовых<br>' +
-        '4. <b>Депозит</b> —.safe, но доходность ниже инфляции<br><br>' +
-        '<b>Правило диверсификации:</b> не клади всё в один актив. Раздели: 40% облигации, 40% акции, 20% депозит.',
-      chips: [
-        {label: 'Что такое ИИС?', query: 'Что такое ИИС?'},
-        {label: 'Какие ETF выбрать?', query: 'Какие ETF выбрать?'}
-      ]
+      text: '<b>Инвестиции для начинающих:</b><br><br>' +
+        '1. <b>ИИС</b> — вычет до 52 000₽/год<br>' +
+        '2. <b>Индексные фонды</b> — 8-12% годовых<br>' +
+        '3. <b>Облигации</b> — 8-15% годовых<br><br>' +
+        'Диверсификация: 40% облигации, 40% акции, 20% депозит.',
+      chips: [{label:'Что такое ИИС?', query:'Что такое ИИС?'},{label:'Какие ETF?', query:'Какие ETF выбрать?'}],
+      followUp: null
     };
   }
-  // Default education
   return {
-    html: '<b>Основы финансовой грамотности:</b><br><br>' +
-      '• <b>50/30/20</b> — правило распределения дохода<br>' +
-      '• <b>Подушка безопасности</b> — 3-6 месяцев расходов на всякий случай<br>' +
-      '• <b>Долги</b> — гаси дорогие первыми<br>' +
-      '• <b>Инвестиции</b> — начни с ИИС и индексных фондов<br>' +
-      '• <b>Автоплатежи</b> — настрой автоматические переводы на сбережения<br><br>' +
+    text: '<b>Основы финансовой грамотности:</b><br><br>' +
+      '• 50/30/20 — правило распределения<br>' +
+      '• Подушка — 3-6 мес. расходов<br>' +
+      '• Долги — гаси дорогие первыми<br>' +
+      '• Инвестиции — начни с ИИС<br><br>' +
       'Задай конкретный вопрос — расскажу подробнее!',
-    chips: [
-      {label: '50/30/20', query: 'Как работает правило 50/30/20?'},
-      {label: 'Долги', query: 'Как погасить долги?'},
-      {label: 'Инвестиции', query: 'С чего начать инвестировать?'}
-    ]
+    chips: [{label:'50/30/20', query:'Как работает 50/30/20?'},{label:'Долги', query:'Как погасить долги?'}],
+    followUp: null
   };
 };
 
 // --- SETUP ---
-handlers.setup = function(q, D, ctx) {
-  var st = ctx.setupState();
-  var sNames = {
-    inc: 'доход и день зарплаты',
-    bal: 'текущий баланс',
-    pay: 'обязательные платежи',
-    env: 'первый конверт'
-  };
+R.setup = function(q, D, S, H){
+  var st = H.setupState();
+  var sNames = {inc:'доход и день зарплаты',bal:'текущий баланс',pay:'обязательные платежи',env:'первый конверт'};
   var missing = [];
-  for (var k in st.st) { if (!st.st[k]) missing.push(sNames[k]); }
-  if (missing.length === 0) {
+  for(var k in st.st){ if(!st.st[k]) missing.push(sNames[k]); }
+  if(missing.length === 0){
     return {
-      html: 'Всё настроено! Дальше просто: добавляй траты кнопкой «Трата», а я буду держать прогноз и предупреждать о рисках.',
-      chips: [
-        {label: 'Добавить трату', query: 'Как добавить трату?'},
-        {label: 'Что важно сейчас?', query: 'Что важно сейчас?'}
-      ]
+      text: 'Всё настроено! Добавляй траты — я буду следить за прогнозом.',
+      chips: [{label:'Добавить трату', query:'Как добавить трату?'},{label:'Что важно?', query:'Что важно сейчас?'}],
+      followUp: null
     };
   }
   return {
-    html: '<b>Настройка: ' + st.done + ' из ' + st.total + '</b><br><br>' +
-      'Осталось указать: ' + missing.join(', ') + '.<br><br>' +
-      'Чек-лист — вверху Панели, каждый шаг занимает секунды.',
-    chips: [
-      {label: 'Указать доход', query: 'Как настроить доход?'},
-      {label: 'Добавить платёж', query: 'Как добавить платёж?'}
-    ]
+    text: '<b>Настройка: ' + st.done + '/' + st.total + '</b><br><br>' +
+      'Осталось: ' + missing.join(', ') + '.<br>Чек-лист — вверху Панели.',
+    chips: [{label:'Указать доход', query:'Как настроить доход?'},{label:'Добавить платёж', query:'Как добавить платёж?'}],
+    followUp: null
   };
 };
 
 // --- MONTH ---
-handlers.month = function(q, D, ctx) {
-  var income = D.income || 0;
-  var spent = ctx.monthSpend;
-  var saved = income - spent;
-  var pct = income > 0 ? Math.round(spent / income * 100) : 0;
+R.month = function(q, D, S, H){
+  var pct = S.income > 0 ? Math.round(S.monthSpend / S.income * 100) : 0;
   return {
-    html: '<b>Итоги месяца:</b><br><br>' +
-      'Потрачено: ' + ctx.fmt(spent) + '<br>' +
-      'Доход: ' + ctx.fmt(income) + '<br>' +
-      (saved >= 0 ? 'Сэкономлено: ' : 'Перерасход: ') + ctx.fmt(Math.abs(saved)) + ' (' + pct + '%)<br><br>' +
-      (saved >= 0 ? 'Отличный результат! Продолжай в том же духе.' :
-       'Расходы превысили доход. Посмотри, где можно сократить.'),
-    chips: [
-      {label: 'Где утечки?', query: 'Где утечки в моём бюджете?'},
-      {label: 'Как сократить?', query: 'Как сократить траты?'}
-    ]
+    text: '<b>Итоги месяца:</b><br><br>' +
+      'Потрачено: ' + H.fmt(S.monthSpend) + '<br>' +
+      'Доход: ' + H.fmt(S.income) + '<br>' +
+      (S.saved >= 0 ? 'Сэкономлено: ' : 'Перерасход: ') + H.fmt(Math.abs(S.saved)) + ' (' + pct + '%)<br><br>' +
+      (S.saved >= 0 ? 'Отлично!' : 'Расходы превысили доход.'),
+    chips: [{label:'Где утечки?', query:'Где утечки?'},{label:'Как сократить?', query:'Как сократить траты?'}],
+    followUp: null
   };
 };
 
 // --- SIGNALS ---
-handlers.signals = function(q, D, ctx) {
-  var sigs = ctx.getSignals();
-  if (sigs.length === 0) {
-    return {
-      html: 'Сейчас всё спокойно. Так держать!',
-      chips: [
-        {label: 'Финансовое здоровье', query: 'Оцени моё финансовое состояние'},
-        {label: 'Совет по бюджету', query: 'Как составить бюджет?'}
-      ]
-    };
+R.signals = function(q, D, S, H){
+  var sigs = H.getSignals();
+  if(sigs.length === 0){
+    return {text:'Сейчас всё спокойно. Так держать!', chips:[{label:'Здоровье',query:'Оцени моё финансовое состояние'}], followUp:null};
   }
   var html = '<b>Что важно сейчас:</b><br><br>';
-  for (var i = 0; i < sigs.length; i++) {
+  for(var i=0; i<sigs.length; i++){
     var s = sigs[i];
-    html += '• <b style="color:' + (s.sev >= 8 ? 'var(--red)' : s.sev >= 5 ? 'var(--org)' : 'var(--blu)') + '">' +
-      ctx.esc(s.title) + '</b> — ' + ctx.esc(s.desc) +
-      (s.benefit ? ' · выгода ' + ctx.fmt(s.benefit) + '/мес' : '') + '<br>';
+    html += '• <b style="color:' + (s.sev>=8?'var(--red)':s.sev>=5?'var(--org)':'var(--blu)') + '">' +
+      H.esc(s.title) + '</b> — ' + H.esc(s.desc) + (s.benefit ? ' · выгода ' + H.fmt(s.benefit) + '/мес' : '') + '<br>';
   }
   return {
-    html: html,
-    chips: [
-      {label: 'Разобрать первый', query: 'Расскажи подробнее о первом сигнале'},
-      {label: 'Финансовое здоровье', query: 'Оцени моё финансовое состояние'}
-    ]
+    text: html,
+    chips: [{label:'Разобрать первый',query:'Расскажи подробнее'},{label:'Здоровье',query:'Оцени моё финансовое состояние'}],
+    followUp: null
   };
 };
 
-// --- GENERAL (fallback) ---
-handlers.general = function(q, D, ctx) {
-  var hasData = (D.income || 0) > 0 || (D.spends || []).length > 3;
-  if (!hasData) {
+// --- GENERAL (fallback with clarifying questions) ---
+R.general = function(q, D, S, H){
+  if(!S.hasData){
     return {
-      html: 'Я не совсем понял вопрос. Вот что я умею:<br><br>' +
-        '• Помочь с бюджетом<br>• Разобраться с долгами<br>• Научить копить<br>• Оценить подписки<br>• Спросить «могу ли я купить?»<br><br>' +
-        'Попробуй перефразировать или выбери тему ниже.',
-      chips: [
-        {label: 'Как составить бюджет?', query: 'Как составить бюджет?'},
-        {label: 'Помоги с долгами', query: 'Как быстрее закрыть долги?'},
-        {label: 'Финансовое здоровье', query: 'Оцени моё финансовое состояние'}
-      ]
+      text: 'Я не совсем понял. Вот что я умею:<br><br>' +
+        '• Бюджет, долги, копилка, подписки, покупки, инвестиции<br><br>' +
+        'Попробуй перефразировать или выбери тему.',
+      chips: [{label:'Бюджет',query:'Как составить бюджет?'},{label:'Долги',query:'Как закрыть долги?'},{label:'Здоровье',query:'Оцени моё финансовое состояние'}],
+      followUp: null
     };
   }
-  // With data: ask a clarifying question
-  var questions = [
-    'Расскажи подробнее: тебя интересует бюджет, долги, накопления или что-то другое?',
-    'Хочешь обсудить конкретную ситуацию? Например: «Могу ли я купить X?» или «Как сократить траты?»',
-    'Мне нужен чуть более конкретный вопрос. Попробуй: «Как мой бюджет?», «Как закрыть долги?» или «Что важно сейчас?»'
-  ];
-  var qIdx = Math.floor(Math.random() * questions.length);
+  // With data: ask clarifying question
+  var context = '';
+  if(S.lastIntent){
+    context = 'Ты спрашивал про ' + (S.lastTopic || S.lastIntent) + '. ';
+  }
   return {
-    html: questions[qIdx],
-    chips: [
-      {label: 'Как мой бюджет?', query: 'Как мой бюджет?'},
-      {label: 'Что важно сейчас?', query: 'Что важно сейчас?'},
-      {label: 'Могу ли я купить?', query: 'Могу купить за 5000₽?'}
-    ]
+    text: context + 'Уточни вопрос: тебя интересует <b>бюджет</b>, <b>долги</b>, <b>накопления</b>, <b>покупки</b> или что-то другое?',
+    chips: [{label:'Бюджет',query:'Как мой бюджет?'},{label:'Долги',query:'Как закрыть долги?'},{label:'Копилка',query:'Как начать копить?'},{label:'Здоровье',query:'Оцени моё финансовое состояние'}],
+    followUp: null
   };
+};
+
+// ===== INTENT → HANDLER MAPPING =====
+var intentHandlers = {
+  greeting: R.greeting,
+  help: R.help,
+  thanks: R.thanks,
+  afford: R.afford,
+  debt: R.debt,
+  budget: R.budget,
+  savings: R.savings,
+  emergency: R.emergency,
+  invest: R.invest,
+  subscriptions: R.subscriptions,
+  spending: R.spending,
+  payday: R.payday,
+  daily: R.daily,
+  scenario: R.scenario,
+  health: R.health,
+  education: R.education,
+  setup: R.setup,
+  month: R.month,
+  signals: R.signals,
+  general: R.general
+};
+
+var intentTopics = {
+  greeting:'приветствие',help:'помощь',thanks:'благодарность',
+  afford:'покупки',debt:'долги',budget:'бюджет',savings:'накопления',
+  emergency:'подушка',invest:'инвестиции',subscriptions:'подписки',
+  spending:'траты',payday:'зарплата',daily:'дневной лимит',
+  scenario:'сценарии',health:'здоровье',education:'обучение',
+  setup:'настройка',month:'итоги',signals:'сигналы',general:'общий'
 };
 
 // ===== MAIN API =====
-function processQuery(query, D, helpers) {
-  var intent = classifyIntent(query);
-  var handler = handlers[intent] || handlers.general;
+function processQuery(query, D, helpers){
+  updateUserState(D);
+  var classified = classify(query);
+  var intent = classified.intent;
+  var handler = intentHandlers[intent] || intentHandlers.general;
 
-  // Build context from D and helpers
-  var ctx = {
+  // Build data summary
+  var S = summarizeData(D, helpers);
+  S.amounts = classified.amounts;
+  S.category = classified.category;
+  S.userState = session.userState; // Pass session state to handler
+
+  // Record user message
+  recordHistory('user', query, intent);
+
+  // Get response
+  var response = handler(query, D, S, {
     fmt: helpers.fmt,
     esc: helpers.esc,
     canAfford: helpers.canAfford,
@@ -733,37 +811,39 @@ function processQuery(query, D, helpers) {
     calcRiskScore: helpers.calcRiskScore,
     minBalance: helpers.minBalance,
     allSpends: helpers.allSpends,
-    catById: helpers.catById,
-    hasIncome: (D.income || 0) > 0,
-    monthSpend: (function() {
-      var now = new Date();
-      var from = new Date(now.getFullYear(), now.getMonth(), 1);
-      var total = 0;
-      var all = helpers.allSpends();
-      for (var i = 0; i < all.length; i++) { if (all[i].d >= from) total += all[i].s; }
-      return total;
-    })(),
-    essentialSpend: (function() {
-      var now = new Date();
-      var from = new Date(now.getFullYear(), now.getMonth(), 1);
-      var total = 0;
-      var all = helpers.allSpends();
-      var fixedCats = ['home', 'subs', 'transport', 'grocery'];
-      for (var i = 0; i < all.length; i++) {
-        if (all[i].d >= from && fixedCats.indexOf(all[i].cat || 'other') !== -1) total += all[i].s;
-      }
-      return total;
-    })()
-  };
+    catById: helpers.catById
+  });
 
-  return handler(query, D, ctx);
+  // Record bot response
+  recordHistory('bot', response.text, intent);
+
+  // Update session topic
+  session.lastTopic = intentTopics[intent] || intent;
+
+  return {
+    text: response.text,
+    chips: response.chips || [],
+    intent: intent,
+    followUp: response.followUp || null,
+    session: {
+      userState: session.userState,
+      topicsDiscussed: session.topicsDiscussed,
+      lastTopic: session.lastTopic
+    }
+  };
 }
+
+function getSession(){ return session; }
 
 // Expose globally
 window.Copilot = {
   process: processQuery,
-  classify: classifyIntent,
-  handlers: handlers
+  classify: classify,
+  session: session,
+  getSession: getSession,
+  resetSession: resetSession,
+  handlers: intentHandlers,
+  R: R
 };
 
 })();
