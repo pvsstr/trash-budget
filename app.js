@@ -138,7 +138,7 @@ var MONTHS = ['Январь','Февраль','Март','Апрель','Май'
 var MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 
 function $(id){ return document.getElementById(id); }
-function fmt(n){ return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(n)) + '\u00A0₽'; }
+function fmt(n){ var cur = (typeof D !== 'undefined' && D.currency) ? D.currency : '₽'; return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(n)) + '\u00A0' + cur; }
 function iso(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
 function parseD(s){
   var y = new Date().getFullYear();
@@ -683,6 +683,31 @@ function sanitizeImportedData(data){
       if(arr[j] && arr[j].n && typeof arr[j].n === 'string'){ arr[j].n = arr[j].n.substring(0, MAX_STR); }
       if(arr[j] && arr[j].d && typeof arr[j].d === 'string' && arr[j].d.length > 50){ arr[j].d = arr[j].d.substring(0, 50); }
       if(arr[j] && typeof arr[j].s === 'string'){ arr[j].s = parseFloat(arr[j].s) || 0; }
+      if(arr[j] && typeof arr[j].s === 'number' && (isNaN(arr[j].s) || arr[j].s < 0)){ arr[j].s = Math.abs(arr[j].s) || 0; }
+    }
+  }
+  // Validate envs[].lim
+  if(data.envs && Array.isArray(data.envs)){
+    for(var e=0;e<data.envs.length;e++){
+      if(data.envs[e] && typeof data.envs[e].lim === 'number' && (isNaN(data.envs[e].lim) || data.envs[e].lim < 0)){
+        data.envs[e].lim = Math.abs(data.envs[e].lim) || 0;
+      }
+    }
+  }
+  // Validate pays[].d
+  if(data.pays && Array.isArray(data.pays)){
+    for(var p=0;p<data.pays.length;p++){
+      if(data.pays[p] && typeof data.pays[p].d === 'number'){
+        data.pays[p].d = Math.max(1, Math.min(28, Math.round(data.pays[p].d)));
+      }
+    }
+  }
+  // Validate subs[].s
+  if(data.subs && Array.isArray(data.subs)){
+    for(var s=0;s<data.subs.length;s++){
+      if(data.subs[s] && typeof data.subs[s].s === 'number' && (isNaN(data.subs[s].s) || data.subs[s].s < 0)){
+        data.subs[s].s = Math.abs(data.subs[s].s) || 0;
+      }
     }
   }
   return data;
@@ -742,7 +767,7 @@ function normalize(){
   if(!D.lastBackup){ D.lastBackup = 0; }
   var i;
   for(i=0;i<D.subs.length;i++){ D.subs[i].id=D.subs[i].id||i+1; }
-  for(i=0;i<D.pays.length;i++){ D.pays[i].id=D.pays[i].id||i+100; }
+  for(i=0;i<D.pays.length;i++){ D.pays[i].id=D.pays[i].id||i+100; if(typeof D.pays[i].d === 'number'){ D.pays[i].d = Math.max(1, Math.min(28, Math.round(D.pays[i].d))); } }
   for(i=0;i<D.envs.length;i++){
     D.envs[i].id=D.envs[i].id||i+1;
     if(!D.envs[i].cats){ D.envs[i].cats = envCatsFromName(D.envs[i].n); }
@@ -752,6 +777,14 @@ function normalize(){
   for(i=0;i<D.leaks.length;i++){ D.leaks[i].id=D.leaks[i].id||i+1; D.leaks[i].fixed=D.leaks[i].fixed||0; }
   D.pays = D.pays.filter(function(x){ return x.n.indexOf('Рассрочка')===-1; });
   if(!D.credits) D.credits=[];
+  // Validate credits: ensure rate is valid (0-100% APR)
+  for(var cr=0;cr<D.credits.length;cr++){
+    if(typeof D.credits[cr].rate !== 'number' || isNaN(D.credits[cr].rate) || D.credits[cr].rate < 0){ D.credits[cr].rate = 0; }
+    if(D.credits[cr].rate > 100) D.credits[cr].rate = 100;
+    if(typeof D.credits[cr].pay !== 'number' || isNaN(D.credits[cr].pay) || D.credits[cr].pay < 0){ D.credits[cr].pay = 0; }
+    if(typeof D.credits[cr].cur !== 'number' || isNaN(D.credits[cr].cur) || D.credits[cr].cur < 0){ D.credits[cr].cur = 0; }
+    if(typeof D.credits[cr].d !== 'number' || D.credits[cr].d < 1 || D.credits[cr].d > 28){ D.credits[cr].d = 1; }
+  }
 if(!D.insts) D.insts=[];
   D.learned=D.learned||[];
   D.removedAuto=D.removedAuto||[];
@@ -770,6 +803,8 @@ if(!D.insts) D.insts=[];
   D.paymentDates = D.paymentDates || [];
   D.theme = D.theme || 'dark';
   D.currency = D.currency || '₽';
+  D.currencyRates = D.currencyRates || {}; // {USD: 90.5, EUR: 98.2} rates per 1 unit
+  D.baseCurrency = D.baseCurrency || '₽';
   D.lang = D.lang || 'ru';
   setLang(D.lang);
   D.notifications = D.notifications !== undefined ? D.notifications : true;
@@ -783,12 +818,13 @@ function allSpends(){
   for(i=0;i<(D.spends||[]).length;i++){
     var sp = D.spends[i];
     var spAmt = typeof sp.s === 'number' ? sp.s : (parseFloat(sp.s) || 0);
-    if(spAmt <= 0) continue;
+    if(!(spAmt > 0) || isNaN(spAmt)) continue;
     arr.push({d:parseD(sp.d), s:spAmt, n:sp.n, cat:sp.cat, id:sp.id, manual:1, src:'sp', sid:sp.id, tag:sp.tag||'normal'});
   }
   for(i=0;i<(D.tx||[]).length;i++){
     var t = D.tx[i];
     var txAmt = typeof t.s === 'number' ? t.s : (parseFloat(t.s) || 0);
+    if(isNaN(txAmt)) continue;
     if(txAmt < 0 || t.refund){ arr.push({d:parseD(t.d), s:Math.abs(txAmt), n:t.n, cat:TX2CAT[t.c]||t.c||'other', src:'tx', sid:i}); }
   }
   _allSpendsCache = arr;
@@ -808,20 +844,21 @@ function nextPay(days){
   var now = new Date(); var sum = 0; var i;
   for(i=0;i<D.pays.length;i++){
     var diff = (D.pays[i].d - now.getDate() + 31) % 31;
-    if(diff <= days){ sum += D.pays[i].s; }
+    if(diff <= days && diff > 0){ sum += D.pays[i].s; }
   }
   for(i=0;i<D.insts.length;i++){
     var dd = parseD(D.insts[i].d);
     var d2 = Math.round((dd - now) / 864e5);
     if(d2 >= 0 && d2 <= days){ sum += D.insts[i].s; }
   }
-  // Ежемесячные платежи по кредитам — участвуют как обязательные
+  var paid = D.paid || {};
   for(i=0;i<(D.credits||[]).length;i++){
     var crN = D.credits[i];
     if(!(crN.pay > 0)){ continue; }
     var cd = crN.d || 1;
     var diffC = (cd - now.getDate() + 31) % 31;
-    if(diffC <= days){ sum += crN.pay; }
+    var payKey = 'cr_' + i + '_' + now.getFullYear() + '-' + (now.getMonth()+1);
+    if(diffC <= days && diffC > 0 && !paid[payKey]){ sum += crN.pay; }
   }
   return sum;
 }
@@ -1355,6 +1392,7 @@ function openSheet(t, i){
       + '<button class="sh-btn ghost" style="margin:0;flex:1" data-act="debt-plan">План выхода из долгов</button>'
       + '</div>';
     h += tipHtml(minB3.val < 0 ? 'Через '+minB3.daysFromNow+' дн баланс уйдёт в минус. Открой «Что если» и посмотри, что срезать.' : 'Прогноз стабильный — минимум положительный.');
+    h += '<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(255,159,10,.08);font-size:10px;color:var(--mut)">⚠ Расчёт основан на твоих данных и базовых принципах. Не учитывает инфляцию, изменение дохода и личные обстоятельства. Решения принимай самостоятельно.</div>';
     $('sheetBody').innerHTML = h;
         // После отрисовки целей добавляем мини-графики
     setTimeout(function() {
@@ -7890,15 +7928,104 @@ act: {act:'nav', p:'settings'}
 var anomalies = detectAnomalies(allSp, 90);
 for(var a = 0; a < anomalies.length; a++){
   var an = anomalies[a];
-  var anLabel = an.name ? ('«'+an.name+'» '+fmt(an.sum)) : (an.label+': '+fmt(an.sum));
+  var anLabel = an.name ? ('\u00AB'+an.name+'\u00BB '+fmt(an.sum)) : (an.label+': '+fmt(an.sum));
   signals.push({
     sev: 7,
-    title: an.label + ' — ' + an.sigma + 'σ',
-    desc: 'Среднее '+fmt(an.mean)+'/день (σ='+fmt(an.std)+'). '+anLabel+' — статистическое отклонение.',
+    title: an.label + ' \u2014 ' + an.sigma + '\u03C3',
+    desc: '\u0421\u0440\u0435\u0434\u043D\u0435\u0435 '+fmt(an.mean)+'/\u0434\u0435\u043D\u044C (\u03C3='+fmt(an.std)+'). '+anLabel+' \u2014 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0435 \u043E\u0442\u043A\u043B\u043E\u043D\u0435\u043D\u0438\u0435.',
     benefit: 0,
     priority: prio(7, 0),
     act: {t:'daily'}
   });
+}
+
+// 17. Proactive trend alerts: category spending growing 3+ months in a row
+var trendCats = {};
+var now2 = new Date();
+for(var tm = 0; tm < 3; tm++){
+  var tCs = cycleStart(new Date(now2.getFullYear(), now2.getMonth() - tm, 1));
+  var tCe = cycleEnd(tCs);
+  var tList = allSp.filter(function(x){ return x.d >= tCs && x.d < tCe; });
+  for(var tc = 0; tc < tList.length; tc++){
+    var tCat = tList[tc].cat || 'other';
+    if(!trendCats[tCat]) trendCats[tCat] = [];
+    trendCats[tCat][tm] = (trendCats[tCat][tm] || 0) + tList[tc].s;
+  }
+}
+for(var tKey in trendCats){
+  var vals = trendCats[tKey];
+  if(vals.length >= 3 && vals[0] > 0 && vals[1] > 0 && vals[2] > 0){
+    if(vals[0] > vals[1] && vals[1] > vals[2]){
+      var growth = Math.round((vals[0] - vals[2]) / vals[2] * 100);
+      if(growth >= 30){
+        var catN = '';
+        for(var cn = 0; cn < CATS.length; cn++){ if(CATS[cn].id === tKey){ catN = CATS[cn].n; break; } }
+        if(!catN) catN = tKey;
+        signals.push({
+          sev: 5,
+          title: catN + ' \u0440\u0430\u0441\u0442\u0451\u0442 ' + growth + '%/\u043C\u0435\u0441',
+          desc: '\u0422\u0440\u0430\u0442\u044B \u043D\u0430 \u044D\u0442\u0443 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044E \u0440\u0430\u0441\u0442\u0443\u0442 \u0442\u0440\u0438 \u043C\u0435\u0441\u044F\u0446\u0430 \u043F\u043E\u0434\u0440\u044F\u0434. \u041F\u0440\u043E\u0432\u0435\u0440\u044C, \u043D\u0435\u0442 \u043B\u0438 \u0437\u0434\u0435\u0441\u044C \u0443\u0442\u0435\u0447\u043A\u0438.',
+          benefit: Math.round(vals[0] * 0.1),
+          priority: prio(5, Math.round(vals[0] * 0.1)),
+          act: {t:'analytics'}
+        });
+      }
+    }
+  }
+}
+
+// 18. CBR key rate comparison
+var cbrRate = D.cbrKeyRate || 21; // default 21% (2024-2025 avg)
+var hasHighAprDebt = false;
+var highAprName = '';
+for(var hci = 0; hci < (D.credits||[]).length; hci++){
+  if((D.credits[hci].rate || 0) > cbrRate){ hasHighAprDebt = true; highAprName = D.credits[hci].n; break; }
+}
+if(hasHighAprDebt){
+  signals.push({
+    sev: 6,
+    title: '\u041A\u0440\u0435\u0434\u0438\u0442 \u0434\u043E\u0440\u043E\u0436\u0435 \u043A\u043B\u044E\u0447\u0435\u0432\u043E\u0439 \u0441\u0442\u0430\u0432\u043A\u0438',
+    desc: '\u041F\u0440\u043E\u0446\u0435\u043D\u0442 \u043F\u043E '\u0446\u0438\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u044E \u043F\u043E \u043A\u0440\u0435\u0434\u0438\u0442\u0443 \u00AB'+esc(highAprName)+'\u00BB \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0435\u0442 \u043A\u043B\u044E\u0447\u0435\u0432\u0443\u044E \u0441\u0442\u0430\u0432\u043A\u0443 \u0426\u0411 \u2014 \u0433\u0430\u0441\u0438\u0442\u044C \u043F\u0435\u0440\u0432\u044B\u043C.',
+    benefit: 0,
+    priority: prio(6, 0),
+    act: {t:'daily'}
+  });
+}
+
+// 19. Envelope limit warnings (80% and 100% thresholds)
+if(D.envs && D.envs.length > 0){
+  var mStart2 = cycleStart(new Date());
+  var mEnd2 = cycleEnd(mStart2);
+  var envSpends2 = allSp.filter(function(x){ return x.d >= mStart2 && x.d < mEnd2; });
+  for(var ei2 = 0; ei2 < D.envs.length; ei2++){
+    var env2 = D.envs[ei2];
+    if(!env2.lim || env2.lim <= 0) continue;
+    var envSpent2 = 0;
+    for(var es2 = 0; es2 < envSpends2.length; es2++){
+      var eCats2 = env2.cats || [];
+      if(eCats2.indexOf(envSpends2[es2].cat) !== -1) envSpent2 += envSpends2[es2].s;
+    }
+    var envPct2 = Math.round(envSpent2 / env2.lim * 100);
+    if(envPct2 >= 100){
+      signals.push({
+        sev: 8,
+        title: '\u041B\u0438\u043C\u0438\u0442 \u043F\u0440\u0435\u0432\u044B\u0448\u0435\u043D: ' + esc(env2.n),
+        desc: '\u041F\u043E\u0442\u0440\u0430\u0447\u0435\u043D\u043E ' + fmt(envSpent2) + ' \u0438\u0437 ' + fmt(env2.lim) + '. \u041A\u043E\u043D\u0435\u0446 \u0431\u044E\u0434\u0436\u0435\u0442\u0430 \u043D\u0430 \u044D\u0442\u0443 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044E.',
+        benefit: 0,
+        priority: prio(8, 0),
+        act: {t:'budget'}
+      });
+    } else if(envPct2 >= 80){
+      signals.push({
+        sev: 4,
+        title: '\u0411\u043B\u0438\u0437\u043A\u043E \u043A \u043B\u0438\u043C\u0438\u0442\u0443: ' + esc(env2.n) + ' (' + envPct2 + '%)',
+        desc: '\u041F\u043E\u0442\u0440\u0430\u0447\u0435\u043D\u043E ' + fmt(envSpent2) + ' \u0438\u0437 ' + fmt(env2.lim) + '. \u041E\u0441\u0442\u0430\u043B\u043E\u0441\u044C: ' + fmt(env2.lim - envSpent2) + '.',
+        benefit: 0,
+        priority: prio(4, 0),
+        act: {t:'budget'}
+      });
+    }
+  }
 }
 
 // Сортируем по приоритету (чем выше, тем важнее)
@@ -7912,7 +8039,7 @@ function whatIf(perMonth){
   var origFc = forecastCashFlow(90);
   var origFlex = origFc.flexPerDay || 0;
   var perDay = perMonth / 30;
-  var newFlex = Math.max(0, origFlex - perDay);
+  var newFlex = origFlex - perDay;
   var curBal = realBal();
   var fromDate = new Date();
   fromDate = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());

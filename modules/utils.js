@@ -4,11 +4,15 @@ function $(id){ return document.getElementById(id); }
 function fmt(n){ return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(n)) + '\u00A0₽'; }
 function iso(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
 function parseD(s){
-  if(!s){ return new Date(2026,0,1); }
-  if(s.length <= 5){ var p=s.split('.'); return new Date(2026, +p[1]-1, +p[0]); }
+  var y = new Date().getFullYear();
+  if(!s){ return new Date(y,0,1); }
+  if(s.length <= 5){ var p=s.split('.'); return new Date(y, +p[1]-1, +p[0]); }
   var q=s.split('-'); return new Date(+q[0], +q[1]-1, +q[2]);
 }
-function addM(dt, k){ return new Date(dt.getFullYear(), dt.getMonth()+k, dt.getDate()); }
+function addM(dt, k){
+  var target = new Date(dt.getFullYear(), dt.getMonth()+k+1, 0);
+  return new Date(dt.getFullYear(), dt.getMonth()+k, Math.min(dt.getDate(), target.getDate()));
+}
 function esc(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

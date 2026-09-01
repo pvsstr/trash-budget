@@ -9,11 +9,15 @@ function allSpends(D){
   var arr = []; var i;
   for(i=0;i<(D.spends||[]).length;i++){
     var sp = D.spends[i];
-    arr.push({d:parseD(sp.d), s:sp.s, n:sp.n, cat:sp.cat, id:sp.id, manual:1, src:'sp', sid:sp.id, tag:sp.tag||'normal'});
+    var spAmt = typeof sp.s === 'number' ? sp.s : (parseFloat(sp.s) || 0);
+    if(!(spAmt > 0) || isNaN(spAmt)) continue;
+    arr.push({d:parseD(sp.d), s:spAmt, n:sp.n, cat:sp.cat, id:sp.id, manual:1, src:'sp', sid:sp.id, tag:sp.tag||'normal'});
   }
   for(i=0;i<(D.tx||[]).length;i++){
     var t = D.tx[i];
-    if(t.s < 0 || t.refund){ arr.push({d:parseD(t.d), s:-t.s, n:t.n, cat:TX2CAT[t.c]||t.c||'other', src:'tx', sid:i}); }
+    var txAmt = typeof t.s === 'number' ? t.s : (parseFloat(t.s) || 0);
+    if(isNaN(txAmt)) continue;
+    if(txAmt < 0 || t.refund){ arr.push({d:parseD(t.d), s:Math.abs(txAmt), n:t.n, cat:TX2CAT[t.c]||t.c||'other', src:'tx', sid:i}); }
   }
   return arr;
 }
@@ -38,19 +42,21 @@ function nextPay(D, days){
   var now = new Date(); var sum = 0; var i;
   for(i=0;i<D.pays.length;i++){
     var diff = (D.pays[i].d - now.getDate() + 31) % 31;
-    if(diff <= days){ sum += D.pays[i].s; }
+    if(diff <= days && diff > 0){ sum += D.pays[i].s; }
   }
   for(i=0;i<D.insts.length;i++){
     var dd = parseD(D.insts[i].d);
     var d2 = Math.round((dd - now) / 864e5);
     if(d2 >= 0 && d2 <= days){ sum += D.insts[i].s; }
   }
+  var paid = D.paid || {};
   for(i=0;i<(D.credits||[]).length;i++){
     var crN = D.credits[i];
     if(!(crN.pay > 0)){ continue; }
     var cd = crN.d || 1;
     var diffC = (cd - now.getDate() + 31) % 31;
-    if(diffC <= days){ sum += crN.pay; }
+    var payKey = 'cr_' + i + '_' + now.getFullYear() + '-' + (now.getMonth()+1);
+    if(diffC <= days && diffC > 0 && !paid[payKey]){ sum += crN.pay; }
   }
   return sum;
 }

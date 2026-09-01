@@ -136,7 +136,6 @@ function validateBackupImport(data){
 
 // Очистка и нормализация данных при импорте
 function sanitizeImportedData(D){
-  // Ограничиваем массивы разумным размером
   var MAX_ITEMS = 10000;
   var arrays = ['spends','incomes','tx','pays','subs','credits','insts','goals','events','learned'];
   for(var i=0;i<arrays.length;i++){
@@ -144,19 +143,50 @@ function sanitizeImportedData(D){
       D[arrays[i]] = D[arrays[i]].slice(0, MAX_ITEMS);
     }
   }
-
-  // Ограничиваем строки
   var MAX_STR = 500;
   function truncateStr(s){ return typeof s === 'string' ? s.substring(0, MAX_STR) : s; }
-
-  // Очищаем spends
   for(var j=0;j<(D.spends||[]).length;j++){
     var sp = D.spends[j];
     if(sp.n) sp.n = truncateStr(sp.n);
     if(sp.cat && VALID_CATEGORIES.indexOf(sp.cat) === -1) sp.cat = 'other';
     if(sp.s && typeof sp.s === 'number') sp.s = Math.abs(sp.s);
   }
-
+  // Validate envs[].lim
+  if(D.envs && Array.isArray(D.envs)){
+    for(var e=0;e<D.envs.length;e++){
+      if(D.envs[e] && typeof D.envs[e].lim === 'number' && (isNaN(D.envs[e].lim) || D.envs[e].lim < 0)){
+        D.envs[e].lim = Math.abs(D.envs[e].lim) || 0;
+      }
+    }
+  }
+  // Validate pays[].d
+  if(D.pays && Array.isArray(D.pays)){
+    for(var p=0;p<D.pays.length;p++){
+      if(D.pays[p] && typeof D.pays[p].d === 'number'){
+        D.pays[p].d = Math.max(1, Math.min(28, Math.round(D.pays[p].d)));
+      }
+    }
+  }
+  // Validate subs[].s
+  if(D.subs && Array.isArray(D.subs)){
+    for(var s=0;s<D.subs.length;s++){
+      if(D.subs[s] && typeof D.subs[s].s === 'number' && (isNaN(D.subs[s].s) || D.subs[s].s < 0)){
+        D.subs[s].s = Math.abs(D.subs[s].s) || 0;
+      }
+    }
+  }
+  // Validate credits[].rate and credits[].pay
+  if(D.credits && Array.isArray(D.credits)){
+    for(var c=0;c<D.credits.length;c++){
+      if(D.credits[c]){
+        if(typeof D.credits[c].rate !== 'number' || isNaN(D.credits[c].rate) || D.credits[c].rate < 0) D.credits[c].rate = 0;
+        if(D.credits[c].rate > 100) D.credits[c].rate = 100;
+        if(typeof D.credits[c].pay !== 'number' || isNaN(D.credits[c].pay) || D.credits[c].pay < 0) D.credits[c].pay = 0;
+        if(typeof D.credits[c].cur !== 'number' || isNaN(D.credits[c].cur) || D.credits[c].cur < 0) D.credits[c].cur = 0;
+        if(typeof D.credits[c].d !== 'number' || D.credits[c].d < 1 || D.credits[c].d > 28) D.credits[c].d = 1;
+      }
+    }
+  }
   return D;
 }
 
