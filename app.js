@@ -659,6 +659,12 @@ function validateBackupImport(data){
     if(inc && typeof inc.s === 'string'){ inc.s = parseFloat(inc.s) || 0; }
     if(inc && typeof inc.s !== 'number'){ return {valid:false, error:'incomes['+k+'].s должно быть числом'}; }
   }
+  for(var g=0;g<(data.goals||[]).length;g++){
+    var gl = data.goals[g];
+    if(gl && typeof gl !== 'object'){ return {valid:false, error:'Элемент goals['+g+'] должен быть объектом'}; }
+    if(gl && typeof gl.cur === 'string'){ gl.cur = parseFloat(gl.cur) || 0; }
+    if(gl && typeof gl.target === 'string'){ gl.target = parseFloat(gl.target) || 0; }
+  }
   return {valid:true};
 }
 
@@ -755,6 +761,7 @@ if(!D.insts) D.insts=[];
   // Цели теперь инициализируются только из Firebase, без демо-значений
      D.goals = D.goals || [];
   if (typeof D.cycleMode !== 'string') D.cycleMode = 'salary';
+  if (typeof D.debtStrategy !== 'string') D.debtStrategy = 'snowball';
   if (typeof D.demo !== 'boolean') D.demo = false;
   if (!D.username) D.username = '';
   D.customCats = D.customCats || [];
@@ -3818,7 +3825,17 @@ function smartTips(){
   for(var s=0;s<D.subs.length;s++){ if(!D.subs[s].off && D.subs[s].freq !== 'annual'){ ss += D.subs[s].s; sn++; } }
   for(var s=0;s<D.subs.length;s++){ if(!D.subs[s].off && D.subs[s].freq === 'annual'){ sn++; } }
   if(sn){ tips.push(sn+' активных подписок. Месячная ревизия освобождает до трети суммы.'); }
-  if(!tips.length){ tips.push('Перерасхода нет, лимиты в порядке. Отличная неделя - так держать!'); }
+  if(!tips.length){
+    var ctxTip = '';
+    var runway = cashRunway();
+    if(runway >= 60){ ctxTip = 'Запас хода '+runway+' дн. — можно увеличить отчисления в копилку.'; }
+    else if(runway >= 30){ ctxTip = 'Запас хода '+runway+' дн. — стабильно, но не расслабляйся.'; }
+    else { ctxTip = 'Запас хода всего '+runway+' дн. — сократи гибкие траты.'; }
+    var savRate = D.income > 0 ? Math.round((D.income - sums().spend) / D.income * 100) : 0;
+    if(savRate >= 20){ ctxTip += ' Норма сбережений '+savRate+'% — отличный показатель.'; }
+    else if(savRate < 0){ ctxTip += ' Тратишь больше дохода! Срочно урезай гибкие.'; }
+    tips.push(ctxTip || 'Перерасхода нет, лимиты в порядке. Отличная неделя - так держать!');
+  }
   return tips;
 }
 
@@ -3968,21 +3985,26 @@ function openWhatIf(){
   if(sl && lb){ sl.addEventListener('input', function(){ lb.textContent = sl.value; }); }
 }
 function openDebtPlan(){
-  var plan = debtSnowball();
+  var curStrategy = D.debtStrategy || 'snowball';
+  var plan = debtSnowball(curStrategy);
   var debts = [];
   for(var i=0;i<D.credits.length;i++){ if((D.credits[i].cur||0)>0){ debts.push(D.credits[i]); } }
   if(!debts.length){
-    $('sheetBody').innerHTML = sheetHead('i-card','c-grn','Долги','у тебя их нет — отлично!')
+    $('sheetBody').innerHTML = sheetHead('i-card','c-grn','Долги','у тебя их нет — excelente!')
       + '<div class="sh-tip">Кредитов и рассрочек с долгом нет. Продолжай так!</div>';
     $('sheet').classList.add('on'); $('shb').classList.add('on');
     return;
   }
   debts.sort(function(a,b){ return a.cur - b.cur; });
-  var h = sheetHead('i-card','c-red','План выхода из долгов','метод снежного кома')
+  var stratLabel = curStrategy === 'avalanche' ? 'лавина (дорогие первыми)' : 'снежный ком (маленькие первыми)';
+  var altStrategy = curStrategy === 'avalanche' ? 'snowball' : 'avalanche';
+  var altLabel = curStrategy === 'avalanche' ? 'снежный ком' : 'лавину';
+  var h = sheetHead('i-card','c-red','План выхода из долгов', stratLabel)
+    + '<div style="display:flex;gap:6px;margin:8px 4px"><button class="sh-btn ghost" data-act="debt-strat" data-s="'+altStrategy+'" style="flex:1;font-size:12px">Переключить на '+altLabel+'</button></div>'
     + (plan ? '<div class="sh-tip">'+plan.txt+'</div>' : '')
     + '<div class="cap" style="margin:10px 4px 6px">Порядок погашения</div>';
   for(var i=0;i<debts.length;i++){
-    h += '<div class="dig-item"><span>'+(i+1)+'. '+debts[i].n+'</span><b>'+fmt(debts[i].cur)+'</b></div>';
+    h += '<div class="dig-item"><span>'+(i+1)+'. '+esc(debts[i].n)+'</span><b>'+fmt(debts[i].cur)+'</b></div>';
   }
   if(plan && plan.monthlyExtra > 0){
     h += '<div class="cap" style="margin:14px 4px 6px">Твои цифры</div>'
@@ -4952,6 +4974,10 @@ document.addEventListener('click', function(e){
   if(act === 'h-next' && el.closest && el.closest('#p-spend') && hMode2==='cyc'){ cycOff2++; renderTx('2'); return; }
   if(act === 'whatif'){ openWhatIf(); return; }
 if(act === 'debt-plan'){ openDebtPlan(); return; }
+  if(act === 'debt-strat'){
+    D.debtStrategy = el.getAttribute('data-s') || 'snowball';
+    save(); openDebtPlan(); return;
+  }
   if(act === 'fc-zoom'){ fcZoom(el.getAttribute('data-t')); return; }
   if(act === 'life-min'){
     dPrompt('Сколько оставляешь себе на жизнь в месяц, ₽:', 'Минимум на жизнь', 'Например: 50000').then(function(v){
@@ -6677,6 +6703,7 @@ function forecastCashFlow(daysAhead, fromDate){
   }
   flexDays = Math.max(1, Math.round((fromDate - fromLook)/864e5));
   var flexPerDay = flexDays > 0 ? flexSum / flexDays : 0;
+  if(isNaN(flexPerDay) || flexPerDay < 0) flexPerDay = 0;
   
   // 2. Поведенческие коэффициенты: после зарплаты тратим больше, перед зарплатой — меньше
   var nextSalary = salaryDate(fromDate.getFullYear(), fromDate.getMonth() + 1) || new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 1);
@@ -6752,14 +6779,23 @@ function forecastCashFlow(daysAhead, fromDate){
     if(id >= fromDate){ events.push({date:id, amt:-D.insts[i].s, n:'Рассрочка: '+D.insts[i].n}); }
   }
   
-  // Кредиты — ежемесячный платёж по дню списания
+  // Кредиты — ежемесячный платёж + начисление процентов по дню списания
   for(i=0;i<(D.credits||[]).length;i++){
     var crF = D.credits[i];
     if(!(crF.pay > 0)){ continue; }
+    var crBal = crF.cur || 0;
+    var crRate = crF.rate || 0;
     for(var cmo=0; cmo<=Math.ceil(daysAhead/30)+1; cmo++){
       var cDate = new Date(fromDate.getFullYear(), fromDate.getMonth()+cmo, crF.d || 1);
       if(cDate >= fromDate && (cDate - fromDate)/864e5 <= daysAhead){
-        events.push({date:cDate, amt:-crF.pay, n:'Кредит: '+crF.n});
+        var interestAmt = 0;
+        if(crRate > 0 && crBal > 0){
+          interestAmt = Math.round(crBal * (crRate / 100 / 12));
+          crBal += interestAmt;
+        }
+        var payAmt = Math.min(crF.pay, crBal);
+        crBal -= payAmt;
+        events.push({date:cDate, amt:-(payAmt + interestAmt), n:'Кредит: '+crF.n+(interestAmt > 0 ? ' (вкл. %% '+fmt(interestAmt)+')' : '')});
       }
     }
   }
@@ -6794,6 +6830,8 @@ function forecastCashFlow(daysAhead, fromDate){
     flow.push({
       date: new Date(curDate),
       balance: Math.round(curBal),
+      bandHi: Math.round(curBal * (1 + day/daysAhead * 0.15)),
+      bandLo: Math.round(curBal * (1 - day/daysAhead * 0.15)),
       events: events.filter(function(e){ return iso(e.date) === iso(curDate); })
     });
     curDate = new Date(curDate.getTime() + 864e5);
@@ -6985,6 +7023,36 @@ function fcPaint(){
   ctx.beginPath(); ctx.moveTo(X(lo), zeroY);
   for(i=lo;i<=hi;i++){ ctx.lineTo(X(i), Y(f.flow[i].balance)); }
   ctx.lineTo(X(hi), zeroY); ctx.closePath(); ctx.fill();
+
+  // confidence bands (±15% на горизонте 90 дн)
+  if(f.flow[lo].bandHi != null){
+    ctx.fillStyle = 'rgba(100,210,255,.07)';
+    ctx.beginPath();
+    for(var bi=lo;bi<=hi;bi++){
+      var bv = f.flow[bi].bandHi != null ? f.flow[bi].bandHi : f.flow[bi].balance;
+      if(bi===lo){ ctx.moveTo(X(bi), Y(bv)); } else { ctx.lineTo(X(bi), Y(bv)); }
+    }
+    for(var bj=hi;bj>=lo;bj--){
+      var bv2 = f.flow[bj].bandLo != null ? f.flow[bj].bandLo : f.flow[bj].balance;
+      ctx.lineTo(X(bj), Y(bv2));
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(100,210,255,.18)';
+    ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    for(var bk=lo;bk<=hi;bk++){
+      var bkh = f.flow[bk].bandHi != null ? f.flow[bk].bandHi : f.flow[bk].balance;
+      if(bk===lo){ ctx.moveTo(X(bk), Y(bkh)); } else { ctx.lineTo(X(bk), Y(bkh)); }
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    for(var bl=lo;bl<=hi;bl++){
+      var bkl = f.flow[bl].bandLo != null ? f.flow[bl].bandLo : f.flow[bl].balance;
+      if(bl===lo){ ctx.moveTo(X(bl), Y(bkl)); } else { ctx.lineTo(X(bl), Y(bkl)); }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   // даты
   var stepD = Math.max(1, Math.round(FC.span/6));
@@ -7213,7 +7281,8 @@ function minBalance(days){
   for(var i=0;i<f.flow.length;i++){
     if(f.flow[i].balance < min){ min = f.flow[i].balance; minDate = f.flow[i].date; }
   }
-  return {val:min, date:minDate, daysFromNow: Math.round((minDate - new Date())/864e5)};
+  if(min === Infinity){ min = realBal(); minDate = new Date(); }
+  return {val:min, date:minDate, daysFromNow: minDate ? Math.round((minDate - new Date())/864e5) : 0};
 }
 
 // Могу ли купить X? Честный ответ с расчётом
@@ -7239,7 +7308,7 @@ function canAfford(amount){
 }
 
 // План выхода из долгов — снежный ком или лавина
-function debtSnowball(){
+function debtSnowball(strategy){
   var debts = [];
   for(var i=0;i<D.credits.length;i++){
     var c = D.credits[i];
@@ -7257,7 +7326,12 @@ function debtSnowball(){
     return {txt:'Обязательные платежи съедают весь доход. Сначала урежь гибкие траты (кафе, самокаты).', debts:debts};
   }
   
-  debts.sort(function(a,b){ return a.cur - b.cur; });
+  var useStrategy = strategy || D.debtStrategy || 'snowball';
+  if(useStrategy === 'avalanche'){
+    debts.sort(function(a,b){ return (b.rate||0) - (a.rate||0) || a.cur - b.cur; });
+  } else {
+    debts.sort(function(a,b){ return a.cur - b.cur; });
+  }
   
   var sim = [];
   for(var d=0;d<debts.length;d++){
@@ -7297,6 +7371,7 @@ function debtSnowball(){
     months: totalMonths,
     monthlyExtra: monthlyExtra,
     interest: totalInterest,
+    strategy: useStrategy,
     schedule: sim
   };
 }
@@ -7321,8 +7396,9 @@ function calcLifeMin() {
       }
       if(s > 0){ base += s; cycles++; }
     }
-    var baseAvg = cycles ? base / cycles : Math.round((D.income||0)*0.2);
+    var baseAvg = cycles > 0 ? base / cycles : Math.round((D.income||0)*0.2);
     var v = Math.round(baseAvg * 1.1);
+    if(isNaN(v) || v <= 0){ v = Math.round((D.income||0)*0.2) || 50000; }
     var floor = Math.round((D.income||0) * 0.15);
     if(floor < 15000){ floor = 15000; }
     if(v < floor){ v = floor; }
@@ -7479,7 +7555,7 @@ function calcRiskScore(){
   for(var g = 0; g < (D.goals||[]).length; g++){
     if(/подушк/i.test(D.goals[g].n)){ cush = D.goals[g]; break; }
   }
-  var monthlyExp = monthSpend || income * 0.8;
+  var monthlyExp = monthSpend || income * 0.8 || 50000;
   if(cush){
     var monthsCovered = (cush.cur || 0) / Math.max(1, monthlyExp);
     if(monthsCovered >= 3){ score += 10; factors.push({name:'Подушка 3+ мес',val:'+10',ok:true}); }
@@ -7601,7 +7677,7 @@ function getSignals(){
   var debtTotal = 0;
   for(var d=0;d<D.credits.length;d++){ debtTotal += D.credits[d].cur || 0; }
   if(debtTotal > (D.income||0) * 0.5){
-    var plan = debtSnowball();
+    var plan = debtSnowball(D.debtStrategy || 'snowball');
     signals.push({
       sev: 8,
       title: 'Долги = '+Math.round(debtTotal/Math.max(1,D.income||1)*100)+'% дохода',
@@ -7827,19 +7903,32 @@ for(var a = 0; a < anomalies.length; a++){
 
 // Сортируем по приоритету (чем выше, тем важнее)
 signals.sort(function(a,b){ return (b.priority||0) - (a.priority||0); });
-return signals.slice(0, 5);
+return signals.slice(0, 10);
 }
 
-// What-if симулятор (не мутирует кэш прогноза)
+// What-if симулятор (пересчитывает прогноз с изменённым темпом трат)
 function whatIf(perMonth){
-  var f2 = forecastCashFlow(90);
-  var perDay = perMonth / 30;
-  var newMin = Infinity;
-  for(var j=0;j<f2.flow.length;j++){
-    var vAdj = f2.flow[j].balance + Math.round(perDay * j);
-    if(vAdj < newMin){ newMin = vAdj; }
-  }
   var orig = minBalance(90);
+  var origFc = forecastCashFlow(90);
+  var origFlex = origFc.flexPerDay || 0;
+  var perDay = perMonth / 30;
+  var newFlex = Math.max(0, origFlex - perDay);
+  var curBal = realBal();
+  var fromDate = new Date();
+  fromDate = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+  var daysAhead = 90;
+  var events = origFc.events || [];
+  var newMin = Infinity;
+  for(var day=0; day<=daysAhead; day++){
+    var curDate = new Date(fromDate.getTime() + day * 864e5);
+    for(var ei=0; ei<events.length; ei++){
+      if(iso(events[ei].date) === iso(curDate)){ curBal += events[ei].amt; }
+    }
+    if(day > 0){ curBal -= newFlex; }
+    var rounded = Math.round(curBal);
+    if(rounded < newMin){ newMin = rounded; }
+  }
+  if(newMin === Infinity) newMin = orig.val;
   return {originalMin: orig.val, newMin: newMin, diff: newMin - orig.val};
 }
 

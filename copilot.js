@@ -362,7 +362,7 @@ R.debt = function(q, D, S, H){
       followUp: null
     };
   }
-  var plan = H.debtSnowball();
+  var plan = H.debtSnowball(D.debtStrategy || 'snowball');
   var advice = '';
   if(plan){
     advice = '<b>Стратегия:</b> ' + (plan.strategy === 'avalanche' ?
@@ -819,6 +819,13 @@ function processQuery(query, D, helpers){
 
   // Update session topic
   session.lastTopic = intentTopics[intent] || intent;
+
+  // Добавляем дисклеймер к советам по финансам
+  var adviceIntents = ['afford','debt','budget','savings','invest','health','scenario','spending','daily','month','emergency','subscriptions','signals'];
+  var disclaimer = '<br><br><small style="color:#888">⚠ Это расчёт по твоим данным, а не финансовый совет. Решения принимай самостоятельно.</small>';
+  if(adviceIntents.indexOf(intent) !== -1 && response.text && response.text.indexOf('финансовый совет') === -1 && response.text.indexOf('Disclaimer') === -1){
+    response.text += disclaimer;
+  }
 
   return {
     text: response.text,
