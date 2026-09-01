@@ -24,11 +24,15 @@ function $(id){ return document.getElementById(id); }
 function fmt(n){ return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(n)) + '\u00A0₽'; }
 function iso(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0'); }
 function parseD(s){
-  if(!s){ return new Date(2026,0,1); }
-  if(s.length <= 5){ var p=s.split('.'); return new Date(2026, +p[1]-1, +p[0]); }
+  var y = new Date().getFullYear();
+  if(!s){ return new Date(y,0,1); }
+  if(s.length <= 5){ var p=s.split('.'); return new Date(y, +p[1]-1, +p[0]); }
   var q=s.split('-'); return new Date(+q[0], +q[1]-1, +q[2]);
 }
-function addM(dt, k){ return new Date(dt.getFullYear(), dt.getMonth()+k, dt.getDate()); }
+function addM(dt, k){
+  var target = new Date(dt.getFullYear(), dt.getMonth()+k+1, 0);
+  return new Date(dt.getFullYear(), dt.getMonth()+k, Math.min(dt.getDate(), target.getDate()));
+}
 function salaryDate(y, m){
   var day = D.salaryDay;
   if(!day){ return null; }
@@ -230,11 +234,14 @@ var KEYCAT = [
 
 function autoCat(t){
   var s = (' '+t.toLowerCase()+' ');
-  // 1. Сначала смотрим выученные правила
   if(D.merchRules){
-    for(var rule in D.merchRules){ if(s.indexOf(rule)!==-1){ return D.merchRules[rule]; } }
+    var dangerous = {'__proto__':1,'constructor':1,'prototype':1,'toString':1,'valueOf':1};
+    for(var rule in D.merchRules){
+      if(!Object.prototype.hasOwnProperty.call(D.merchRules, rule)) continue;
+      if(dangerous[rule]) continue;
+      if(s.indexOf(rule)!==-1){ return D.merchRules[rule]; }
+    }
   }
-  // 2. Потом ключевые слова
   for(var i=0;i<KEYCAT.length;i++){
     var kw = KEYCAT[i][1];
     for(var j=0;j<kw.length;j++){ if(s.indexOf(kw[j]) !== -1){ return KEYCAT[i][0]; } }
@@ -480,6 +487,13 @@ function save(){
     _saveTimer = null;
   }, 300);
 }
+window.addEventListener('beforeunload', function(){
+  if(_saveTimer && uid){
+    clearTimeout(_saveTimer);
+    setDoc(doc(db,'users',uid), {data:D}, {merge:true});
+    _saveTimer = null;
+  }
+});
 
 function exportBackup(){
   var json = JSON.stringify(D, null, 2);
@@ -691,9 +705,9 @@ function calcSafeBalance() {
 function calcDailyLimit() {
   var safe = calcSafeBalance();
   var now = new Date();
-  var cur = salaryDate(now.getFullYear(), now.getMonth());
-  if(!cur){ return { perDay: 0, daysLeft: 30 }; }
-  var next = now < cur ? cur : cycleEnd(cur);
+  var cs = cycleStart(now);
+  if(!cs){ return { perDay: 0, daysLeft: 30 }; }
+  var next = cycleEnd(cs);
   var daysLeft = Math.max(1, Math.round((next - now) / 864e5));
   return { perDay: Math.round(safe / daysLeft), daysLeft: daysLeft };
 }
@@ -6380,7 +6394,6 @@ function applyRebalance(suggestions) {
 // ========== ИСТОРИЯ ЦЕЛЕЙ ==========
 function goalHistory(goalId){
   var history = [];
-  // Ищем все траты с названием, содержащим имя цели
   var goal = null;
   for(var i=0;i<(D.goals||[]).length;i++){
     if(D.goals[i].id === goalId){ goal = D.goals[i]; break; }
@@ -6389,13 +6402,12 @@ function goalHistory(goalId){
   
   var allSp = allSpends();
   for(var j=0;j<allSp.length;j++){
-    if(allSp[j].n && allSp[j].n.indexOf(goal.n) !== -1){
+    if(allSp[j].goalId === goalId || (allSp[j].n && allSp[j].n === goal.n)){
       history.push({date:allSp[j].d, amount:allSp[j].s});
     }
   }
-  // Также ищем пополнения из доходов с типом 'cash' или с названием цели
   for(var k=0;k<(D.incomes||[]).length;k++){
-    if(D.incomes[k].n && D.incomes[k].n.indexOf(goal.n) !== -1){
+    if(D.incomes[k].goalId === goalId || (D.incomes[k].n && D.incomes[k].n === goal.n)){
       history.push({date:parseD(D.incomes[k].d), amount:D.incomes[k].s});
     }
   }
@@ -6499,16 +6511,32 @@ function forecastCashFlow(daysAhead, fromDate){
   var daysFromSalary = totalCycle - daysToSalary;
   
   function getBehaviorCoeff(dayFromStart) {
-    // dayFromStart — сколько дней прошло с начала прогноза
     var currentDate = new Date(fromDate.getTime() + dayFromStart * 864e5);
     var daysSinceSalary = Math.round((currentDate - cycleStart(currentDate)) / 864e5);
     var cycleLen = Math.round((cycleEnd(cycleStart(currentDate)) - cycleStart(currentDate)) / 864e5);
-    var phase = daysSinceSalary / cycleLen; // 0..1
+    var phase = daysSinceSalary / cycleLen;
     
-    if (phase < 0.15) return 1.3;  // первые 15% цикла — тратим на 30% больше
-    if (phase < 0.45) return 1.0;  // средняя часть — норма
-    if (phase < 0.75) return 0.85; // предпоследняя треть — на 15% меньше
-    return 0.7;                   // последняя четверть — на 30% меньше
+    var avgSpend = 0;
+    var hist = allSpends();
+    var recentCycles = 0, recentTotal = 0;
+    for(var rc=1;rc<=3;rc++){
+      var cs = shiftCycle(cycleStart(now), -rc);
+      var ce = cycleEnd(cs);
+      var cSum = 0;
+      for(var ri=0;ri<hist.length;ri++){
+        if(hist[ri].d >= cs && hist[ri].d < ce){ cSum += hist[ri].s; }
+      }
+      if(cSum > 0){ recentTotal += cSum; recentCycles++; }
+    }
+    if(recentCycles > 0){ avgSpend = recentTotal / recentCycles / cycleLen; }
+    
+    var income = (D.income||0) / cycleLen;
+    var ratio = income > 0 ? avgSpend / income : 1;
+    
+    if (phase < 0.15) return Math.max(0.7, Math.min(1.5, 1.0 + ratio * 0.3));
+    if (phase < 0.45) return 1.0;
+    if (phase < 0.75) return Math.max(0.5, Math.min(1.0, 1.0 - ratio * 0.15));
+    return Math.max(0.4, Math.min(0.9, 1.0 - ratio * 0.3));
   }
   
   // 2. Собираем все будущие известные списания и поступления
@@ -7016,14 +7044,14 @@ function minBalance(days){
 
 // Могу ли купить X? Честный ответ с расчётом
 function canAfford(amount){
-  var f = forecastCashFlow(30);
+  var f = forecastCashFlow(90);
   var daily = calcDailyLimit();
   var safe = calcSafeBalance();
   var pay3 = nextPay(3);
   var free = Math.max(0, safe - pay3);
   
   // Смотрим минимальный баланс после покупки
-  var minAfter = minBalance(30);
+  var minAfter = minBalance(90);
   var postMin = minAfter.val - amount;
   
   if(amount <= daily.perDay && postMin >= 0){
@@ -7039,31 +7067,62 @@ function canAfford(amount){
 function debtSnowball(){
   var debts = [];
   for(var i=0;i<D.credits.length;i++){
-    if(D.credits[i].cur > 0){ debts.push({n:D.credits[i].n, cur:D.credits[i].cur, total:D.credits[i].total}); }
+    var c = D.credits[i];
+    if(c.cur > 0){ debts.push({n:c.n, cur:c.cur, total:c.total, rate:c.rate||0}); }
   }
   if(!debts.length){ return null; }
   
   var totalDebt = 0;
   for(var j=0;j<debts.length;j++){ totalDebt += debts[j].cur; }
   
-  // Сколько можем платить в месяц сверх обязательных
-    var lifeMin = typeof D.lifeMin === 'number' ? D.lifeMin : 50000;
-  var monthlyExtra = Math.max(0, (D.income||0) - calcMonthlyFixedPay() - lifeMin); // минимум на жизнь (D.lifeMin)
+  var lifeMin = typeof D.lifeMin === 'number' ? D.lifeMin : 50000;
+  var monthlyExtra = Math.max(0, (D.income||0) - calcMonthlyFixedPay() - lifeMin);
   
   if(monthlyExtra <= 0){
     return {txt:'Обязательные платежи съедают весь доход. Сначала урежь гибкие траты (кафе, самокаты).', debts:debts};
   }
   
-  // Сортируем по размеру — снежный ком
   debts.sort(function(a,b){ return a.cur - b.cur; });
-  var months = Math.ceil(totalDebt / monthlyExtra);
+  
+  var sim = [];
+  for(var d=0;d<debts.length;d++){
+    sim.push({n:debts[d].n, cur:debts[d].cur, rate:debts[d].rate, months:0, totalPaid:0});
+  }
+  
+  var extra = monthlyExtra;
+  var totalMonths = 0;
+  var maxIter = 600;
+  while(extra > 0 && totalMonths < maxIter){
+    totalMonths++;
+    var paid = false;
+    for(var s=0;s<sim.length;s++){
+      if(sim[s].cur <= 0) continue;
+      var interest = Math.round(sim[s].cur * (sim[s].rate/100/12));
+      sim[s].cur += interest;
+      var pay = Math.min(extra, sim[s].cur);
+      sim[s].cur -= pay;
+      sim[s].totalPaid += pay;
+      extra -= pay;
+      if(sim[s].cur <= 0){ sim[s].cur = 0; sim[s].months = totalMonths; paid = true; extra += monthlyExtra - (monthlyExtra - extra); }
+    }
+    if(!paid) break;
+    extra = monthlyExtra;
+  }
+  for(var f=0;f<sim.length;f++){
+    if(sim[f].cur > 0){ sim[f].months = totalMonths; }
+  }
+  
+  var totalInterest = 0;
+  for(var t=0;t<sim.length;t++){ totalInterest += sim[t].totalPaid - debts[t].cur; }
   
   return {
-    txt: 'При платеже '+fmt(monthlyExtra)+'/мес закроешь все долги за '+months+' мес. Начни с "'+debts[0].n+'" ('+fmt(debts[0].cur)+') — это даст психологическую победу.',
+    txt: 'При платеже '+fmt(monthlyExtra)+'/мес закроешь все долги за '+totalMonths+' мес. Начни с «'+debts[0].n+'» ('+fmt(debts[0].cur)+'). Переплата по процентам: ~'+fmt(totalInterest)+'.',
     first: debts[0],
     total: totalDebt,
-    months: months,
-    monthlyExtra: monthlyExtra
+    months: totalMonths,
+    monthlyExtra: monthlyExtra,
+    interest: totalInterest,
+    schedule: sim
   };
 }
 
@@ -7089,7 +7148,9 @@ function calcLifeMin() {
     }
     var baseAvg = cycles ? base / cycles : Math.round((D.income||0)*0.2);
     var v = Math.round(baseAvg * 1.1);
-    if(v < 15000){ v = 15000; }
+    var floor = Math.round((D.income||0) * 0.15);
+    if(floor < 15000){ floor = 15000; }
+    if(v < floor){ v = floor; }
     if(D.income && v > D.income * 0.45){ v = Math.round(D.income * 0.45); }
     D.lifeMin = v;
     return D.lifeMin;
@@ -7600,6 +7661,10 @@ function agentAnswer(query){
   return ans;
 }
 
+function agentDisclaimer(){
+  return '<small style="color:#888">⚠ Я — финансовый помощник, а не лицензированный финансовый советник. Мои рекомендации носят информационный характер и не являются индивидуальной финансовой консультацией. Принимая решения, опирайся на собственную оценку ситуации.</small>';
+}
+
 // ========== МИНИ-ГРАФИКИ ДЛЯ ЦЕЛЕЙ ==========
 function drawGoalMiniChart(container, goal) {
     if (!container || !goal) return;
@@ -7716,5 +7781,32 @@ function drawGoalMiniChart(container, goal) {
         ctx.fillText('~ ' + eta, padding, 2);
     }
 }
+
+// ========== SELF-TEST SUITE ==========
+(function selfTest(){
+  var pass = 0, fail = 0, errors = [];
+  function assert(name, cond){
+    if(cond){ pass++; }
+    else { fail++; errors.push(name); }
+  }
+  try {
+    var now = new Date();
+    var d1 = parseD(null);
+    assert('parseD(null) returns current year', d1.getFullYear() === now.getFullYear());
+    var d2 = parseD('15.03');
+    assert('parseD short date returns current year', d2.getFullYear() === now.getFullYear());
+    var d3 = parseD('2024-06-10');
+    assert('parseD full date works', d3.getFullYear() === 2024 && d3.getMonth() === 5);
+    var jan31 = new Date(2024, 0, 31);
+    var feb = addM(jan31, 1);
+    assert('addM month-end clamps day', feb.getDate() === 29);
+    var escaped = esc('<script>"\'`&</script>');
+    assert('esc escapes all special chars', escaped.indexOf('&lt;') !== -1 && escaped.indexOf('&#39;') !== -1 && escaped.indexOf('&#96;') !== -1);
+    assert('esc escapes ampersand', escaped.indexOf('&amp;') !== -1);
+    assert('esc escapes double quote', escaped.indexOf('&quot;') !== -1);
+    assert('esc escapes angle brackets', escaped.indexOf('&gt;') !== -1);
+  } catch(e) { fail++; errors.push('exception: ' + e.message); }
+  console.log('[SelfTest] ' + pass + ' passed, ' + fail + ' failed' + (errors.length ? ': ' + errors.join('; ') : ''));
+})();
 
 deployCheck();
