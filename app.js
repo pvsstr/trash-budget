@@ -3,6 +3,123 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, deleteUser } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
+// ===== i18n =====
+var I18N = {
+  ru: {
+    // App
+    appName: 'МАЯК', appTag: 'Подсвечивает рифы. Ведёт к цели', appSub: 'финансовый навигатор',
+    // Auth
+    email: 'E-mail', password: 'Пароль', login: 'Войти', register: 'Создать аккаунт',
+    forgotPw: 'Забыли пароль?', resetPw: 'Сбросить', loginWithGoogle: 'Войти через Google',
+    nameOrEmail: 'Имя или e-mail', hintDemo: 'вымышленные цифры · вход не нужен · ничего не сохраняется',
+    // Nav
+    navDash: 'Панель', navSpend: 'Траты', navIncome: 'Доход', navBudget: 'Бюджет', navLearn: 'Обучение', navChat: 'Копилот', navSettings: 'Настройки',
+    // Dashboard
+    briefing: 'Брифинг на сегодня', leftToday: 'осталось на сегодня из', noRisks: 'risks нет',
+    bigPayment: 'крупных списаний близко нет', today: 'сегодня', tomorrow: 'завтра',
+    // Setup
+    setup: 'Настройка', setupStep: 'из', setupTime: '2 минуты',
+    setupIncome: 'Доход и день зарплаты', setupIncomeD: 'две цифры — и лимиты оживут',
+    setupBalance: 'Текущий баланс', setupBalanceD: 'сколько денег на всех картах сейчас',
+    setupPay: 'Обязательные платежи', setupPayD: 'аренда, связь, кредиты — чтобы прогноз им верел',
+    setupEnv: 'Первый конверт', setupEnvD: 'лимит на еду или кафе',
+    setupReady: 'готово', setupStart: 'начать ›',
+    // Spend
+    addSpend: 'Добавить трату', amount: 'Сумма, ₽', description: 'Название', category: 'Категория',
+    envelope: 'Конверт', comment: 'Комментарий', save: 'Сохранить', cancel: 'Отмена',
+    todaySpend: 'Траты за сегодня', thisMonth: 'Этот месяц',
+    // Income
+    addIncome: 'Добавить доход', incomeName: 'Название', incomeAmount: 'Сумма, ₽',
+    salaryDay: 'День зарплаты', monthlyIncome: 'Доход в месяц',
+    // Budget
+    fixedPayments: 'Обязательные платежи', envelopes: 'Конверты', subscriptions: 'Подписки',
+    credits: 'Кредиты и рассрочки', addPayment: '+ Платёж', addSub: '+ Подписка',
+    budgetCycle: 'Бюджет цикла', occupied: 'занято дохода', essential: 'Обязательные',
+    envelopesLabel: 'Конверты', free: 'Свободно', notAllocated: 'Не распределено',
+    overBudget: 'Перебор', noEnvelopes: 'Конвертов нет. Начните с одного: например, «Продукты» с лимитом на цикл.',
+    noPayments: 'Платежей нет — добавьте первый', noSubs: 'Подписок нет',
+    noCredits: 'Кредитов нет — отлично!', paid: 'оплачено', markPaid: 'Отметить оплаченным',
+    unmarkPaid: 'Снять отметку', enable: 'Включить', disable: 'Отключить',
+    // Forecast
+    forecast: 'График прогноза', forecastDesc: 'Линия показывает, сколько денег останется на счету в каждый день.',
+    moneyOnAccount: 'деньги на счету', goMinus: 'уход в минус',
+    salaryArrow: 'ЗП — приход зарплаты', bigExpense: 'стрелка вниз — крупное списание',
+    tapDay: 'Тапни по любому дню — покажу, сколько останется.',
+    whatIf: 'Что если…', debtPlan: 'План выхода из долгов',
+    // Goals
+    noGoals: 'Нет активных целей для отображения',
+    // Signals
+    risksNone: 'рисков нет',
+    // Learn
+    studied: 'Изучено', tipOfTheDay: 'Совет дня',
+    // Settings
+    exportData: 'Экспорт данных', importData: 'Импорт данных', logout: 'Выйти',
+    deleteAccount: 'Удалить аккаунт', backup: 'Резервная копия',
+    language: 'Язык', darkTheme: 'Тёмная тема',
+    // Chat
+    askAnything: 'Задайте вопрос по финансам...', send: 'Отправить',
+    disclaimer: 'МАЯК не является финансовым советом. Все расчёты основаны на ваших данных.',
+    // Common
+    save2: 'Сохранить', delete2: 'Удалить', edit: 'Редактировать', back: 'Назад',
+    confirm: 'Подтвердить', loading: 'Загрузка...', error: 'Ошибка',
+    rub: '₽', days: 'дн.', months: 'мес.', year: 'год', years: 'года',
+    weekdays: ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'],
+    months: ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'],
+    monthsFull: ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'],
+  },
+  en: {
+    appName: 'MAYAK', appTag: 'Illuminates reefs. Leads to the goal.', appSub: 'financial navigator',
+    email: 'E-mail', password: 'Password', login: 'Log in', register: 'Create account',
+    forgotPw: 'Forgot password?', resetPw: 'Reset', loginWithGoogle: 'Sign in with Google',
+    nameOrEmail: 'Name or e-mail', hintDemo: 'fictional numbers · no login needed · nothing saved',
+    navDash: 'Dashboard', navSpend: 'Spending', navIncome: 'Income', navBudget: 'Budget', navLearn: 'Learn', navChat: 'Copilot', navSettings: 'Settings',
+    briefing: 'Today\'s briefing', leftToday: 'left today of', noRisks: 'no risks',
+    bigPayment: 'no large payments nearby', today: 'today', tomorrow: 'tomorrow',
+    setup: 'Setup', setupStep: 'of', setupTime: '2 minutes',
+    setupIncome: 'Income & payday', setupIncomeD: 'two numbers — and limits come alive',
+    setupBalance: 'Current balance', setupBalanceD: 'how much money on all cards now',
+    setupPay: 'Fixed payments', setupPayD: 'rent, phone, loans — so the forecast trusts them',
+    setupEnv: 'First envelope', setupEnvD: 'limit for food or dining out',
+    setupReady: 'done', setupStart: 'start ›',
+    addSpend: 'Add expense', amount: 'Amount, ₽', description: 'Description', category: 'Category',
+    envelope: 'Envelope', comment: 'Comment', save: 'Save', cancel: 'Cancel',
+    todaySpend: 'Today\'s spending', thisMonth: 'This month',
+    addIncome: 'Add income', incomeName: 'Name', incomeAmount: 'Amount, ₽',
+    salaryDay: 'Payday', monthlyIncome: 'Monthly income',
+    fixedPayments: 'Fixed payments', envelopes: 'Envelopes', subscriptions: 'Subscriptions',
+    credits: 'Loans & installments', addPayment: '+ Payment', addSub: '+ Subscription',
+    budgetCycle: 'Cycle budget', occupied: 'of income', essential: 'Essential',
+    envelopesLabel: 'Envelopes', free: 'Free', notAllocated: 'Not allocated',
+    overBudget: 'Over budget', noEnvelopes: 'No envelopes yet. Start with one: e.g. "Groceries" with a cycle limit.',
+    noPayments: 'No payments — add the first one', noSubs: 'No subscriptions',
+    noCredits: 'No loans — great!', paid: 'paid', markPaid: 'Mark as paid',
+    unmarkPaid: 'Unmark', enable: 'Enable', disable: 'Disable',
+    forecast: 'Forecast chart', forecastDesc: 'The line shows how much money will remain each day.',
+    moneyOnAccount: 'money on account', goMinus: 'going negative',
+    salaryArrow: 'salary — income', bigExpense: 'arrow down — large expense',
+    tapDay: 'Tap any day — I\'ll show you what remains.',
+    whatIf: 'What if…', debtPlan: 'Debt payoff plan',
+    noGoals: 'No active goals to display',
+    risksNone: 'no risks',
+    studied: 'Studied', tipOfTheDay: 'Tip of the day',
+    exportData: 'Export data', importData: 'Import data', logout: 'Log out',
+    deleteAccount: 'Delete account', backup: 'Backup',
+    language: 'Language', darkTheme: 'Dark theme',
+    askAnything: 'Ask about your finances...', send: 'Send',
+    disclaimer: 'MAYAK is not financial advice. All calculations are based on your data.',
+    save2: 'Save', delete2: 'Delete', edit: 'Edit', back: 'Back',
+    confirm: 'Confirm', loading: 'Loading...', error: 'Error',
+    rub: '₽', days: 'days', months: 'mo', year: 'year', years: 'years',
+    weekdays: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    months: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    monthsFull: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+  }
+};
+var _lang = 'ru';
+function t(key){ return (I18N[_lang] && I18N[_lang][key]) || (I18N.ru[key]) || key; }
+function setLang(lang){ _lang = lang; if(D) D.lang = lang; }
+function getLang(){ return _lang; }
+
 var app = initializeApp({apiKey:"AIzaSyBrK9eZknNE3UBniVU2cnKUtwSOXnl_y2g",authDomain:"trash-budget-737fd.firebaseapp.com",projectId:"trash-budget-737fd",storageBucket:"trash-budget-737fd.firebasestorage.app",messagingSenderId:"996241413300",appId:"1:996241413300:web:ca7c0668e67f570c7373e1"});
 var auth = getAuth(app);
 var db = getFirestore(app);
@@ -626,6 +743,7 @@ if(!D.insts) D.insts=[];
   D.theme = D.theme || 'dark';
   D.currency = D.currency || '₽';
   D.lang = D.lang || 'ru';
+  setLang(D.lang);
   D.notifications = D.notifications !== undefined ? D.notifications : true;
   calcLifeMin();
 }
@@ -5748,9 +5866,10 @@ save(); render(); toast('Память применена: обновлено о�
     var langSel = $('settingsLang');
     if(langSel){
       D.lang = langSel.value;
+      setLang(D.lang);
       save();
       render();
-      toast('Язык: ' + (D.lang === 'ru' ? 'Русский' : 'English'));
+      toast((D.lang === 'ru' ? 'Русский' : 'English'));
     }
   }
   else if(act === 'custom-cat-add'){
@@ -7186,6 +7305,153 @@ function subAudit(){
   return out;
 }
 
+// ===== ANOMALY DETECTION (3σ rolling mean/std) =====
+function detectAnomalies(allSpend, windowDays){
+  if(!allSpend || allSpend.length < 5) return [];
+  windowDays = windowDays || 30;
+  var now = new Date();
+  var anomalies = [];
+  // Build daily totals for last 180 days
+  var dailyTotals = {};
+  var dailyCounts = {};
+  var maxDays = 180;
+  for(var i = 0; i < allSpend.length; i++){
+    var dd = iso(allSpend[i].d);
+    var diffD = Math.round((now - allSpend[i].d) / 864e5);
+    if(diffD > maxDays || diffD < 0) continue;
+    dailyTotals[dd] = (dailyTotals[dd] || 0) + allSpend[i].s;
+    dailyCounts[dd] = (dailyCounts[dd] || 0) + 1;
+  }
+  // Calculate rolling mean and std over last 90 days
+  var values = [];
+  for(var k = 0; k < 90; k++){
+    var dd2 = new Date(now.getTime() - k * 864e5);
+    var key = iso(dd2);
+    if(dailyTotals[key] !== undefined){
+      values.push(dailyTotals[key]);
+    }
+  }
+  if(values.length < 7) return [];
+  var mean = 0;
+  for(var v = 0; v < values.length; v++) mean += values[v];
+  mean = mean / values.length;
+  var variance = 0;
+  for(var w = 0; w < values.length; w++) variance += Math.pow(values[w] - mean, 2);
+  variance = variance / values.length;
+  var std = Math.sqrt(variance);
+  // Check today and yesterday
+  var checkDays = [0, 1];
+  for(var c = 0; c < checkDays.length; c++){
+    var dd3 = new Date(now.getTime() - checkDays[c] * 864e5);
+    var key3 = iso(dd3);
+    var todaySum = dailyTotals[key3] || 0;
+    var todayCount = dailyCounts[key3] || 0;
+    if(todaySum > mean + 3 * std && std > 0){
+      anomalies.push({
+        date: dd3,
+        sum: todaySum,
+        mean: Math.round(mean),
+        std: Math.round(std),
+        sigma: Math.round((todaySum - mean) / std * 10) / 10,
+        count: todayCount,
+        label: checkDays[c] === 0 ? 'Сегодня' : 'Вчера'
+      });
+    }
+  }
+  // Also check individual large transactions (> 3σ of single tx)
+  var txAmounts = [];
+  for(var t = 0; t < allSpend.length; t++){
+    var diffT = Math.round((now - allSpend[t].d) / 864e5);
+    if(diffT <= 90) txAmounts.push(allSpend[t].s);
+  }
+  if(txAmounts.length >= 5){
+    var txMean = 0;
+    for(var tm = 0; tm < txAmounts.length; tm++) txMean += txAmounts[tm];
+    txMean = txMean / txAmounts.length;
+    var txVar = 0;
+    for(var tv = 0; tv < txAmounts.length; tv++) txVar += Math.pow(txAmounts[tv] - txMean, 2);
+    txVar = txVar / txAmounts.length;
+    var txStd = Math.sqrt(txVar);
+    for(var ts = 0; ts < allSpend.length; ts++){
+      var diffTS = Math.round((now - allSpend[ts].d) / 864e5);
+      if(diffTS <= 3 && txStd > 0 && allSpend[ts].s > txMean + 3 * txStd){
+        anomalies.push({
+          date: allSpend[ts].d,
+          sum: allSpend[ts].s,
+          mean: Math.round(txMean),
+          std: Math.round(txStd),
+          sigma: Math.round((allSpend[ts].s - txMean) / txStd * 10) / 10,
+          count: 1,
+          label: 'Крупная транзакция',
+          name: allSpend[ts].n || ''
+        });
+      }
+    }
+  }
+  return anomalies;
+}
+
+// ===== RISK SCORING (credit-style 0-100) =====
+function calcRiskScore(){
+  var score = 50;
+  var factors = [];
+  var income = D.income || 0;
+  // 1. Savings rate (30% weight)
+  var mStart = cycleStart(new Date());
+  var monthSpend = 0;
+  var allS = allSpends();
+  for(var i = 0; i < allS.length; i++){
+    if(allS[i].d >= mStart && !allS[i].tag) monthSpend += allS[i].s;
+  }
+  if(income > 0){
+    var savingsRate = (income - monthSpend) / income;
+    if(savingsRate > 0.3){ score += 15; factors.push({name:'Норма сбережений',val:'+15',ok:true}); }
+    else if(savingsRate > 0.1){ score += 5; factors.push({name:'Норма сбережений',val:'+5',ok:true}); }
+    else if(savingsRate < 0){ score -= 15; factors.push({name:'Дефицит дохода',val:'−15',ok:false}); }
+    else { score -= 5; factors.push({name:'Низкие сбережения',val:'−5',ok:false}); }
+  }
+  // 2. Debt-to-income (25% weight)
+  var debt = 0;
+  for(var d = 0; d < (D.credits||[]).length; d++) debt += D.credits[d].cur || 0;
+  if(income > 0){
+    var dti = debt / income;
+    if(dti === 0){ score += 10; factors.push({name:'Нет долгов',val:'+10',ok:true}); }
+    else if(dti < 0.3){ score += 5; factors.push({name:'Умеренные долги',val:'+5',ok:true}); }
+    else if(dti < 0.5){ score -= 5; factors.push({name:'Долги >30%',val:'−5',ok:false}); }
+    else { score -= 15; factors.push({name:'Долги >50%',val:'−15',ok:false}); }
+  }
+  // 3. Emergency fund (15% weight)
+  var cush = null;
+  for(var g = 0; g < (D.goals||[]).length; g++){
+    if(/подушк/i.test(D.goals[g].n)){ cush = D.goals[g]; break; }
+  }
+  var monthlyExp = monthSpend || income * 0.8;
+  if(cush){
+    var monthsCovered = (cush.cur || 0) / Math.max(1, monthlyExp);
+    if(monthsCovered >= 3){ score += 10; factors.push({name:'Подушка 3+ мес',val:'+10',ok:true}); }
+    else if(monthsCovered >= 1){ score += 3; factors.push({name:'Подушка 1+ мес',val:'+3',ok:true}); }
+    else { score -= 8; factors.push({name:'Подушка <1 мес',val:'−8',ok:false}); }
+  }
+  // 4. Overshoot risk from forecast
+  var minBal = minBalance(90);
+  if(minBal.val < 0){ score -= 10; factors.push({name:'Прогноз уходит в −',val:'−10',ok:false}); }
+  else if(minBal.val < monthlyExp * 0.2){ score -= 3; factors.push({name:'Малый запас',val:'−3',ok:false}); }
+  // 5. Signal count
+  var sigs = getSignals();
+  var highSev = 0;
+  for(var s = 0; s < sigs.length; s++) if(sigs[s].sev >= 7) highSev++;
+  if(highSev >= 2){ score -= 10; factors.push({name:highSev+' критических сигналов',val:'−10',ok:false}); }
+  else if(highSev === 1){ score -= 3; factors.push({name:'1 критический сигнал',val:'−3',ok:false}); }
+  score = Math.max(0, Math.min(100, score));
+  var grade;
+  if(score >= 80) grade = 'A';
+  else if(score >= 65) grade = 'B';
+  else if(score >= 50) grade = 'C';
+  else if(score >= 35) grade = 'D';
+  else grade = 'F';
+  return {score: score, grade: grade, factors: factors};
+}
+
 function getSignals(){
   var signals = [];
   var now = new Date();
@@ -7490,7 +7756,21 @@ act: {act:'nav', p:'settings'}
 });
 }
 
-  
+// 16. Anomaly detection (3σ)
+var anomalies = detectAnomalies(allSp, 90);
+for(var a = 0; a < anomalies.length; a++){
+  var an = anomalies[a];
+  var anLabel = an.name ? ('«'+an.name+'» '+fmt(an.sum)) : (an.label+': '+fmt(an.sum));
+  signals.push({
+    sev: 7,
+    title: an.label + ' — ' + an.sigma + 'σ',
+    desc: 'Среднее '+fmt(an.mean)+'/день (σ='+fmt(an.std)+'). '+anLabel+' — статистическое отклонение.',
+    benefit: 0,
+    priority: prio(7, 0),
+    act: {t:'daily'}
+  });
+}
+
 // Сортируем по приоритету (чем выше, тем важнее)
 signals.sort(function(a,b){ return (b.priority||0) - (a.priority||0); });
 return signals.slice(0, 5);
