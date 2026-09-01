@@ -4850,7 +4850,12 @@ function go(p){
     if($('settingsLang')){ $('settingsLang').value = D.lang || 'ru'; }
   }
   if(p === 'chat' && $('chatLog') && !$('chatLog').children.length){
-    addMsg('bot', 'Привет! Я твой финансовый копилот — считаю только по твоим цифрам.<br>Спроси: «сколько можно сегодня?», «могу купить X?», «где утечки?», «как закрыть долги?», «что важно сейчас?»');
+    var hasData = (D.income || 0) > 0 || (D.spends || []).length > 3;
+    if(hasData){
+      addMsg('bot', 'Привет! Я твой финансовый копилот — считаю только по твоим цифрам.<br><br>Спроси: «Могу купить X?», «Как мой бюджет?», «Где утечки?», «Как закрыть долги?», «Что важно сейчас?»');
+    } else {
+      addMsg('bot', 'Привет! Я — финансовый копилот МАЯКА.<br><br>Помогу с бюджетом, долгами, накоплениями и подписками. Расскажи о себе — или просто спроси!');
+    }
   }
   closeSheet();
   window.scrollTo({top:0, behavior:'smooth'});
@@ -6255,10 +6260,10 @@ function wireUi(){
     chipContainer.id = 'chatChips';
     chipContainer.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;padding:8px 14px;margin-bottom:4px';
     chipContainer.innerHTML =
-      '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу кафе на 30%?">Урезать кафе на 30%</button>' +
-      '<button class="chip" data-act="chat-chip" data-q="Что будет, если я урежу самокаты на 50%?">Самокаты -50%</button>' +
-      '<button class="chip" data-act="chat-chip" data-q="Что важно сейчас?">Что важно сейчас?</button>' +
-      '<button class="chip" data-act="chat-chip" data-q="Как мне сэкономить 10000 в этом месяце?">Сэкономить 10 000</button>';
+      '<button class="chip" data-act="chat-chip" data-q="Как мой бюджет?">Как мой бюджет?</button>' +
+      '<button class="chip" data-act="chat-chip" data-q="Как сократить траты?">Сократить траты</button>' +
+      '<button class="chip" data-act="chat-chip" data-q="Что важно сейчас?">Что важно?</button>' +
+      '<button class="chip" data-act="chat-chip" data-q="Как начать копить?">Как копить?</button>';
     chatInEl.parentNode.insertBefore(chipContainer, chatInEl);
   }
   if($('spCat')){ $('spCat').addEventListener('change', function(){ catTouched = true; }); }
@@ -7790,155 +7795,36 @@ function whatIf(perMonth){
 }
 
 // Парсер намерений для копилота
+// ===== COPILOT: Universal Financial Advisor =====
+// See copilot.js for the intent classifier and response handlers.
+// This bridge exposes D, helpers, and routes queries to the Copilot module.
+
 function agentParse(query){
-  var q = query.toLowerCase();
-  var numMatch = q.match(/(\d[\d\s]*)/);
-  var amount = numMatch ? parseInt(numMatch[1].replace(/\s/g,'')) : 0;
-  
-  if(/куп|можн|потяну|afford|хват/i.test(q) && amount > 0){
-    var r = canAfford(amount);
-    return {type:'afford', data:{amount:amount, verdict:r.verdict, txt:r.txt, color:r.color}};
-  }
-  if(/долг|кредит|рассроч|закрыть/i.test(q)){
-    return {type:'debt', data:debtSnowball()};
-  }
-  if(/утеч|перерасход|лимит/i.test(q)){
-    var leaks = activeLeaks();
-    return {type:'leaks', data:{leaks:leaks, total: leaks.reduce(function(s,l){return s+l.over;},0)}};
-  }
-  if(/подпис/i.test(q)){
-    var subs = D.subs.filter(function(s){ return !s.off; });
-    var total = 0; for(var i=0;i<subs.length;i++){ total += subs[i].s; }
-    return {type:'subs', data:{subs:subs, monthly:total, annual:total*12}};
-  }
-  if(/зарплат|зп|до зп|payday/i.test(q)){
-    var d = calcDailyLimit();
-    var rw2 = cashRunway();
-    return {type:'payday', data:{days:d.daysLeft, runway:rw2, daily:d.perDay}};
-  }
-  // Сколько можно тратить сегодня / дневной лимит
-  if(/сегодня|лимит|потрат|тратить/i.test(q) && !amount){
-    var dly = calcDailyLimit();
-    return {type:'daily', data:{perDay:dly.perDay, days:dly.daysLeft}};
-  }
-  // Обучение
-  if(/научи|урок|обуч|финграмотн|грамот/i.test(q)){
-    var doneIds = D.learned || [];
-    var nextL = null;
-    for(var li=0;li<LESSONS.length;li++){ if(doneIds.indexOf(LESSONS[li].id) === -1){ nextL = LESSONS[li]; break; } }
-    return {type:'lesson', data:{lesson:nextL, done:doneIds.length, total:LESSONS.length}};
-  }
-  // Первая настройка
-  if(/настро|начать|с чего|старт|первый раз|новичок/i.test(q)){
-    return {type:'setup', data:setupState()};
-  }
-  if(/итог|месяц|месяц/i.test(q)){
-    var now2 = new Date();
-    var from2 = new Date(now2.getFullYear(), now2.getMonth(), 1);
-    var tot2 = 0;
-    var all2 = allSpends();
-    for(var i=0;i<all2.length;i++){ if(all2[i].d >= from2){ tot2 += all2[i].s; } }
-    return {type:'month', data:{spent:tot2, income:D.income, saved:(D.income||0)-tot2}};
-  }
-  if(/накоп|копить|цель|отпуск/i.test(q)){
-    if(amount > 0){
-      var months2 = Math.ceil(amount / Math.max(1, (D.income||0) * 0.1));
-      return {type:'savings', data:{target:amount, months:months2, monthly:Math.round(amount/months2)}};
-    }
-    return {type:'savings', data:{goals:D.goals||[]}};
-  }
-  
-   // Сигналы – что важно прямо сейчас
-  if(/сигнал|важно|срочн|проблем|внимани/i.test(q)){
-    var sigs = getSignals();
-    return {type:'signals', data:sigs.slice(0,5)};
-  }
-  
-  // Сценарии – что если урежу/увеличу
-  if(/если|уреж|сократ|увелич|сценари/i.test(q)){
-    var numMatch2 = q.match(/(\d[\d\s]*)/);
-    var amount2 = numMatch2 ? parseInt(numMatch2[1].replace(/\s/g,'')) : 0;
-    var catMatch = q.match(/(кафе|продукт|самокат|такси|подписк|развлечен|личн)/i);
-    var catId = catMatch ? catMatch[1].toLowerCase() : 'cafe';
-    // маппинг названий на ID категорий
-    var catMap = {'кафе':'cafe','продукт':'grocery','самокат':'scooters','такси':'taxi','подписк':'subs','развлечен':'fun','личн':'personal'};
-    catId = catMap[catId] || 'cafe';
-    var catSum = 0;
-    var mNow2 = new Date(); mNow2 = new Date(mNow2.getFullYear(), mNow2.getMonth(), 1);
-    var allSp2 = allSpends();
-    for(var i=0;i<allSp2.length;i++){
-      if(allSp2[i].d >= mNow2 && (allSp2[i].cat||'other') === catId){
-        catSum += allSp2[i].s;
-      }
-    }
-    if(amount2 === 0){ amount2 = Math.round(catSum * 0.3); }
-    var sim = whatIf(amount2);
-    return {type:'scenario', data:{cat:catId, catName:catById(catId).n, amount:amount2, catSum:catSum, sim:sim}};
-  }
-  
-  // По умолчанию — топ-3 сигнала
-  var sigs = getSignals().slice(0,3);
-  return {type:'signals', data:sigs};
+  // Kept for backward compatibility — the new system handles everything in agentAnswer
+  return {type:'copilot', data:{query:query}};
 }
 
 function agentAnswer(query){
-  var r = agentParse(query);
-  var ans = '';
-  if(r.type === 'afford'){
-    ans = '<b>'+fmt(r.data.amount)+'</b> — '+r.data.txt;
-  } else if(r.type === 'debt'){
-    if(!r.data){ ans = 'Долгов нет — отлично!'; }
-    else { ans = 'Всего долгов: <b>'+fmt(r.data.total)+'</b>. '+r.data.txt; }
-  } else if(r.type === 'leaks'){
-    if(!r.data.leaks.length){ ans = 'Утечек нет — лимиты в порядке.'; }
-    else { ans = '<b>'+r.data.leaks.length+' утечек</b> на '+fmt(r.data.total)+'. Главная: '+esc(r.data.leaks[0].n)+' — перерасход '+fmt(r.data.leaks[0].over)+'.'; }
-  } else if(r.type === 'subs'){
-    ans = '<b>'+r.data.subs.length+' активных подписок</b>: '+fmt(r.data.monthly)+'/мес, '+fmt(r.data.annual)+'/год.';
-  } else if(r.type === 'payday'){
-    ans = 'Зарплата через <b>'+r.data.days+' дн</b>. Прогноз: '+r.data.runway+' дн. Дневной лимит: '+fmt(r.data.daily)+'.';
-  } else if(r.type === 'daily'){
-    ans = 'Сегодня можно потратить <b>'+fmt(r.data.perDay)+'</b> — и до зарплаты ('+r.data.days+' дн.) всё будет в плюсе. Это честная цифра: (остаток − платежи на 30 дней) ÷ дней.';
-  } else if(r.type === 'lesson'){
-    if(r.data.lesson){
-      ans = '<b>Урок: '+r.data.lesson.t+'</b><br>'+r.data.lesson.x+'<br><small>Прогресс: '+r.data.done+' из '+r.data.total+' · отметка — во вкладке «Обучение»</small>';
-    } else {
-      ans = 'Курс пройден: '+r.data.total+' из '+r.data.total+'. Теперь главное — практика: плати себе первым в день зарплаты.';
-    }
-  } else if(r.type === 'setup'){
-    var sNames = {inc:'доход и день зарплаты', bal:'текущий баланс', pay:'обязательные платежи', env:'первый конверт'};
-    var sMiss = [];
-    for(var sk in r.data.st){ if(!r.data.st[sk]){ sMiss.push(sNames[sk]); } }
-    if(!sMiss.length){
-      ans = 'Всё настроено. Дальше просто: добавляй траты кнопкой «Трата», а я буду держать прогноз и предупреждать о рисках.';
-    } else {
-      ans = '<b>Настройка: '+r.data.done+' из '+r.data.total+'</b><br>Осталось указать: '+sMiss.join(', ')+'.<br>Чек-лист — вверху Панели, каждый шаг занимает секунды.';
-    }
-  } else if(r.type === 'month'){
-    ans = 'В этом месяце: потрачено <b>'+fmt(r.data.spent)+'</b> из дохода '+fmt(r.data.income)+'. '+(r.data.saved>=0?'Сэкономлено '+fmt(r.data.saved)+'.':'Перерасход '+fmt(-r.data.saved)+'.');
-  } else if(r.type === 'savings'){
-    if(r.data.months){ ans = 'Чтобы накопить '+fmt(r.data.target)+', откладывай '+fmt(r.data.monthly)+'/мес — накопишь за '+r.data.months+' мес.'; }
-    else { ans = 'Активных целей: '+(r.data.goals||[]).filter(function(g){return !g.done;}).length; }
-   } else if(r.type === 'signals'){
-    ans = '<b>Что важно сейчас:</b><br>';
-    for(var i=0;i<r.data.length;i++){
-      var s = r.data[i];
-      var actTxt = '';
-      if(s.act && s.act.t){ actTxt = ' (нажми, чтобы открыть)'; }
-      ans += '• <b style="color:'+(s.sev>=8?'var(--red)':s.sev>=5?'var(--org)':'var(--blu)')+'">'+esc(s.title)+'</b> — '+esc(s.desc)+(s.benefit?' · выгода '+fmt(s.benefit)+'/мес':'')+actTxt+'<br>';
-    }
-    if(!r.data.length){ ans = 'Сейчас всё спокойно. Так держать!'; }
-      } else if(r.type === 'scenario'){
-    var d = r.data;
-    ans = '<b>Сценарий: урезать "'+d.catName+'" на '+fmt(d.amount)+'</b><br>';
-    ans += 'Сейчас по этой категории: '+fmt(d.catSum)+' за месяц.<br>';
-    ans += '<b>Эффект:</b> минимум за 90 дней станет <b style="color:'+(d.sim.diff>0?'var(--grn)':'var(--red)')+'">'+fmt(d.sim.newMin)+'</b> (было '+fmt(d.sim.originalMin)+', '+ (d.sim.diff>0?'+':'')+fmt(d.sim.diff)+')<br>';
-    if(d.sim.diff > 0){
-      ans += 'Это добавит тебе '+fmt(d.sim.diff)+' к минимальному балансу. Отличный шаг! Если решишь так сделать — урежь лимит категории и решение запомнится само.';
-    } else {
-      ans += 'Это ухудшит ситуацию на '+fmt(Math.abs(d.sim.diff))+'. Лучше урежь другую категорию.';
-    }
+  if(!window.Copilot){
+    // Fallback if copilot.js hasn't loaded
+    return 'Копилот загружается... Попробуй ещё раз через секунду.';
   }
-  return ans;
+  var result = window.Copilot.process(query, D, {
+    fmt: fmt,
+    esc: esc,
+    canAfford: canAfford,
+    debtSnowball: debtSnowball,
+    calcDailyLimit: calcDailyLimit,
+    cashRunway: cashRunway,
+    getSignals: getSignals,
+    whatIf: whatIf,
+    setupState: setupState,
+    calcRiskScore: calcRiskScore,
+    minBalance: minBalance,
+    allSpends: allSpends,
+    catById: catById
+  });
+  return result.html;
 }
 
 function agentDisclaimer(){
